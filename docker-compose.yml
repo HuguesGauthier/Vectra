@@ -147,17 +147,6 @@ services:
     networks:
       - vectra
 
-  # vectra-phoenix:
-  #   image: arizephoenix/phoenix:latest
-  #   restart: always
-  #   ports:
-  #     - "6006:6006"
-  #     - "4317:4317" # OTEL gRPC
-  #   environment:
-  #     - PHOENIX_PORT=6006
-  #   networks:
-  #     - vectra
-
   ollama:
     image: ollama/ollama:latest
     container_name: vectra_ollama
