@@ -284,7 +284,7 @@
   <span class="md-ellipsis">
     
   
-    Guide Utilisateur
+    User Guide
   
 
     
@@ -300,7 +300,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Guide Utilisateur
+    User Guide
   
 
           </label>
@@ -373,10 +373,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequis" class="md-nav__link">
+  <a href="#quick-start-docker" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prérequis
+        🚀 Quick Start (Docker)
       
     </span>
   </a>
@@ -384,13 +384,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#etapes" class="md-nav__link">
+  <a href="#manual-installation-development" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Étapes
+        🛠️ Manual Installation (Development)
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="🛠️ Manual Installation (Development)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -808,10 +847,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequis" class="md-nav__link">
+  <a href="#quick-start-docker" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prérequis
+        🚀 Quick Start (Docker)
       
     </span>
   </a>
@@ -819,13 +858,52 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#etapes" class="md-nav__link">
+  <a href="#manual-installation-development" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Étapes
+        🛠️ Manual Installation (Development)
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="🛠️ Manual Installation (Development)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -850,16 +928,62 @@
 
 
 <h1 id="installation">Installation</h1>
-<h2 id="prerequis">Prérequis</h2>
-<ul>
-<li>Python 3.10+</li>
-<li>Un environnement virtuel</li>
-</ul>
-<h2 id="etapes">Étapes</h2>
+<p>Vectra can be deployed quickly via Docker (recommended) or manually for development.</p>
+<h2 id="quick-start-docker">🚀 Quick Start (Docker)</h2>
+<p>The easiest way to launch Vectra in production or for a quick test.</p>
 <ol>
-<li>Cloner le repo.</li>
-<li>Installer les dépendances :
+<li><strong>Clone the project</strong>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/HuguesGauthier/Vectra.git
+<span class="nb">cd</span><span class="w"> </span>Vectra
+</code></pre></div>
+<ol>
+<li><strong>Configure environment</strong>:</li>
+</ol>
+<div class="highlight"><pre><span></span><code>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
+<span class="c1"># Edit the .env file with your API keys (Gemini, etc.)</span>
+</code></pre></div>
+<ol>
+<li><strong>Launch services</strong>:
+   <div class="highlight"><pre><span></span><code>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div></li>
+</ol>
+<p>Access the UI at: <a href="http://localhost:9000">http://localhost:9000</a></p>
+<hr />
+<h2 id="manual-installation-development">🛠️ Manual Installation (Development)</h2>
+<p>If you wish to modify the code or contribute to the project.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li><strong>Python 3.10+</strong></li>
+<li><strong>Node.js</strong> (for the frontend)</li>
+<li><strong>Databases</strong>: PostgreSQL, Qdrant, and Redis must be accessible.</li>
+</ul>
+<h3 id="backend">Backend</h3>
+<ol>
+<li>Navigate to the backend folder:
+   <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend
+</code></pre></div></li>
+<li>Create a virtual environment:
+   <div class="highlight"><pre><span></span><code>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+.venv<span class="se">\S</span>cripts<span class="se">\a</span>ctivate<span class="w">  </span><span class="c1"># Windows</span>
+</code></pre></div></li>
+<li>Install dependencies:
    <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements.txt
+</code></pre></div></li>
+<li>Launch the API:
+   <div class="highlight"><pre><span></span><code>python<span class="w"> </span>main.py
+</code></pre></div></li>
+</ol>
+<h3 id="frontend">Frontend</h3>
+<ol>
+<li>Navigate to the frontend folder:
+   <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>frontend
+</code></pre></div></li>
+<li>Install dependencies:
+   <div class="highlight"><pre><span></span><code>npm<span class="w"> </span>install
+</code></pre></div></li>
+<li>Launch the development server:
+   <div class="highlight"><pre><span></span><code>npm<span class="w"> </span>run<span class="w"> </span>dev
 </code></pre></div></li>
 </ol>
 
@@ -915,6 +1039,8 @@
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
       
     
   </body>

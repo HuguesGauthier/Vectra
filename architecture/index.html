@@ -76,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-de-vectra" class="md-skip">
+        <a href="#vectra-architecture" class="md-skip">
           Skip to content
         </a>
       
@@ -284,7 +284,7 @@
   <span class="md-ellipsis">
     
   
-    Guide Utilisateur
+    User Guide
   
 
     
@@ -300,7 +300,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Guide Utilisateur
+    User Guide
   
 
           </label>
@@ -436,10 +436,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#vue-densemble" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Vue d'Ensemble
+        Overview
       
     </span>
   </a>
@@ -447,15 +447,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#composants-principaux" class="md-nav__link">
+  <a href="#main-components" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Composants Principaux
+        Main Components
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Composants Principaux">
+    <nav class="md-nav" aria-label="Main Components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -481,10 +481,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-couche-de-persistance" class="md-nav__link">
+  <a href="#3-persistence-layer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Couche de Persistance
+        3. Persistence Layer
       
     </span>
   </a>
@@ -492,10 +492,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-intelligence-artificielle" class="md-nav__link">
+  <a href="#4-artificial-intelligence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Intelligence Artificielle
+        4. Artificial Intelligence
       
     </span>
   </a>
@@ -508,21 +508,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#flux-de-donnees-rag" class="md-nav__link">
+  <a href="#data-flow-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Flux de Données (RAG)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observabilite" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observabilité
+        Data Flow (RAG)
       
     </span>
   </a>
@@ -880,10 +869,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#vue-densemble" class="md-nav__link">
+  <a href="#overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Vue d'Ensemble
+        Overview
       
     </span>
   </a>
@@ -891,15 +880,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#composants-principaux" class="md-nav__link">
+  <a href="#main-components" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Composants Principaux
+        Main Components
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Composants Principaux">
+    <nav class="md-nav" aria-label="Main Components">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -925,10 +914,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-couche-de-persistance" class="md-nav__link">
+  <a href="#3-persistence-layer" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Couche de Persistance
+        3. Persistence Layer
       
     </span>
   </a>
@@ -936,10 +925,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-intelligence-artificielle" class="md-nav__link">
+  <a href="#4-artificial-intelligence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Intelligence Artificielle
+        4. Artificial Intelligence
       
     </span>
   </a>
@@ -952,21 +941,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#flux-de-donnees-rag" class="md-nav__link">
+  <a href="#data-flow-rag" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Flux de Données (RAG)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observabilite" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observabilité
+        Data Flow (RAG)
       
     </span>
   </a>
@@ -993,12 +971,12 @@
   
 
 
-<h1 id="architecture-de-vectra">Architecture de Vectra</h1>
-<p>Vectra est une solution de RAG (Retrieval-Augmented Generation) d'entreprise conçue pour transformer des données non structurées en connaissances exploitables via une interface de chat intelligente.</p>
-<h2 id="vue-densemble">Vue d'Ensemble</h2>
-<p>L'architecture suit un modèle distribué composé d'une API réactive, d'un worker asynchrone pour l'ingestion de données, et d'une stack AI multi-fournisseurs.</p>
-<div class="highlight"><pre><span></span><code>graph TD
-    User([Utilisateur]) &lt;--&gt; Frontend[Frontend Vue.js/Quasar]
+<h1 id="vectra-architecture">Vectra Architecture</h1>
+<p>Vectra is an enterprise RAG (Retrieval-Augmented Generation) solution designed to transform unstructured data into actionable knowledge via an intelligent chat interface.</p>
+<h2 id="overview">Overview</h2>
+<p>The architecture follows a distributed model consisting of a reactive API, an asynchronous worker for data ingestion, and a multi-provider AI stack.</p>
+<pre class="mermaid"><code>graph TD
+    User([User]) &lt;--&gt; Frontend[Frontend Vue.js/Quasar]
     Frontend &lt;--&gt; API[FastAPI Backend]
 
     API &lt;--&gt; Postgres[(PostgreSQL)]
@@ -1010,50 +988,45 @@
     Worker -- Vectorization --&gt; Qdrant
 
     API -- LLM/Embed --&gt; AI[Gemini / OpenAI / Mistral]
-    Worker -- Embeddings --&gt; AI
-
-    API -- Tracing --&gt; Phoenix[Arize Phoenix]
-</code></pre></div>
-<h2 id="composants-principaux">Composants Principaux</h2>
+    Worker -- Embeddings --&gt; AI</code></pre>
+<h2 id="main-components">Main Components</h2>
 <h3 id="1-backend-api-fastapi">1. Backend API (FastAPI)</h3>
-<p>Le cœur du système, responsable de l'orchestration en temps réel :</p>
+<p>The heart of the system, responsible for real-time orchestration:</p>
 <ul>
-<li><strong>Gestion des Sessions</strong> : Authentification et historique des conversations.</li>
-<li><strong>Orchestration RAG</strong> : Intégration avec <strong>LlamaIndex</strong> pour le découpage, l'indexation et la recherche.</li>
-<li><strong>WebSocket Manager</strong> : Diffusion en temps réel des réponses et des états de synchronisation.</li>
-<li><strong>Sémantique Cache</strong> : Utilisation de <strong>Redis</strong> pour stocker les résultats des requêtes similaires et réduire la latence/coûts.</li>
+<li><strong>Session Management</strong>: Authentication and conversation history.</li>
+<li><strong>RAG Orchestration</strong>: Integration with <strong>LlamaIndex</strong> for chunking, indexing, and retrieval.</li>
+<li><strong>WebSocket Manager</strong>: Real-time broadcast of responses and synchronization states.</li>
+<li><strong>Semantic Cache</strong>: Uses <strong>Redis</strong> to store results for similar queries to reduce latency and costs.</li>
 </ul>
 <h3 id="2-background-worker">2. Background Worker</h3>
-<p>Un service autonome dédié aux tâches lourdes :</p>
+<p>An autonomous service dedicated to heavy tasks:</p>
 <ul>
-<li><strong>Ingestion Multi-Source</strong> : Scan et extraction de données depuis diverses sources (Connecteurs).</li>
-<li><strong>Pipeline de Vectorisation</strong> : Transformation documentaire en vecteurs via les modèles d'embedding (Gemini 004).</li>
-<li><strong>Synchronisation Temps Réel</strong> : Connecté à l'API via WebSocket pour réagir instantanément aux demandes de l'utilisateur.</li>
+<li><strong>Multi-Source Ingestion</strong>: Scanning and extracting data from various sources (Connectors).</li>
+<li><strong>Vectorization Pipeline</strong>: Transforming documents into vectors via embedding models (Gemini 004).</li>
+<li><strong>Real-Time Synchronization</strong>: Connected to the API via WebSocket to react instantly to user requests.</li>
 </ul>
-<h3 id="3-couche-de-persistance">3. Couche de Persistance</h3>
+<h3 id="3-persistence-layer">3. Persistence Layer</h3>
 <ul>
-<li><strong>PostgreSQL</strong> : Stocke les métadonnées, les configurations des connecteurs et la structure documentaire.</li>
-<li><strong>Qdrant</strong> : Base de données vectorielle haute performance pour la recherche sémantique ultra-rapide.</li>
-<li><strong>Redis</strong> : Cache sémantique et stockage temporaire.</li>
+<li><strong>PostgreSQL</strong>: Stores metadata, connector configurations, and document structure.</li>
+<li><strong>Qdrant</strong>: High-performance vector database for ultra-fast semantic search.</li>
+<li><strong>Redis</strong>: Semantic cache and temporary storage.</li>
 </ul>
-<h3 id="4-intelligence-artificielle">4. Intelligence Artificielle</h3>
-<p>Vectra est "Model Agnostic" mais optimisé pour la suite Google Cloud :</p>
+<h3 id="4-artificial-intelligence">4. Artificial Intelligence</h3>
+<p>Vectra is "Model Agnostic" but optimized for the Google Cloud suite:</p>
 <ul>
-<li><strong>Modèles de Chat</strong> : Gemini 1.5 Pro/Flash pour le raisonnement complexe.</li>
-<li><strong>Embeddings</strong> : Gemini Text Embedding 004 pour une représentation sémantique state-of-the-art.</li>
-<li><strong>Reranking</strong> : Utilisation de modèles de reranking pour affiner la pertinence des résultats.</li>
+<li><strong>Chat Models</strong>: Gemini 1.5 Pro/Flash for complex reasoning.</li>
+<li><strong>Embeddings</strong>: Gemini Text Embedding 004 for state-of-the-art semantic representation.</li>
+<li><strong>Reranking</strong>: Uses reranking models to refine result relevance.</li>
 </ul>
-<h2 id="flux-de-donnees-rag">Flux de Données (RAG)</h2>
+<h2 id="data-flow-rag">Data Flow (RAG)</h2>
 <ol>
-<li><strong>Requête</strong> : L'utilisateur pose une question via le frontend.</li>
-<li><strong>Cache</strong> : L'API vérifie dans Redis si une question similaire a déjà été traitée.</li>
-<li><strong>Retrieval</strong> : Si non, Vectra interroge Qdrant pour extraire les passages les plus pertinents.</li>
-<li><strong>Augmentation</strong> : Le contexte extrait est injecté dans le prompt de l'LLM.</li>
-<li><strong>Génération</strong> : L'LLM génère une réponse sourcée et précise.</li>
-<li><strong>Streaming</strong> : La réponse est renvoyée par morceaux (chunks) via WebSocket pour une expérience utilisateur fluide.</li>
+<li><strong>Request</strong>: The user asks a question via the frontend.</li>
+<li><strong>Cache</strong>: The API checks Redis to see if a similar question has already been processed.</li>
+<li><strong>Retrieval</strong>: If not, Vectra queries Qdrant to extract the most relevant passages.</li>
+<li><strong>Augmentation</strong>: The extracted context is injected into the LLM prompt.</li>
+<li><strong>Generation</strong>: The LLM generates a sourced and accurate response.</li>
+<li><strong>Streaming</strong>: The response is sent back in chunks via WebSocket for a smooth user experience.</li>
 </ol>
-<h2 id="observabilite">Observabilité</h2>
-<p>Le système intègre <strong>Arize Phoenix</strong> via le protocole OpenInference, permettant de tracer chaque étape d'une requête RAG, d'analyser la latence et de monitorer la qualité des réponses.</p>
 
 
 
@@ -1107,6 +1080,8 @@
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
       
     
   </body>
