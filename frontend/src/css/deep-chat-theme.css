@@ -1,0 +1,182 @@
+/* Deep Chat Theme - Integration with Quasar */
+
+/* Main Container */
+deep-chat {
+  width: 100%;
+  height: 100%;
+  background-color: var(--q-secondary);
+  font-family: inherit;
+  --deep-chat-color: var(--q-text-main);
+  border: none;
+}
+
+/* Custom styling for message bubbles */
+deep-chat::part(message-bubble) {
+  border-radius: 12px;
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+deep-chat::part(message-bubble):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* User message alignment */
+deep-chat::part(user-message-container) {
+  justify-content: flex-end;
+}
+
+/* AI message alignment */
+deep-chat::part(ai-message-container) {
+  justify-content: flex-start;
+}
+
+/* Input container styling */
+deep-chat::part(input-container) {
+  background: var(--q-fourth) !important;
+  border-top: none !important;
+  padding: 16px;
+}
+
+/* Input field styling */
+deep-chat::part(input-field) {
+  background: var(--q-fourth) !important;
+  border: none !important;
+  border-radius: 30px;
+  padding: 12px 20px;
+  color: var(--q-text-main);
+  font-size: 14px;
+  transition: border-color 0.2s ease;
+}
+
+deep-chat::part(input-field):focus {
+  border-color: var(--q-accent);
+  outline: none;
+}
+
+/* Send button styling */
+deep-chat::part(send-button) {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+deep-chat::part(send-button):hover {
+  transform: scale(1.05);
+}
+
+deep-chat::part(send-button):active {
+  transform: scale(0.95);
+}
+
+/* Messages container */
+deep-chat::part(messages-container) {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* Custom scrollbar for messages */
+deep-chat::part(messages-container)::-webkit-scrollbar {
+  width: 10px;
+}
+
+deep-chat::part(messages-container)::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 5px;
+}
+
+deep-chat::part(messages-container)::-webkit-scrollbar-track {
+  background: var(--q-secondary);
+}
+
+/* Loading indicator */
+deep-chat::part(loading-indicator) {
+  color: var(--q-text-sub);
+}
+
+/* Avatar styling */
+deep-chat::part(avatar) {
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+/* Timestamp styling */
+deep-chat::part(timestamp) {
+  color: var(--q-text-sub);
+  font-size: 11px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+/* Error message styling */
+deep-chat::part(error-message) {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #f44336;
+  padding: 12px;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+/* Status message styling */
+deep-chat::part(status-message) {
+  color: var(--q-text-sub);
+  font-size: 13px;
+  font-style: italic;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* Markdown content styling */
+deep-chat::part(markdown-content) {
+  line-height: 1.6;
+}
+
+deep-chat::part(markdown-content) code {
+  background: var(--q-third);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+deep-chat::part(markdown-content) pre {
+  background: var(--q-third);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+deep-chat::part(markdown-content) pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Link styling */
+deep-chat::part(markdown-content) a {
+  color: #1976d2;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+deep-chat::part(markdown-content) a:hover {
+  color: #1565c0;
+  text-decoration: underline;
+}
+
+/* Light theme overrides */
+body.body--light deep-chat {
+  --deep-chat-background: var(--q-secondary);
+  --deep-chat-border-color: var(--q-third);
+  --deep-chat-text-color: var(--q-text-main);
+  --deep-chat-message-user-bg: var(--q-primary);
+  --deep-chat-message-ai-bg: var(--q-fourth);
+  --deep-chat-input-bg: var(--q-secondary);
+  --deep-chat-scrollbar-thumb-color: #999;
+}

@@ -1,0 +1,186 @@
+services:
+  vectra-api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@postgres:5432/vectra}
+      # Using qdrant hostname matching the service name below
+      - QDRANT_HOST=qdrant
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      # Redis Configuration
+      - REDIS_HOST=vectra-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-vectra_redis_2024}
+      - REDIS_DB=0
+      - REDIS_CACHE_TTL=3600
+    depends_on:
+      vectra-redis:
+        condition: service_healthy
+    networks:
+      - vectra
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  vectra-worker:
+    build: ./backend
+    # Override the default command to run the scheduler
+    command: python scheduler.py
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra}
+      - QDRANT_HOST=vectra-qdrant
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      # Redis Configuration
+      - REDIS_HOST=vectra-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-vectra_redis_2024}
+      - REDIS_DB=0
+    depends_on:
+      - vectra-postgres
+      - vectra-qdrant
+      - vectra-redis
+    networks:
+      - vectra
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  vectra-frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - vectra-api
+    networks:
+      - vectra
+
+  vectra-postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vectra}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vectra}
+      POSTGRES_DB: ${POSTGRES_DB:-vectra}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vectra
+
+  vectra-pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@vectra.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    networks:
+      - vectra
+
+  vectra-qdrant:
+    image: qdrant/qdrant
+    restart: always
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - vectra
+
+  vectra-redis:
+    image: redis:7-alpine
+    restart: always
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-vectra_redis_2024}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vectra
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  vectra-redis-web:
+    image: rediscommander/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOST=vectra-redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-vectra_redis_2024}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - vectra-redis
+    networks:
+      - vectra
+
+  # vectra-phoenix:
+  #   image: arizephoenix/phoenix:latest
+  #   restart: always
+  #   ports:
+  #     - "6006:6006"
+  #     - "4317:4317" # OTEL gRPC
+  #   environment:
+  #     - PHOENIX_PORT=6006
+  #   networks:
+  #     - vectra
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vectra_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - vectra
+
+networks:
+  vectra:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  redis_data:
+  ollama_data:

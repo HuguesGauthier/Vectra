@@ -1,0 +1,567 @@
+[1m.\app\api\v1\endpoints\analytics.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.ext.asyncio.AsyncSession' imported but unused
+[1m.\app\api\v1\endpoints\analytics.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.core.database.SessionLocal' imported but unused
+[1m.\app\api\v1\endpoints\analytics.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.core.database.get_db' imported but unused
+[1m.\app\api\v1\endpoints\analytics.py[m[36m:[m115[36m:[m5[36m:[m [1m[31mF401[m 'app.core.database.SessionLocal' imported but unused
+[1m.\app\api\v1\endpoints\analytics.py[m[36m:[m115[36m:[m5[36m:[m [1m[31mF811[m redefinition of unused 'SessionLocal' from line 13
+[1m.\app\api\v1\endpoints\assistants.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.core.security.get_current_user' imported but unused
+[1m.\app\api\v1\endpoints\chat.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'uuid.UUID' imported but unused
+[1m.\app\api\v1\endpoints\connectors.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.enums.ConnectorStatus' imported but unused
+[1m.\app\api\v1\endpoints\connectors.py[m[36m:[m165[36m:[m21[36m:[m [1m[31mF821[m undefined name 'logger'
+[1m.\app\api\v1\endpoints\connectors.py[m[36m:[m184[36m:[m17[36m:[m [1m[31mF821[m undefined name 'logger'
+[1m.\app\api\v1\endpoints\connectors.py[m[36m:[m187[36m:[m17[36m:[m [1m[31mF821[m undefined name 'logger'
+[1m.\app\api\v1\endpoints\connectors.py[m[36m:[m197[36m:[m9[36m:[m [1m[31mF821[m undefined name 'logger'
+[1m.\app\api\v1\endpoints\dashboard.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mF401[m 'app.core.connection_manager.ConnectionManager' imported but unused
+[1m.\app\api\v1\endpoints\dashboard.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mF401[m 'app.core.connection_manager.get_connection_manager' imported but unused
+[1m.\app\api\v1\endpoints\notifications.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\app\api\v1\endpoints\notifications.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'json' imported but unused
+[1m.\app\api\v1\endpoints\pricing.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'time' imported but unused
+[1m.\app\api\v1\endpoints\pricing.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\api\v1\endpoints\system.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.EntityNotFound' imported but unused
+[1m.\app\api\v1\endpoints\system.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\app\api\v1\ws.py[m[36m:[m106[36m:[m9[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\core\connection_manager.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\core\connection_manager.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'fastapi.WebSocketDisconnect' imported but unused
+[1m.\app\core\ingestion\extractors.py[m[36m:[m185[36m:[m90[36m:[m [1m[31mE202[m whitespace before '}'
+[1m.\app\core\logging.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\core\logging.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\core\rag\processors\reranking.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\app\core\rag\processors\reranking.py[m[36m:[m82[36m:[m13[36m:[m [1m[31mF841[m local variable 'query' is assigned to but never used
+[1m.\app\core\security.py[m[36m:[m144[36m:[m24[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\core\utils\__init__.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m '.model_normalization.normalize_model_name' imported but unused
+[1m.\app\core\utils\__init__.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m '.ui.calculate_contrast_text_color' imported but unused
+[1m.\app\core\utils\model_normalization.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 're' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.ingestion.ConfluenceIngestionConfig' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.ingestion.SharePointIngestionConfig' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.ingestion.WebIngestionConfig' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m24[36m:[m1[36m:[m [1m[31mF401[m 'app.services.ingestion.connectors.confluence_connector.ConfluenceConnector' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m28[36m:[m1[36m:[m [1m[31mF401[m 'app.services.ingestion.connectors.sharepoint_connector.SharePointConnector' imported but unused
+[1m.\app\factories\connector_factory.py[m[36m:[m31[36m:[m1[36m:[m [1m[31mF401[m 'app.services.ingestion.connectors.web_connector.WebConnector' imported but unused
+[1m.\app\factories\embedding_factory.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\factories\embedding_factory.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\factories\processors\audio_processor.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\app\factories\processors\audio_processor.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\app\factories\processors\email_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\app\factories\processors\email_processor.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\factories\processors\email_processor.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.factories.processors.base.DocumentMetadata' imported but unused
+[1m.\app\factories\processors\email_processor.py[m[36m:[m64[36m:[m21[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\factories\processors\image_processor.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\app\factories\processors\office_processor.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mF401[m 'app.factories.processors.base.DocumentMetadata' imported but unused
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mF401[m 'shutil' imported but unused
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.ValidationError' imported but unused
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m26[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.ExternalDependencyError' imported but unused
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m79[36m:[m96[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m80[36m:[m57[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m126[36m:[m13[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\app\factories\processors\pdf_cloud_processor.py[m[36m:[m342[36m:[m13[36m:[m [1m[31mF401[m 're' imported but unused
+[1m.\app\factories\processors\pdf_local_processor.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\app\factories\processors\pdf_quality_inspector.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mF401[m 're' imported but unused
+[1m.\app\factories\processors\pdf_quality_inspector.py[m[36m:[m142[36m:[m9[36m:[m [1m[31mF841[m local variable 'line_count' is assigned to but never used
+[1m.\app\main.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m19[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m21[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m24[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m25[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m26[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m27[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m28[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m29[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m30[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m31[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m33[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m34[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m35[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m36[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\main.py[m[36m:[m76[36m:[m17[36m:[m [1m[31mF401[m 'phoenix as px' imported but unused
+[1m.\app\main.py[m[36m:[m285[36m:[m5[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m '.assistant.Assistant' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m '.base.Base' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m '.chat_history.ChatHistory' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m '.connector.Connector' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m '.connector_document.ConnectorDocument' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m '.connector_sync_log.ConnectorSyncLog' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m '.notification.Notification' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m '.setting.Setting' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m '.topic_stat.TopicStat' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m '.usage_stat.UsageStat' imported but unused
+[1m.\app\models\__init__.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m '.user.User' imported but unused
+[1m.\app\models\base.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'sqlmodel.SQLModel as Base' imported but unused
+[1m.\app\models\connector.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'sqlmodel.SQLModel' imported but unused
+[1m.\app\models\connector_document.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'sqlmodel.SQLModel' imported but unused
+[1m.\app\models\error_log.py[m[36m:[m19[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.field_validator' imported but unused
+[1m.\app\models\notification.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'sqlmodel.SQLModel' imported but unused
+[1m.\app\models\setting.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'sqlmodel.SQLModel' imported but unused
+[1m.\app\models\usage_stat.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.Float' imported but unused
+[1m.\app\models\usage_stat.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.Integer' imported but unused
+[1m.\app\models\user.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.user.MAX_EMAIL_LENGTH' imported but unused
+[1m.\app\models\user.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.user.MAX_ROLE_LENGTH' imported but unused
+[1m.\app\repositories\analytics_repository.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'datetime.timedelta' imported but unused
+[1m.\app\repositories\analytics_repository.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'datetime.timezone' imported but unused
+[1m.\app\repositories\analytics_repository.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\app\repositories\analytics_repository.py[m[36m:[m64[36m:[m23[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\repositories\analytics_repository.py[m[36m:[m76[36m:[m25[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\repositories\analytics_repository.py[m[36m:[m105[36m:[m23[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\repositories\assistant_repository.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.EntityNotFound' imported but unused
+[1m.\app\repositories\assistant_repository.py[m[36m:[m80[36m:[m66[36m:[m [1m[31mE712[m comparison to False should be 'if cond is False:' or 'if not cond:'
+[1m.\app\repositories\base_repository.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.delete' imported but unused
+[1m.\app\repositories\base_repository.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.update' imported but unused
+[1m.\app\repositories\base_repository.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.orm.selectinload' imported but unused
+[1m.\app\repositories\base_repository.py[m[36m:[m137[36m:[m5[36m:[m [1m[31mF811[m redefinition of unused 'update' from line 13
+[1m.\app\repositories\chat_history_repository.py[m[36m:[m88[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\repositories\chat_history_repository.py[m[36m:[m158[36m:[m27[36m:[m [1m[31mF821[m undefined name 'datetime'
+[1m.\app\repositories\chat_history_repository.py[m[36m:[m158[36m:[m40[36m:[m [1m[31mF821[m undefined name 'timezone'
+[1m.\app\repositories\chat_history_repository.py[m[36m:[m158[36m:[m56[36m:[m [1m[31mF821[m undefined name 'timedelta'
+[1m.\app\repositories\chat_history_repository.py[m[36m:[m159[36m:[m20[36m:[m [1m[31mF821[m undefined name 'delete'
+[1m.\app\repositories\connector_repository.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\repositories\connector_repository.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\repositories\notification_repository.py[m[36m:[m59[36m:[m53[36m:[m [1m[31mE712[m comparison to False should be 'if cond is False:' or 'if not cond:'
+[1m.\app\repositories\notification_repository.py[m[36m:[m78[36m:[m80[36m:[m [1m[31mE712[m comparison to False should be 'if cond is False:' or 'if not cond:'
+[1m.\app\repositories\notification_repository.py[m[36m:[m107[36m:[m80[36m:[m [1m[31mE712[m comparison to False should be 'if cond is False:' or 'if not cond:'
+[1m.\app\repositories\setting_repository.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.and_' imported but unused
+[1m.\app\repositories\topic_repository.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mF401[m 'app.repositories.base_repository.DEFAULT_LIMIT' imported but unused
+[1m.\app\repositories\topic_repository.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mF401[m 'app.repositories.base_repository.MAX_LIMIT' imported but unused
+[1m.\app\repositories\usage_repository.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\repositories\usage_repository.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.desc' imported but unused
+[1m.\app\repositories\vector_repository.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\app\repositories\vector_repository.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\schemas\assistant.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'typing.Annotated' imported but unused
+[1m.\app\schemas\assistant.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\schemas\assistant.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\schemas\assistant.py[m[36m:[m162[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\schemas\connector.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\schemas\connector.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Set' imported but unused
+[1m.\app\schemas\connector.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.Text' imported but unused
+[1m.\app\schemas\documents.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.ValidationInfo' imported but unused
+[1m.\app\schemas\files.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\schemas\ingestion.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\app\schemas\ingestion.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\schemas\ingestion.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'uuid.UUID' imported but unused
+[1m.\app\schemas\setting.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Set' imported but unused
+[1m.\app\schemas\token.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'uuid.UUID' imported but unused
+[1m.\app\services\__init__.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m '.assistant_service' imported but unused
+[1m.\app\services\__init__.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m '.chat_service' imported but unused
+[1m.\app\services\analytics_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.AsyncContextManager' imported but unused
+[1m.\app\services\analytics_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Callable' imported but unused
+[1m.\app\services\analytics_service.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'app.core.database.get_db' imported but unused
+[1m.\app\services\assistant_service.py[m[36m:[m86[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\assistant_service.py[m[36m:[m97[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\assistant_service.py[m[36m:[m109[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\assistant_service.py[m[36m:[m150[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\assistant_service.py[m[36m:[m166[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\assistant_service.py[m[36m:[m292[36m:[m1[36m:[m [1m[31mF811[m redefinition of unused 'SemanticCacheService' from line 28
+[1m.\app\services\assistant_service.py[m[36m:[m292[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\auth_service.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.ext.asyncio.AsyncSession' imported but unused
+[1m.\app\services\chat\callbacks.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.callbacks.schema.EventPayload' imported but unused
+[1m.\app\services\chat\callbacks.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.utils.EventFormatter' imported but unused
+[1m.\app\services\chat\callbacks.py[m[36m:[m60[36m:[m9[36m:[m [1m[31mF401[m 'llama_index.core.llms.ChatMessage' imported but unused
+[1m.\app\services\chat\chat_metrics_manager.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.types.PipelineStepType' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.cast' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.processors.base_chat_processor.ChatProcessorError' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.utils.LLMFactory' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mF401[m 'app.services.query.ambiguity_guard.AmbiguityDecision' imported but unused
+[1m.\app\services\chat\processors\csv_rag_processor.py[m[36m:[m429[36m:[m9[36m:[m [1m[31mF841[m local variable 'provider' is assigned to but never used
+[1m.\app\services\chat\processors\history_processor.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'typing.cast' imported but unused
+[1m.\app\services\chat\processors\persistence_processor.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Set' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Tuple' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.VectorStoreIndex' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.tools.FunctionTool' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.vector_stores.FilterOperator' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.vector_stores.MetadataFilter' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.vector_stores.MetadataFilters' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.vector_stores.qdrant.QdrantVectorStore' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m26[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.utils.LLMFactory' imported but unused
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m194[36m:[m9[36m:[m [1m[31mF841[m local variable 'settings' is assigned to but never used
+[1m.\app\services\chat\processors\rag_processor.py[m[36m:[m221[36m:[m9[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\chat\processors\trending_processor.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\chat\processors\trending_processor.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'typing.cast' imported but unused
+[1m.\app\services\chat\processors\trending_processor.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.processors.base_chat_processor.ChatProcessorError' imported but unused
+[1m.\app\services\chat\processors\trending_processor.py[m[36m:[m86[36m:[m26[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\chat\processors\trending_processor.py[m[36m:[m162[36m:[m13[36m:[m [1m[31mF841[m local variable 'repo' is assigned to but never used
+[1m.\app\services\chat\processors\visualization_processor.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\chat\source_service.py[m[36m:[m90[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\chat\types.py[m[36m:[m84[36m:[m36[36m:[m [1m[31mF821[m undefined name 'UnifiedQueryEngineFactory'
+[1m.\app\services\chat\utils.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\services\chat\vectra_vanna_service.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\chat\vectra_vanna_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.factories.chat_engine_factory.LLMFactory' imported but unused
+[1m.\app\services\chat_history_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.chat.MessageRole' imported but unused
+[1m.\app\services\chat_history_service.py[m[36m:[m91[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\chat_history_service.py[m[36m:[m96[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\chat_history_service.py[m[36m:[m97[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\chat_history_service.py[m[36m:[m98[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\chat_history_service.py[m[36m:[m100[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\connector_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.InternalDataCorruption' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mF401[m 'app.models.connector.Connector' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m22[36m:[m1[36m:[m [1m[31mF401[m 'app.services.ingestion_service.IngestionService' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m25[36m:[m1[36m:[m [1m[31mF401[m 'app.services.sql_discovery_service.get_sql_discovery_service' imported but unused
+[1m.\app\services\connector_service.py[m[36m:[m120[36m:[m34[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\connector_state_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\app\services\dashboard_stats_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\dashboard_stats_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.and_' imported but unused
+[1m.\app\services\dashboard_stats_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.or_' imported but unused
+[1m.\app\services\dashboard_stats_service.py[m[36m:[m42[36m:[m70[36m:[m [1m[31mE712[m comparison to True should be 'if cond is True:' or 'if cond:'
+[1m.\app\services\document_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'shutil' imported but unused
+[1m.\app\services\document_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\document_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.desc' imported but unused
+[1m.\app\services\document_service.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.InternalDataCorruption' imported but unused
+[1m.\app\services\gemini_audio_service.py[m[36m:[m20[36m:[m28[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\services\gemini_audio_service.py[m[36m:[m21[36m:[m19[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\services\gemini_audio_service.py[m[36m:[m113[36m:[m23[36m:[m [1m[31mF821[m undefined name 'ConfigurationError'
+[1m.\app\services\gemini_vision_service.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\gemini_vision_service.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'google.genai.types' imported but unused
+[1m.\app\services\gemini_vision_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.core.database.get_session_factory' imported but unused
+[1m.\app\services\gemini_vision_service.py[m[36m:[m46[36m:[m23[36m:[m [1m[31mF821[m undefined name 'ConfigurationError'
+[1m.\app\services\ingestion\__init__.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m '.utils.IngestionUtils' imported but unused
+[1m.\app\services\ingestion\connectors\confluence_connector.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\app\services\ingestion\connectors\confluence_connector.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\ingestion\connectors\confluence_connector.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.ConfigurationError' imported but unused
+[1m.\app\services\ingestion\connectors\file_connector.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'concurrent.futures.ThreadPoolExecutor' imported but unused
+[1m.\app\services\ingestion\connectors\sql_connector.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.BaseModel' imported but unused
+[1m.\app\services\ingestion\connectors\sql_connector.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.ingestion.BaseIngestionConfig' imported but unused
+[1m.\app\services\ingestion\connectors\web_connector.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'socket' imported but unused
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.schema.TextNode' imported but unused
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m63[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m504[36m:[m32[36m:[m [1m[31mF821[m undefined name 'connector'
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m507[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m770[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m775[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\ingestion\ingestion_orchestrator.py[m[36m:[m902[36m:[m13[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\ingestion\transformers\smart_row_transformer.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\ingestion\transformers\smart_row_transformer.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\ingestion\utils.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\ingestion\utils.py[m[36m:[m95[36m:[m9[36m:[m [1m[31mF841[m local variable 'func_name' is assigned to but never used
+[1m.\app\services\ingestion\utils.py[m[36m:[m185[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\ingestion_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'tenacity.retry' imported but unused
+[1m.\app\services\ingestion_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'tenacity.retry_if_exception_type' imported but unused
+[1m.\app\services\ingestion_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'tenacity.stop_after_attempt' imported but unused
+[1m.\app\services\ingestion_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'tenacity.wait_exponential' imported but unused
+[1m.\app\services\ingestion_service.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'app.core.connection_manager.manager' imported but unused
+[1m.\app\services\ingestion_service.py[m[36m:[m268[36m:[m13[36m:[m [1m[31mF841[m local variable 'e' is assigned to but never used
+[1m.\app\services\notification_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\app\services\notification_service.py[m[36m:[m50[36m:[m42[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\notification_service.py[m[36m:[m87[36m:[m46[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\pricing_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'typing.Dict' imported but unused
+[1m.\app\services\prompt_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.ext.asyncio.AsyncSession' imported but unused
+[1m.\app\services\prompt_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.core.database.get_db' imported but unused
+[1m.\app\services\query\ambiguity_prompt.py[m[36m:[m39[36m:[m21[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\services\query\csv_response_synthesizer.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Union' imported but unused
+[1m.\app\services\query\csv_response_synthesizer.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'app.services.query.response_synthesis_prompt.SIMPLE_TECH_SHEET_PROMPT' imported but unused
+[1m.\app\services\query\csv_retrieval_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.NamedTuple' imported but unused
+[1m.\app\services\query\facet_query_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\query\facet_query_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'typing.Tuple' imported but unused
+[1m.\app\services\query\schema_mapper.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\query_engine_factory.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\query_engine_factory.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\app\services\query_engine_factory.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.Settings' imported but unused
+[1m.\app\services\query_engine_factory.py[m[36m:[m69[36m:[m9[36m:[m [1m[31mF841[m local variable 'start_time' is assigned to but never used
+[1m.\app\services\scanner_service.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.func' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.update' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.future.select' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mF401[m 'app.models.connector.Connector' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m20[36m:[m1[36m:[m [1m[31mF401[m 'app.models.enums.ConnectorStatus' imported but unused
+[1m.\app\services\scanner_service.py[m[36m:[m81[36m:[m38[36m:[m [1m[31mF811[m redefinition of unused 'func' from line 11
+[1m.\app\services\schema_discovery_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\app\services\schema_discovery_service.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mF401[m 'app.core.connection_manager.manager' imported but unused
+[1m.\app\services\schema_discovery_service.py[m[36m:[m195[36m:[m32[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\sql_discovery_service.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\app\services\sql_discovery_service.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\sql_discovery_service.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\sql_discovery_service.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\sql_discovery_service.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\sql_discovery_service.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\app\services\sql_discovery_service.py[m[36m:[m186[36m:[m25[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\sql_discovery_service.py[m[36m:[m342[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\sql_discovery_service.py[m[36m:[m492[36m:[m17[36m:[m [1m[31mF401[m 'llama_index.core.prompts.PromptTemplate' imported but unused
+[1m.\app\services\sql_discovery_service.py[m[36m:[m493[36m:[m17[36m:[m [1m[31mF401[m 'llama_index.core.schema.QueryBundle' imported but unused
+[1m.\app\services\sql_discovery_service.py[m[36m:[m709[36m:[m9[36m:[m [1m[31mF811[m redefinition of unused 'SQLDatabase' from line 617
+[1m.\app\services\sql_discovery_service.py[m[36m:[m710[36m:[m9[36m:[m [1m[31mF811[m redefinition of unused 'NLSQLTableQueryEngine' from line 618
+[1m.\app\services\sql_discovery_service.py[m[36m:[m711[36m:[m9[36m:[m [1m[31mF811[m redefinition of unused 'text' from line 619
+[1m.\app\services\sql_discovery_service.py[m[36m:[m711[36m:[m9[36m:[m [1m[31mF401[m 'sqlalchemy.text' imported but unused
+[1m.\app\services\sql_discovery_service.py[m[36m:[m714[36m:[m9[36m:[m [1m[31mF811[m redefinition of unused 'LLMFactory' from line 622
+[1m.\app\services\sql_discovery_service.py[m[36m:[m714[36m:[m9[36m:[m [1m[31mF401[m 'app.services.chat.utils.LLMFactory' imported but unused
+[1m.\app\services\trending_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\trending_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'typing.Set' imported but unused
+[1m.\app\services\trending_service.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'fastapi.BackgroundTasks' imported but unused
+[1m.\app\services\trending_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\app\services\trending_service.py[m[36m:[m79[36m:[m9[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\trending_service.py[m[36m:[m139[36m:[m29[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\user_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\services\user_service.py[m[36m:[m97[36m:[m9[36m:[m [1m[31mF841[m local variable 'user' is assigned to but never used
+[1m.\app\services\vector_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\app\services\vector_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'typing.Type' imported but unused
+[1m.\app\services\vector_service.py[m[36m:[m257[36m:[m83[36m:[m [1m[31mF821[m undefined name 'BaseQueryEngine'
+[1m.\app\services\vector_service.py[m[36m:[m287[36m:[m9[36m:[m [1m[31mF401[m 'app.schemas.ingestion.IndexingStrategy' imported but unused
+[1m.\app\services\visualization_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'time' imported but unused
+[1m.\app\services\visualization_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.utils.LLMFactory' imported but unused
+[1m.\app\services\visualization_service.py[m[36m:[m180[36m:[m13[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\visualization_service.py[m[36m:[m207[36m:[m13[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\visualization_service.py[m[36m:[m387[36m:[m60[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\services\visualization_service.py[m[36m:[m389[36m:[m1[36m:[m [1m[31mW293[m blank line contains whitespace
+[1m.\app\services\visualization_service.py[m[36m:[m571[36m:[m36[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\app\services\visualization_service.py[m[36m:[m617[36m:[m36[36m:[m [1m[31mW291[m trailing whitespace
+[1m.\app\services\visualization_service.py[m[36m:[m667[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\visualization_service.py[m[36m:[m686[36m:[m17[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\services\visualization_service.py[m[36m:[m734[36m:[m33[36m:[m [1m[31mE722[m do not use bare 'except'
+[1m.\app\strategies\search\hybrid_strategy.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'uuid.UUID' imported but unused
+[1m.\app\strategies\search\hybrid_strategy.py[m[36m:[m15[36m:[m1[36m:[m [1m[31mF401[m 'app.models.enums.ConnectorStatus' imported but unused
+[1m.\app\strategies\search\hybrid_strategy.py[m[36m:[m173[36m:[m21[36m:[m [1m[31mF811[m redefinition of unused 'UUID' from line 10
+[1m.\app\strategies\search\hybrid_strategy.py[m[36m:[m260[36m:[m9[36m:[m [1m[31mF841[m local variable 'candidate_ids' is assigned to but never used
+[1m.\app\strategies\search\vector_only_strategy.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'typing.Any' imported but unused
+[1m.\app\workers\scheduler_service.py[m[36m:[m16[36m:[m1[36m:[m [1m[31mF401[m 'apscheduler.triggers.interval.IntervalTrigger' imported but unused
+[1m.\app\workers\scheduler_service.py[m[36m:[m19[36m:[m1[36m:[m [1m[31mF401[m 'app.core.connection_manager.manager' imported but unused
+[1m.\test_db_history.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.orm.sessionmaker' imported but unused
+[1m.\test_db_history.py[m[36m:[m17[36m:[m11[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\test_smart_row_transformer.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\test_smart_row_transformer.py[m[36m:[m13[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\tests\api\test_assistants.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_assistants.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.AssistantResponse' imported but unused
+[1m.\tests\api\test_audio.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\api\test_audio.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_audio.py[m[36m:[m72[36m:[m13[36m:[m [1m[31mF841[m local variable 'response' is assigned to but never used
+[1m.\tests\api\test_audio.py[m[36m:[m81[36m:[m31[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\tests\api\test_auth.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'fastapi.status' imported but unused
+[1m.\tests\api\test_chat.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'typing.Optional' imported but unused
+[1m.\tests\api\test_chat.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_chat.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.user.User' imported but unused
+[1m.\tests\api\test_connectors.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\tests\api\test_connectors.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\tests\api\test_connectors.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.Mock' imported but unused
+[1m.\tests\api\test_connectors.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_files.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\api\test_notifications.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\api\test_notifications.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\tests\api\test_notifications.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\api\test_notifications.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_prompts.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\api\test_routes.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_settings.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.ANY' imported but unused
+[1m.\tests\api\test_system.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_trending.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\api\test_trending.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\test_users.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\api\test_users.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\api\v1\test_assistants_audit.py[m[36m:[m60[36m:[m47[36m:[m [1m[31mE999[m SyntaxError: invalid syntax
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'json' imported but unused
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m23[36m:[m9[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m49[36m:[m13[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m50[36m:[m14[36m:[m [1m[31mF841[m local variable 'websocket' is assigned to but never used
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m58[36m:[m9[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\tests\api\v1\test_worker_ws.py[m[36m:[m69[36m:[m13[36m:[m [1m[31mF541[m f-string is missing placeholders
+[1m.\tests\core\rag\processors\test_base.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'app.core.rag.types.PipelineContext' imported but unused
+[1m.\tests\core\rag\processors\test_reranking.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.AsyncMock' imported but unused
+[1m.\tests\core\rag\processors\test_reranking.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.rag.types.PipelineEvent' imported but unused
+[1m.\tests\core\rag\processors\test_retrieval.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.schema.NodeWithScore' imported but unused
+[1m.\tests\core\rag\test_pipeline.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.AsyncMock' imported but unused
+[1m.\tests\core\rag\test_pipeline.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.call' imported but unused
+[1m.\tests\core\rag\test_pipeline.py[m[36m:[m25[36m:[m66[36m:[m [1m[31mF841[m local variable 'MockVec' is assigned to but never used
+[1m.\tests\core\rag\test_pipeline.py[m[36m:[m26[36m:[m62[36m:[m [1m[31mF841[m local variable 'MockRet' is assigned to but never used
+[1m.\tests\core\rag\test_pipeline.py[m[36m:[m27[36m:[m62[36m:[m [1m[31mF841[m local variable 'MockRerank' is assigned to but never used
+[1m.\tests\core\rag\test_types.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\core\rag\test_types.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.ValidationError' imported but unused
+[1m.\tests\core\test_connection_manager.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\core\test_connection_manager.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\core\test_connection_manager.py[m[36m:[m115[36m:[m19[36m:[m [1m[31mF821[m undefined name 'asyncio'
+[1m.\tests\core\test_core_prompts.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\core\test_database.py[m[36m:[m73[36m:[m63[36m:[m [1m[31mF841[m local variable 'mock_create' is assigned to but never used
+[1m.\tests\core\test_exceptions.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\core\test_exceptions.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.VectraException' imported but unused
+[1m.\tests\core\test_logging.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\core\test_logging.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\core\test_logging.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\core\test_pricing_defaults.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\core\test_security.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\core\test_security.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\core\test_security.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.security.get_current_user' imported but unused
+[1m.\tests\factories\test_base_processor.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.AsyncMock' imported but unused
+[1m.\tests\factories\test_base_processor.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.Mock' imported but unused
+[1m.\tests\factories\test_csv_processor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\factories\test_ingestion_factory.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.Mock' imported but unused
+[1m.\tests\factories\test_office_processor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\factories\test_pdf_local_processor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\factories\test_pdf_processor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.Mock' imported but unused
+[1m.\tests\factories\test_pdf_processor.py[m[36m:[m98[36m:[m13[36m:[m [1m[31mF841[m local variable 'cloud_json' is assigned to but never used
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m180[36m:[m9[36m:[m [1m[31mF841[m local variable 'low_quality' is assigned to but never used
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m250[36m:[m1[36m:[m [1m[31mW293[m blank line contains whitespace
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m253[36m:[m1[36m:[m [1m[31mW293[m blank line contains whitespace
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m288[36m:[m9[36m:[m [1m[31mF841[m local variable 'should_cloud' is assigned to but never used
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m312[36m:[m1[36m:[m [1m[31mW293[m blank line contains whitespace
+[1m.\tests\factories\test_pdf_quality_inspector.py[m[36m:[m315[36m:[m1[36m:[m [1m[31mW293[m blank line contains whitespace
+[1m.\tests\factories\test_text_processor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'uuid.uuid4' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.MAX_TOP_K' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.MAX_TOP_N' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.MIN_TOP_K' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.MIN_TOP_N' imported but unused
+[1m.\tests\models\test_assistant.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.AssistantBase' imported but unused
+[1m.\tests\models\test_connector.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'uuid.uuid4' imported but unused
+[1m.\tests\models\test_connector.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.connector.ALLOWED_SCHEDULE_TYPES' imported but unused
+[1m.\tests\models\test_connector.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.connector.ConnectorBase' imported but unused
+[1m.\tests\models\test_connector_document.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.documents.MAX_FILE_NAME_LENGTH' imported but unused
+[1m.\tests\models\test_connector_document.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.documents.MAX_FILE_PATH_LENGTH' imported but unused
+[1m.\tests\models\test_error_log.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'uuid.uuid4' imported but unused
+[1m.\tests\models\test_error_log.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\models\test_error_log.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.ValidationError' imported but unused
+[1m.\tests\models\test_error_log.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.error_log.MAX_STATUS_CODE' imported but unused
+[1m.\tests\models\test_error_log.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.error_log.MIN_STATUS_CODE' imported but unused
+[1m.\tests\models\test_notification.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\models\test_notification.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.notification.ALLOWED_NOTIFICATION_TYPES' imported but unused
+[1m.\tests\models\test_notification.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.notification.MAX_MESSAGE_LENGTH' imported but unused
+[1m.\tests\models\test_setting.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\models\test_setting.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.setting.MAX_KEY_LENGTH' imported but unused
+[1m.\tests\models\test_setting.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.setting.MAX_VALUE_LENGTH' imported but unused
+[1m.\tests\models\test_topic_stat.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.topic_stat.MAX_CANONICAL_TEXT_LENGTH' imported but unused
+[1m.\tests\models\test_topic_stat.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.topic_stat.MIN_FREQUENCY' imported but unused
+[1m.\tests\models\test_usage_stat.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\models\test_usage_stat.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'pydantic.ValidationError' imported but unused
+[1m.\tests\models\test_usage_stat.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.usage_stat.ALLOWED_FEEDBACK_SCORES' imported but unused
+[1m.\tests\models\test_usage_stat.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.models.usage_stat.ALLOWED_SENTIMENTS' imported but unused
+[1m.\tests\repositories\test_assistant_repository.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\repositories\test_assistant_repository.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.repositories.assistant_repository.AssistantRepository' imported but unused
+[1m.\tests\repositories\test_base_repository.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\repositories\test_chat_repository.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.repositories.chat_repository.LLAMA_INDEX_CHAT_TABLE' imported but unused
+[1m.\tests\repositories\test_notification_repository.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.models.notification.Notification' imported but unused
+[1m.\tests\repositories\test_notification_repository.py[m[36m:[m48[36m:[m5[36m:[m [1m[31mF841[m local variable 'stmt' is assigned to but never used
+[1m.\tests\repositories\test_sql_repository.py[m[36m:[m43[36m:[m5[36m:[m [1m[31mF841[m local variable 'result' is assigned to but never used
+[1m.\tests\repositories\test_topic_repository.py[m[36m:[m64[36m:[m5[36m:[m [1m[31mF841[m local variable 'call_args' is assigned to but never used
+[1m.\tests\repositories\test_user_repository.py[m[36m:[m14[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.user.UserUpdate' imported but unused
+[1m.\tests\repositories\test_vector_repository.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\repositories\test_vector_repository.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'qdrant_client.http.exceptions.UnexpectedResponse' imported but unused
+[1m.\tests\services\chat\processors\test_rag_processor.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.processors.rag_processor.TIMEOUT_SYNTHESIS' imported but unused
+[1m.\tests\services\chat\processors\test_rag_processor.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.types.PipelineStepType' imported but unused
+[1m.\tests\services\chat\test_utils_audit.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.ANY' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.AsyncMock' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.mock_open' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.FileSystemError' imported but unused
+[1m.\tests\services\ingestion\test_document_readers.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m123[36m:[m13[36m:[m [1m[31mF841[m local variable 'files_ingest' is assigned to but never used
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m148[36m:[m9[36m:[m [1m[31mF841[m local variable 'db' is assigned to but never used
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m179[36m:[m9[36m:[m [1m[31mF841[m local variable 'db' is assigned to but never used
+[1m.\tests\services\ingestion\test_file_scanner.py[m[36m:[m205[36m:[m9[36m:[m [1m[31mF841[m local variable 'db' is assigned to but never used
+[1m.\tests\services\ingestion\test_utils.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\tests\services\ingestion\test_utils.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.mock_open' imported but unused
+[1m.\tests\services\ingestion\test_utils.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_analytics_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\services\test_analytics_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\services\test_analytics_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.analytics.AnalyticsResponse' imported but unused
+[1m.\tests\services\test_assistant_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\services\test_assistant_service_audit.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\services\test_assistant_service_audit.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.schemas.assistant.AssistantUpdate' imported but unused
+[1m.\tests\services\test_auth_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'datetime.timedelta' imported but unused
+[1m.\tests\services\test_cache_service_audit.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\services\test_chat_pipeline.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'llama_index.core.schema.NodeWithScore' imported but unused
+[1m.\tests\services\test_chat_pipeline.py[m[36m:[m37[36m:[m5[36m:[m [1m[31mF841[m local variable 'node1' is assigned to but never used
+[1m.\tests\services\test_chat_pipeline.py[m[36m:[m38[36m:[m5[36m:[m [1m[31mF841[m local variable 'node2' is assigned to but never used
+[1m.\tests\services\test_chat_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.ExternalDependencyError' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.settings.settings' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat_service.LLMFactory' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.services.settings_service.SettingsService' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.services.vector_service.VectorService' imported but unused
+[1m.\tests\services\test_chat_service.py[m[36m:[m96[36m:[m96[36m:[m [1m[31mF841[m local variable 'mock_get_comps' is assigned to but never used
+[1m.\tests\services\test_chat_service_refactor.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'typing.AsyncGenerator' imported but unused
+[1m.\tests\services\test_chat_service_refactor.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.types.ChatContext' imported but unused
+[1m.\tests\services\test_chat_service_refactor.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.services.chat.types.PipelineStepType' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.ANY' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.exc.IntegrityError' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.DuplicateError' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.EntityNotFound' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.FunctionalError' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.InternalDataCorruption' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m17[36m:[m1[36m:[m [1m[31mF401[m 'app.services.settings_service.SettingsService' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m18[36m:[m1[36m:[m [1m[31mF401[m 'app.services.vector_service.VectorService' imported but unused
+[1m.\tests\services\test_connector_service.py[m[36m:[m153[36m:[m93[36m:[m [1m[31mF841[m local variable 'mock_scan' is assigned to but never used
+[1m.\tests\services\test_connector_service_audit.py[m[36m:[m142[36m:[m5[36m:[m [1m[31mF841[m local variable 'mock_obj' is assigned to but never used
+[1m.\tests\services\test_document_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.mock_open' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'sqlalchemy.exc.IntegrityError' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.DuplicateError' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.EntityNotFound' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.FunctionalError' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.InternalDataCorruption' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m23[36m:[m1[36m:[m [1m[31mF401[m 'app.services.settings_service.SettingsService' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m24[36m:[m1[36m:[m [1m[31mF401[m 'app.services.vector_service.VectorService' imported but unused
+[1m.\tests\services\test_document_service.py[m[36m:[m120[36m:[m63[36m:[m [1m[31mF841[m local variable 'm_open' is assigned to but never used
+[1m.\tests\services\test_file_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_gemini_audio_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\services\test_gemini_audio_service.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'uuid.uuid4' imported but unused
+[1m.\tests\services\test_gemini_audio_service.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.ExternalDependencyError' imported but unused
+[1m.\tests\services\test_gemini_audio_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.services.gemini_audio_service.TranscriptionChunk' imported but unused
+[1m.\tests\services\test_gemini_audio_service.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.services.gemini_audio_service.TranscriptionResponse' imported but unused
+[1m.\tests\services\test_ingestion_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\services\test_ingestion_service.py[m[36m:[m44[36m:[m5[36m:[m [1m[31mF401[m 'app.services.ingestion.orchestrator.IngestionOrchestrator' imported but unused
+[1m.\tests\services\test_ingestion_service.py[m[36m:[m84[36m:[m5[36m:[m [1m[31mF401[m 'app.services.ingestion.orchestrator.IngestionOrchestrator' imported but unused
+[1m.\tests\services\test_ingestion_service_path_helper.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'pytest' imported but unused
+[1m.\tests\services\test_notification_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\services\test_notification_service.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.models.enums.NotificationType' imported but unused
+[1m.\tests\services\test_orchestrator_refactor.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\tests\services\test_orchestrator_refactor.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_pricing_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\services\test_prompt_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\services\test_prompt_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_scanner_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\tests\services\test_scanner_service.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.ANY' imported but unused
+[1m.\tests\services\test_scanner_service.py[m[36m:[m8[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_scanner_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.services.scanner_service.ScannerService' imported but unused
+[1m.\tests\services\test_settings_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\services\test_system_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'os' imported but unused
+[1m.\tests\services\test_system_service.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'pathlib.Path' imported but unused
+[1m.\tests\services\test_trending_aggregation.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'typing.List' imported but unused
+[1m.\tests\services\test_vector_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'threading' imported but unused
+[1m.\tests\services\test_vector_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.TechnicalError' imported but unused
+[1m.\tests\services\test_vector_service.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.services.settings_service.SettingsService' imported but unused
+[1m.\tests\services\test_vector_service_embedding.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'app.core.exceptions.ExternalDependencyError' imported but unused
+[1m.\tests\strategies\search\test_hybrid_strategy.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.strategies.search.base.SearchResult' imported but unused
+[1m.\tests\strategies\search\test_search_base.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.strategies.search.base.MAX_QUERY_LENGTH' imported but unused
+[1m.\tests\strategies\search\test_search_base.py[m[36m:[m10[36m:[m1[36m:[m [1m[31mF401[m 'app.strategies.search.base.MAX_TOP_K' imported but unused
+[1m.\tests\strategies\search\test_vector_only_strategy.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.strategies.search.base.SearchResult' imported but unused
+[1m.\tests\test_analytics_consolidated.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\tests\test_analytics_consolidated.py[m[36m:[m3[36m:[m1[36m:[m [1m[31mF401[m 'uuid.uuid4' imported but unused
+[1m.\tests\test_analytics_consolidated.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.models.topic_stat.TopicStat' imported but unused
+[1m.\tests\test_chat_service.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'asyncio' imported but unused
+[1m.\tests\test_chat_service.py[m[36m:[m6[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\test_chat_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\tests\test_chat_service.py[m[36m:[m12[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\tests\test_connectors.py[m[36m:[m1[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.AsyncMock' imported but unused
+[1m.\tests\test_main.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.MagicMock' imported but unused
+[1m.\tests\test_main.py[m[36m:[m57[36m:[m54[36m:[m [1m[31mF841[m local variable 'mock_route' is assigned to but never used
+[1m.\tests\test_trending_usage.py[m[36m:[m2[36m:[m1[36m:[m [1m[31mF401[m 'unittest.mock.patch' imported but unused
+[1m.\tests\test_trending_usage.py[m[36m:[m7[36m:[m1[36m:[m [1m[31mF401[m 'app.models.usage_stat.UsageStat' imported but unused
+[1m.\tests\unit\test_reranking_refactor.py[m[36m:[m9[36m:[m1[36m:[m [1m[31mF401[m 'app.core.rag.types.PipelineEvent' imported but unused
+[1m.\tests\workers\test_scheduler_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'datetime.datetime' imported but unused
+[1m.\tests\workers\test_scheduler_service.py[m[36m:[m5[36m:[m1[36m:[m [1m[31mF401[m 'datetime.timezone' imported but unused
+[1m.\tests\workers\test_scheduler_service.py[m[36m:[m11[36m:[m1[36m:[m [1m[31mF401[m 'app.workers.scheduler_service.scheduler_service' imported but unused
+[1m.\worker.py[m[36m:[m4[36m:[m1[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\worker.py[m[36m:[m33[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m34[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m35[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m36[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m37[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m46[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m47[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m49[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m134[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m135[36m:[m1[36m:[m [1m[31mE402[m module level import not at top of file
+[1m.\worker.py[m[36m:[m186[36m:[m43[36m:[m [1m[31mE712[m comparison to True should be 'if cond is True:' or 'if cond:'
+[1m.\worker.py[m[36m:[m309[36m:[m21[36m:[m [1m[31mF401[m 'phoenix as px' imported but unused
+[1m.\worker.py[m[36m:[m323[36m:[m21[36m:[m [1m[31mF401[m 'sys' imported but unused
+[1m.\worker.py[m[36m:[m323[36m:[m21[36m:[m [1m[31mF811[m redefinition of unused 'sys' from line 4

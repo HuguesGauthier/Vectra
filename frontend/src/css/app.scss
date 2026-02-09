@@ -1,0 +1,183 @@
+// app global css in SCSS form
+@import './quasar.variables.scss';
+
+:root {
+  /* Default to Dark Theme (Existing Palette) */
+  --q-primary: #323339;
+  --q-secondary: #2c2d32;
+  --q-third: #393a3f;
+  --q-fourth: #393a41;
+  --q-fifth: #36373e;
+  --q-sixth: #414141;
+
+  /* Text Colors */
+  --q-text-main: #cccccc;
+  --q-text-sub: #b0b3b8; /* grey-5 equivalent */
+  --q-text: #b0b3b8; /* grey-5 equivalent */
+
+  /* Link variables */
+  --q-hover-bg: #35353a;
+  --q-icon-color: #6c6d76;
+}
+
+/* Light Theme Override */
+body.body--light {
+  /* "Hot" Light Theme (Clean, Crisp, Modern) */
+  --q-primary: #fbfbfb; /* Main Sidebar/Bg */
+  --q-secondary: #f3f4f4; /* Content Area (Light Grey) */
+  --q-third: #d9d9dc; /* Borders (Subtle Grey) */
+  --q-fourth: #e7e7e9; /* Cards */
+  --q-fifth: #eeeeef; /* Accents/Hovers */
+  --q-sixth: #d9d9dc;
+
+  --q-text-main: #5e5e5e; /* Dark Grey/Almost Black Text */
+  --q-text-sub: #7a7a7a; /* Muted Text */
+  --q-text: #b8b3b0; /* Muted Text */
+
+  --q-hover-bg: #dddde0;
+  --q-icon-color: #6c6d76;
+
+  /* Invert generic backgrounds if needed */
+  .bg-primary {
+    background-color: var(--q-primary) !important;
+  }
+
+  .bg-secondary {
+    background-color: var(--q-secondary) !important;
+  }
+}
+
+// Custom styles for notifications and dialogs
+.rounded-notification {
+  border-radius: 8px !important;
+}
+
+// Dialog styles - target the card directly
+.q-dialog .q-card {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+// Select menu styles - global styling for all dropdowns
+.q-menu {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  background-color: $secondary !important;
+
+  .q-item {
+    border-radius: 8px;
+    margin: 4px 8px;
+
+    &:hover {
+      background-color: $third !important;
+    }
+  }
+}
+
+// Global input/field styles
+.q-field__control {
+  border-radius: 8px !important;
+}
+
+// Global Custom Scrollbar
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background: var(--q-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555; /* Darker grey for contrast */
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--q-secondary);
+}
+
+/* Uniformize Typography Colors */
+body {
+  color: $text-main;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.text-h1,
+.text-h2,
+.text-h3,
+.text-h4,
+.text-h5,
+.text-h6 {
+  color: $text-main;
+}
+
+.text-subtitle1,
+.text-subtitle2 {
+  color: $text-sub;
+}
+
+/* Global Utility Classes */
+.text-main {
+  color: $text-main !important;
+}
+
+.text-sub {
+  color: $text-sub !important;
+}
+
+/* --- Global Input Styles (from UserFormDialog) --- */
+
+/* Force border colors for outlined fields */
+.q-field--outlined .q-field__control:before {
+  border-color: var(--q-third) !important;
+}
+
+.q-field--outlined .q-field__control:after {
+  border-color: var(--q-third) !important;
+}
+
+.q-field--outlined.q-field--focused .q-field__control:after {
+  border-color: var(--q-accent) !important;
+}
+
+/* Ensure hover state also respects the logic or stays subtle */
+.q-field--outlined:hover .q-field__control:before {
+  border-color: var(--q-text-sub) !important; /* Slightly lighter on hover ? */
+}
+.q-field--outlined.q-field--focused:hover .q-field__control:after {
+  border-color: var(--q-accent) !important;
+}
+
+/* Global Select/Menu Dropdown overrides to match 'custom-select-popup' */
+/* We target .q-menu generally, but we can be specific if needed. 
+   Existing .q-menu style in this file uses $secondary. 
+   UserFormDialog used var(--q-primary). Let's update to primary for consistency if requested. */
+.q-menu {
+  background-color: var(--q-primary) !important;
+  border: 1px solid var(--q-third); /* Added border definition for better contrast */
+
+  .q-item {
+    color: var(--q-text-main);
+
+    &:hover {
+      background-color: var(--q-third) !important;
+    }
+
+    &.q-manual-focusable--focused {
+      background-color: var(--q-third) !important;
+    }
+
+    &.q-item--active {
+      background-color: var(--q-accent) !important;
+      color: white !important;
+
+      .q-item__label {
+        color: white !important;
+      }
+    }
+  }
+}

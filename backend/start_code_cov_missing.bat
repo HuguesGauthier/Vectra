@@ -1,0 +1,1 @@
+.\.venv\Scripts\python -m pytest --cov=app --cov-report=term-missing

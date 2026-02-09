@@ -1,0 +1,170 @@
+import time
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
+
+from app.services.chat.types import PipelineStepType
+
+
+@dataclass
+class StepMetric:
+    step_type: str
+    label: str
+    start_time: float
+    end_time: float = 0.0
+    duration: float = 0.0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def is_completed(self) -> bool:
+        return self.end_time > 0.0
+
+
+class ChatMetricsManager:
+    """
+    Centralized manager for tracking all steps in a chat request.
+    Single source of truth for time and tokens.
+    """
+
+    def __init__(self):
+        self.start_time: float = time.time()
+        self.steps: Dict[str, StepMetric] = {}  # Keyed by step_type or unique ID
+        self.completed_steps: List[StepMetric] = []
+        self._step_counter: int = 0
+
+        # Aggregates
+        self.total_input_tokens: int = 0
+        self.total_output_tokens: int = 0
+        self.ttft: float = 0.0  # Time to First Token
+        self.custom_metrics: Dict[str, Any] = {}  # For legacy/custom usage (e.g. cache_hit)
+
+    def __setitem__(self, key: str, value: Any):
+        """Allow dict-style setting for legacy code compatibility."""
+        if key == "ttft":
+            self.ttft = float(value)
+        elif key == "input_tokens":
+            self.total_input_tokens = int(value)
+        elif key == "output_tokens":
+            self.total_output_tokens = int(value)
+        else:
+            self.custom_metrics[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        """Allow dict-style getting."""
+        summary = self.get_summary()
+        return summary[key]  # Raises Key error if missing, consistent with dict
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Safe get method."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def start_span(self, step_type: str, label: Optional[str] = None) -> str:
+        """Start a new timing span. Returns a unique span ID."""
+        if not label:
+            label = step_type.replace("_", " ").title()
+
+        span_id = f"{step_type}_{self._step_counter}"
+        self._step_counter += 1
+
+        self.steps[span_id] = StepMetric(step_type=step_type, label=label, start_time=time.time())
+        return span_id
+
+    def end_span(self, span_id: str, payload: Optional[Dict] = None, input_tokens: int = 0, output_tokens: int = 0):
+        """End a timing span and record metrics."""
+        if span_id not in self.steps:
+            return  # Should log warning
+
+        step = self.steps.pop(span_id)
+        step.end_time = time.time()
+        step.duration = round(step.end_time - step.start_time, 3)
+
+        # Extract tokens from payload if not provided explicitly
+        if payload and "tokens" in payload:
+            t = payload["tokens"]
+            input_tokens = t.get("input_tokens", 0)
+            output_tokens = t.get("output_tokens", 0)
+
+        step.input_tokens = input_tokens
+        step.output_tokens = output_tokens
+        if payload:
+            step.metadata = payload
+
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+
+        self.completed_steps.append(step)
+        return step
+
+    def record_completed_step(
+        self,
+        step_type: str,
+        label: str,
+        duration: float,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        payload: Dict = None,
+    ):
+        """Manually record a step that was tracked elsewhere (e.g. internally in a callback)."""
+        # Create a synthetic step
+        now = time.time()
+        step = StepMetric(
+            step_type=step_type,
+            label=label,
+            start_time=now - duration,
+            end_time=now,
+            duration=duration,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            metadata=payload or {},
+        )
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        self.completed_steps.append(step)
+
+    def get_summary(self) -> Dict:
+        """Return compatible dictionary for existing frontend/API contracts."""
+        # Sort steps by start_time to preserve chronological order
+        sorted_steps = sorted(self.completed_steps, key=lambda x: x.start_time)
+
+        summary = {
+            "total_duration": round(time.time() - self.start_time, 3),
+            "ttft": self.ttft,
+            "input_tokens": self.total_input_tokens,
+            "output_tokens": self.total_output_tokens,
+            "step_breakdown": [
+                {
+                    "step_type": s.step_type,
+                    "label": s.label,
+                    "duration": s.duration,
+                    "tokens": {"input": s.input_tokens, "output": s.output_tokens},
+                    "metadata": s.metadata,
+                }
+                for s in sorted_steps  # Use sorted list
+            ],
+            # Merged dict for legacy analytics/DB persistence
+            "legacy_step_breakdown": self._get_merged_durations(),
+            "legacy_step_token_breakdown": self._get_merged_tokens(),
+        }
+        # Merge custom metrics
+        summary.update(self.custom_metrics)
+        return summary
+
+    def _get_merged_durations(self) -> Dict[str, float]:
+        res = {}
+        for s in self.completed_steps:
+            res[s.step_type] = round(res.get(s.step_type, 0.0) + s.duration, 3)
+        return res
+
+    def _get_merged_tokens(self) -> Dict[str, Dict[str, int]]:
+        res = {}
+        for s in self.completed_steps:
+            if s.input_tokens > 0 or s.output_tokens > 0:
+                t = res.get(s.step_type, {"input_tokens": 0, "output_tokens": 0})
+                t["input_tokens"] += s.input_tokens
+                t["output_tokens"] += s.output_tokens
+                res[s.step_type] = t
+        return res

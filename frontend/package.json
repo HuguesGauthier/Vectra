@@ -1,0 +1,56 @@
+{
+  "name": "frontend",
+  "version": "1",
+  "description": "Vectra RAG Management",
+  "productName": "Vectra",
+  "author": "Hugues Gauthier <hugues.gauthier@gmail.com>",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint -c ./eslint.config.js \"./src*/**/*.{ts,js,cjs,mjs,vue}\"",
+    "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "postinstall": "quasar prepare"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.4",
+    "@types/markdown-it": "^14.1.2",
+    "@types/three": "^0.182.0",
+    "apexcharts": "3.54.1",
+    "axios": "^1.13.2",
+    "deep-chat": "^2.4.1",
+    "jwt-decode": "^4.0.0",
+    "markdown-it": "^14.1.0",
+    "pinia": "^3.0.4",
+    "quasar": "^2.16.0",
+    "three": "^0.182.0",
+    "vue": "^3.5.22",
+    "vue-i18n": "^11.2.2",
+    "vue-router": "^4.0.12",
+    "vue3-apexcharts": "1.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@quasar/app-vite": "^2.1.0",
+    "@types/node": "^20.5.9",
+    "@vue/eslint-config-prettier": "^10.1.0",
+    "@vue/eslint-config-typescript": "^14.4.0",
+    "autoprefixer": "^10.4.2",
+    "baseline-browser-mapping": "^2.9.19",
+    "eslint": "^9.14.0",
+    "eslint-plugin-vue": "^10.4.0",
+    "globals": "^16.4.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.9.2",
+    "vite-plugin-checker": "^0.11.0",
+    "vue-eslint-parser": "^10.2.0",
+    "vue-tsc": "^3.0.7"
+  },
+  "engines": {
+    "node": "^28 || ^26 || ^24 || ^22 || ^20",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  }
+}
