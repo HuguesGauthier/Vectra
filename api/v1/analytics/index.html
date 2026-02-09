@@ -1041,7 +1041,7 @@
           –
           <div class="doc-md-description">
             <p>Broadcast interval in seconds (default: 10).
-              Higher than dashboard stats due to query complexity.</p>
+Higher than dashboard stats due to query complexity.</p>
           </div>
         </li>
     </ul>
@@ -1049,59 +1049,57 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
-<span class="normal">140</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_analytics_loop</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_analytics_loop</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Background task that periodically broadcasts advanced analytics stats via WebSocket.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        interval_seconds: Broadcast interval in seconds (default: 10).</span>
-<span class="sd">                          Higher than dashboard stats due to query complexity.</span>
+<span class="sd">            Higher than dashboard stats due to query complexity.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_broadcast_running</span>
     <span class="n">_broadcast_running</span> <span class="o">=</span> <span class="kc">True</span>
 
-    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Starting advanced analytics broadcast loop (interval: </span><span class="si">{</span><span class="n">interval_seconds</span><span class="si">}</span><span class="s2">s)&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting advanced analytics broadcast loop (interval: </span><span class="si">%d</span><span class="s2">s)&quot;</span><span class="p">,</span> <span class="n">interval_seconds</span><span class="p">)</span>
 
     <span class="kn">from</span><span class="w"> </span><span class="nn">app.core.connection_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">manager</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">app.core.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionLocal</span>
 
     <span class="k">while</span> <span class="n">_broadcast_running</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
@@ -1120,7 +1118,7 @@
             <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">emit_advanced_analytics_stats</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">))</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in analytics broadcast: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error in analytics broadcast: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
         <span class="c1"># Wait for next interval</span>
         <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">)</span>
@@ -1148,19 +1146,99 @@
     <div class="doc doc-contents ">
 
         <p>Get comprehensive advanced analytics for the admin dashboard.</p>
-<p>Returns:
-- TTFT percentiles (p50, p95, p99)
-- Pipeline step breakdown
-- Cache hit rate
-- Trending topics
-- Topic diversity score
-- Assistant token costs
-- Document freshness</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.analytics_service.AnalyticsService">AnalyticsService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.analytics_service.get_analytics_service">get_analytics_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>assistant_id</code></b>
+              (<code><span title="typing.Optional">Optional</span>[<span title="uuid.UUID">UUID</span>]</code>, default:
+                  <code><span title="fastapi.Query">Query</span>(None, description=&#39;Filter by assistant ID&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Optional filter by assistant ID.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>ttft_hours</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;TTFT analysis period in hours&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>TTFT analysis period in hours.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>step_days</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(7, ge=1, le=90, description=&#39;Step breakdown period in days&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Step breakdown period in days.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>cache_hours</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;Cache metrics period in hours&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Cache metrics period in hours.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>cost_hours</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;Cost analysis period in hours&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Cost analysis period in hours.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>trending_limit</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(10, ge=1, le=50, description=&#39;Number of trending topics&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Number of trending topics.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>AdvancedAnalyticsResponse</code></b> (              <code><span title="app.schemas.advanced_analytics.AdvancedAnalyticsResponse">AdvancedAnalyticsResponse</span></code>
+)          –
+          <div class="doc-md-description">
+            <p>A comprehensive analytics response including
+TTFT percentiles, pipeline step breakdown, cache hit rate, trending topics,
+topic diversity score, assistant token costs, and document freshness.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">29</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">28</span>
+<span class="normal">29</span>
 <span class="normal">30</span>
 <span class="normal">31</span>
 <span class="normal">32</span>
@@ -1189,7 +1267,11 @@
 <span class="normal">55</span>
 <span class="normal">56</span>
 <span class="normal">57</span>
-<span class="normal">58</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/advanced&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">AdvancedAnalyticsResponse</span><span class="p">)</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span>
+<span class="normal">62</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/advanced&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">AdvancedAnalyticsResponse</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_advanced_analytics</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
     <span class="n">assistant_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UUID</span><span class="p">]</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Filter by assistant ID&quot;</span><span class="p">),</span>
@@ -1202,14 +1284,19 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get comprehensive advanced analytics for the admin dashboard.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        assistant_id: Optional filter by assistant ID.</span>
+<span class="sd">        ttft_hours: TTFT analysis period in hours.</span>
+<span class="sd">        step_days: Step breakdown period in days.</span>
+<span class="sd">        cache_hours: Cache metrics period in hours.</span>
+<span class="sd">        cost_hours: Cost analysis period in hours.</span>
+<span class="sd">        trending_limit: Number of trending topics.</span>
+
 <span class="sd">    Returns:</span>
-<span class="sd">    - TTFT percentiles (p50, p95, p99)</span>
-<span class="sd">    - Pipeline step breakdown</span>
-<span class="sd">    - Cache hit rate</span>
-<span class="sd">    - Trending topics</span>
-<span class="sd">    - Topic diversity score</span>
-<span class="sd">    - Assistant token costs</span>
-<span class="sd">    - Document freshness</span>
+<span class="sd">        AdvancedAnalyticsResponse: A comprehensive analytics response including</span>
+<span class="sd">            TTFT percentiles, pipeline step breakdown, cache hit rate, trending topics,</span>
+<span class="sd">            topic diversity score, assistant token costs, and document freshness.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_all_advanced_analytics</span><span class="p">(</span>
         <span class="n">ttft_hours</span><span class="o">=</span><span class="n">ttft_hours</span><span class="p">,</span>
@@ -1243,20 +1330,73 @@
         <p>Get token costs by assistant.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.analytics_service.AnalyticsService">AnalyticsService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.analytics_service.get_analytics_service">get_analytics_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>hours</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;Analysis period in hours&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Analysis period in hours.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.AssistantCost">AssistantCost</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>list[AssistantCost]: A list of costs per assistant.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">85</span>
-<span class="normal">86</span>
-<span class="normal">87</span>
-<span class="normal">88</span>
-<span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/costs&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/costs&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_assistant_costs</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
     <span class="n">hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis period in hours&quot;</span><span class="p">),</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get token costs by assistant.&quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get token costs by assistant.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        hours: Analysis period in hours.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[AssistantCost]: A list of costs per assistant.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_assistant_costs</span><span class="p">(</span><span class="n">hours</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1282,18 +1422,59 @@
         <p>Get knowledge base document freshness distribution.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.analytics_service.AnalyticsService">AnalyticsService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.analytics_service.get_analytics_service">get_analytics_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The analytics service instance.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.DocumentFreshness">DocumentFreshness</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>list[DocumentFreshness]: A list representing document freshness distribution.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">94</span>
-<span class="normal">95</span>
-<span class="normal">96</span>
-<span class="normal">97</span>
-<span class="normal">98</span>
-<span class="normal">99</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/freshness&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span>
+<span class="normal">138</span>
+<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/freshness&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_document_freshness</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get knowledge base document freshness distribution.&quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get knowledge base document freshness distribution.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        service: The analytics service instance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[DocumentFreshness]: A list representing document freshness distribution.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_document_freshness</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1319,22 +1500,87 @@
         <p>Get top trending questions/topics.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.analytics_service.AnalyticsService">AnalyticsService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.analytics_service.get_analytics_service">get_analytics_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>assistant_id</code></b>
+              (<code><span title="typing.Optional">Optional</span>[<span title="uuid.UUID">UUID</span>]</code>, default:
+                  <code><span title="fastapi.Query">Query</span>(None, description=&#39;Filter by assistant ID&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Optional filter by assistant ID.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>limit</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(10, ge=1, le=50, description=&#39;Number of topics to return&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Number of topics to return.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.TrendingTopic">TrendingTopic</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>list[TrendingTopic]: A list of trending topics.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span>
-<span class="normal">80</span>
-<span class="normal">81</span>
-<span class="normal">82</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/trending&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/trending&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_trending_topics</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
     <span class="n">assistant_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UUID</span><span class="p">]</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Filter by assistant ID&quot;</span><span class="p">),</span>
     <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Number of topics to return&quot;</span><span class="p">),</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get top trending questions/topics.&quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get top trending questions/topics.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        assistant_id: Optional filter by assistant ID.</span>
+<span class="sd">        limit: Number of topics to return.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        list[TrendingTopic]: A list of trending topics.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_trending_topics</span><span class="p">(</span><span class="n">assistant_id</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1360,29 +1606,82 @@
         <p>Get Time-to-First-Token percentiles.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.analytics_service.AnalyticsService">AnalyticsService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.analytics_service.get_analytics_service">get_analytics_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>hours</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;Analysis period in hours&#39;)</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Analysis period in hours.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+<b><code>TTFTPercentiles</code></b> (              <code><span title="app.schemas.advanced_analytics.TTFTPercentiles">TTFTPercentiles</span></code>
+)          –
+          <div class="doc-md-description">
+            <p>The calculated TTFT percentiles (p50, p95, p99).</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
 <span class="normal">66</span>
 <span class="normal">67</span>
 <span class="normal">68</span>
 <span class="normal">69</span>
 <span class="normal">70</span>
 <span class="normal">71</span>
-<span class="normal">72</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ttft&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">TTFTPercentiles</span><span class="p">)</span>
+<span class="normal">72</span>
+<span class="normal">73</span>
+<span class="normal">74</span>
+<span class="normal">75</span>
+<span class="normal">76</span>
+<span class="normal">77</span>
+<span class="normal">78</span>
+<span class="normal">79</span>
+<span class="normal">80</span>
+<span class="normal">81</span>
+<span class="normal">82</span>
+<span class="normal">83</span>
+<span class="normal">84</span>
+<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ttft&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">TTFTPercentiles</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_ttft_percentiles</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
     <span class="n">hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis period in hours&quot;</span><span class="p">),</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get Time-to-First-Token percentiles.&quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TTFTPercentiles</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get Time-to-First-Token percentiles.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        hours: Analysis period in hours.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        TTFTPercentiles: The calculated TTFT percentiles (p50, p95, p99).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_ttft_percentiles</span><span class="p">(</span><span class="n">hours</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">TTFTPercentiles</span><span class="p">(</span><span class="n">p50</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">p95</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">p99</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">period_hours</span><span class="o">=</span><span class="n">hours</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">TTFTPercentiles</span><span class="p">(</span><span class="n">p50</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">p95</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">p99</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">period_hours</span><span class="o">=</span><span class="n">hours</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
@@ -1409,20 +1708,45 @@
         <p>Start the periodic broadcast background task.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>interval_seconds</code></b>
+              (<code><span title="int">int</span></code>, default:
+                  <code>10</code>
+)
+          –
+          <div class="doc-md-description">
+            <p>Broadcast interval in seconds.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_broadcast_task</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Start the periodic broadcast background task.&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span>
+<span class="normal">197</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_broadcast_task</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Start the periodic broadcast background task.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        interval_seconds: Broadcast interval in seconds.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_broadcast_task</span><span class="p">,</span> <span class="n">_broadcast_running</span>
 
     <span class="k">if</span> <span class="n">_broadcast_task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_broadcast_task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
@@ -1458,25 +1782,31 @@
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
-<span class="normal">159</span>
-<span class="normal">160</span>
-<span class="normal">161</span>
-<span class="normal">162</span>
-<span class="normal">163</span>
-<span class="normal">164</span>
-<span class="normal">165</span>
-<span class="normal">166</span>
-<span class="normal">167</span>
-<span class="normal">168</span>
-<span class="normal">169</span>
-<span class="normal">170</span>
-<span class="normal">171</span>
-<span class="normal">172</span>
-<span class="normal">173</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_broadcast_task</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stop the periodic broadcast background task.&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span>
+<span class="normal">215</span>
+<span class="normal">216</span>
+<span class="normal">217</span>
+<span class="normal">218</span>
+<span class="normal">219</span>
+<span class="normal">220</span>
+<span class="normal">221</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_broadcast_task</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Stop the periodic broadcast background task.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_broadcast_task</span><span class="p">,</span> <span class="n">_broadcast_running</span>
 
     <span class="k">if</span> <span class="n">_broadcast_task</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -1490,6 +1820,8 @@
     <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Analytics broadcast task did not stop gracefully, cancelling&quot;</span><span class="p">)</span>
         <span class="n">_broadcast_task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error during stop_broadcast_task: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
 
     <span class="n">_broadcast_task</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Analytics broadcast task stopped&quot;</span><span class="p">)</span>

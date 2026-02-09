@@ -906,14 +906,14 @@ the Python worker, handling real-time communication and status updates.</p>
           <b><code><span title="app.api.v1.ws.ClientType.CLIENT">CLIENT</span></code></b>
           –
           <div class="doc-md-description">
-            <p>Represents a frontend client.</p>
+            <p>Represents a frontend client (e.g., React Dashboard).</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
           <b><code><span title="app.api.v1.ws.ClientType.WORKER">WORKER</span></code></b>
           –
           <div class="doc-md-description">
-            <p>Represents a backend worker.</p>
+            <p>Represents the backend Python worker.</p>
           </div>
         </li>
     </ul>
@@ -927,9 +927,7 @@ the Python worker, handling real-time communication and status updates.</p>
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>app/api/v1/ws.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">23</span>
-<span class="normal">24</span>
-<span class="normal">25</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">25</span>
 <span class="normal">26</span>
 <span class="normal">27</span>
 <span class="normal">28</span>
@@ -937,13 +935,15 @@ the Python worker, handling real-time communication and status updates.</p>
 <span class="normal">30</span>
 <span class="normal">31</span>
 <span class="normal">32</span>
-<span class="normal">33</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ClientType</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
+<span class="normal">33</span>
+<span class="normal">34</span>
+<span class="normal">35</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ClientType</span><span class="p">(</span><span class="n">StrEnum</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Enumeration for different types of WebSocket clients.</span>
 
 <span class="sd">    Attributes:</span>
-<span class="sd">        CLIENT: Represents a frontend client.</span>
-<span class="sd">        WORKER: Represents a backend worker.</span>
+<span class="sd">        CLIENT: Represents a frontend client (e.g., React Dashboard).</span>
+<span class="sd">        WORKER: Represents the backend Python worker.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">CLIENT</span> <span class="o">=</span> <span class="s2">&quot;client&quot;</span>
@@ -992,6 +992,10 @@ the Python worker, handling real-time communication and status updates.</p>
 <p>This endpoint manages the lifecycle of WebSocket connections, including
 handshake, security checks, message processing, and disconnection.
 Workers must provide valid authentication using a secret token.</p>
+<p>Protocol:
+- Frontend clients connect with <code>client_type=client</code>.
+- Workers connect with <code>client_type=worker</code> and must provide <code>x-worker-secret</code>
+  header or a <code>token</code> query parameter matching <code>settings.WORKER_SECRET</code>.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -1001,7 +1005,7 @@ Workers must provide valid authentication using a secret token.</p>
               (<code><span title="fastapi.WebSocket">WebSocket</span></code>)
           –
           <div class="doc-md-description">
-            <p>The WebSocket object for the current connection.</p>
+            <p>The WebSocket connection instance.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -1009,7 +1013,7 @@ Workers must provide valid authentication using a secret token.</p>
               (<code><span title="typing.Annotated">Annotated</span>[<span title="app.core.connection_manager.ConnectionManager">ConnectionManager</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.connection_manager.get_connection_manager">get_connection_manager</span>)]</code>)
           –
           <div class="doc-md-description">
-            <p>The ConnectionManager instance for handling connections.</p>
+            <p>Singleton manager for handling active connections.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -1019,7 +1023,7 @@ Workers must provide valid authentication using a secret token.</p>
 )
           –
           <div class="doc-md-description">
-            <p>The type of client connecting (client or worker).
+            <p>Type of the connecting client (client or worker).
 Defaults to ClientType.CLIENT.</p>
           </div>
         </li>
@@ -1030,7 +1034,7 @@ Defaults to ClientType.CLIENT.</p>
 )
           –
           <div class="doc-md-description">
-            <p>An optional token for authentication, primarily for workers.</p>
+            <p>Optional authentication token (used if x-worker-secret header is missing).</p>
           </div>
         </li>
     </ul>
@@ -1054,14 +1058,7 @@ Defaults to ClientType.CLIENT.</p>
               <code><span title="fastapi.WebSocketDisconnect">WebSocketDisconnect</span></code>
             –
           <div class="doc-md-description">
-            <p>If the WebSocket connection is intentionally closed.</p>
-          </div>
-        </li>
-        <li class="doc-section-item field-body">
-              <code><span title="Exception">Exception</span></code>
-            –
-          <div class="doc-md-description">
-            <p>For any unexpected errors during connection or message processing.</p>
+            <p>When the client disconnects normally.</p>
           </div>
         </li>
     </ul>
@@ -1069,9 +1066,7 @@ Defaults to ClientType.CLIENT.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/ws.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 36</span>
-<span class="normal"> 37</span>
-<span class="normal"> 38</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 38</span>
 <span class="normal"> 39</span>
 <span class="normal"> 40</span>
 <span class="normal"> 41</span>
@@ -1179,7 +1174,9 @@ Defaults to ClientType.CLIENT.</p>
 <span class="normal">143</span>
 <span class="normal">144</span>
 <span class="normal">145</span>
-<span class="normal">146</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws&quot;</span><span class="p">)</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws&quot;</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">websocket_endpoint</span><span class="p">(</span>
     <span class="n">websocket</span><span class="p">:</span> <span class="n">WebSocket</span><span class="p">,</span>
     <span class="n">manager</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ConnectionManager</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_connection_manager</span><span class="p">)],</span>
@@ -1193,48 +1190,51 @@ Defaults to ClientType.CLIENT.</p>
 <span class="sd">    handshake, security checks, message processing, and disconnection.</span>
 <span class="sd">    Workers must provide valid authentication using a secret token.</span>
 
+<span class="sd">    Protocol:</span>
+<span class="sd">    - Frontend clients connect with `client_type=client`.</span>
+<span class="sd">    - Workers connect with `client_type=worker` and must provide `x-worker-secret`</span>
+<span class="sd">      header or a `token` query parameter matching `settings.WORKER_SECRET`.</span>
+
 <span class="sd">    Args:</span>
-<span class="sd">        websocket: The WebSocket object for the current connection.</span>
-<span class="sd">        manager: The ConnectionManager instance for handling connections.</span>
-<span class="sd">        client_type: The type of client connecting (client or worker).</span>
+<span class="sd">        websocket: The WebSocket connection instance.</span>
+<span class="sd">        manager: Singleton manager for handling active connections.</span>
+<span class="sd">        client_type: Type of the connecting client (client or worker).</span>
 <span class="sd">            Defaults to ClientType.CLIENT.</span>
-<span class="sd">        token: An optional token for authentication, primarily for workers.</span>
+<span class="sd">        token: Optional authentication token (used if x-worker-secret header is missing).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        None</span>
 
 <span class="sd">    Raises:</span>
-<span class="sd">        WebSocketDisconnect: If the WebSocket connection is intentionally closed.</span>
-<span class="sd">        Exception: For any unexpected errors during connection or message processing.</span>
+<span class="sd">        WebSocketDisconnect: When the client disconnects normally.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;websocket_endpoint&quot;</span>
 
-    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;WebSocket endpoint hit&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CONNECT | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Incoming connection [Type: </span><span class="si">{</span><span class="n">client_type</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
 
-    <span class="c1"># 1. Connection Phase (Handshake)</span>
+    <span class="c1"># 1. Connection Phase &amp; Authentication</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># Worker Security Check</span>
         <span class="k">if</span> <span class="n">client_type</span> <span class="o">==</span> <span class="n">ClientType</span><span class="o">.</span><span class="n">WORKER</span><span class="p">:</span>
             <span class="c1"># Extract secret from headers or query param</span>
             <span class="n">secret</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">websocket</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;x-worker-secret&quot;</span><span class="p">)</span>
 
-            <span class="c1"># Also allow query param for flexibility if headers are hard in some clients</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">secret</span> <span class="ow">and</span> <span class="n">token</span><span class="p">:</span>
                 <span class="n">secret</span> <span class="o">=</span> <span class="n">token</span>
 
-            <span class="c1"># Securely compare secrets</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">secret</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">secrets</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">WORKER_SECRET</span><span class="p">)):</span>
+            <span class="c1"># Securely compare secrets to prevent timing attacks</span>
+            <span class="n">expected_secret</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">WORKER_SECRET</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">secret</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">secrets</span><span class="o">.</span><span class="n">compare_digest</span><span class="p">(</span><span class="n">secret</span><span class="p">,</span> <span class="n">expected_secret</span><span class="p">):</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;SECURITY | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Unauthorized Worker Attempt. &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;Received: </span><span class="si">{</span><span class="n">secret</span><span class="si">!r}</span><span class="s2"> | Expected: [REDACTED]&quot;</span>
                 <span class="p">)</span>
-                <span class="c1"># 1008 = Policy Violation</span>
                 <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">code</span><span class="o">=</span><span class="n">status</span><span class="o">.</span><span class="n">WS_1008_POLICY_VIOLATION</span><span class="p">)</span>
                 <span class="k">return</span>
 
+        <span class="c1"># Accept connection and add to manager</span>
         <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">websocket</span><span class="p">)</span>
 
-        <span class="n">conn_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">websocket</span><span class="p">,</span> <span class="s2">&quot;conn_id&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">))</span>
+        <span class="n">conn_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">websocket</span><span class="p">,</span> <span class="s2">&quot;conn_id&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">client_type</span> <span class="o">==</span> <span class="n">ClientType</span><span class="o">.</span><span class="n">WORKER</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;START | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Secure Worker Connected [ID: </span><span class="si">{</span><span class="n">conn_id</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
             <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">register_worker</span><span class="p">(</span><span class="n">websocket</span><span class="p">)</span>
@@ -1242,54 +1242,51 @@ Defaults to ClientType.CLIENT.</p>
             <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;START | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Client Connected [ID: </span><span class="si">{</span><span class="n">conn_id</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
 
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FAIL | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Connection Refused | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FAIL | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Connection refused or failed during setup | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">return</span>
 
-    <span class="c1"># 2. Main Loop</span>
+    <span class="c1"># 2. Communication Loop</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-            <span class="c1"># Keep the connection open and listen for messages</span>
+            <span class="c1"># Wait for text messages</span>
             <span class="n">data</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">receive_text</span><span class="p">()</span>
 
-            <span class="c1"># Heartbeat (Client-side initiated)</span>
+            <span class="c1"># Heartbeat check</span>
             <span class="k">if</span> <span class="n">data</span> <span class="o">==</span> <span class="s2">&quot;ping&quot;</span><span class="p">:</span>
                 <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send_text</span><span class="p">(</span><span class="s2">&quot;pong&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
 
-            <span class="c1"># Diagnostics</span>
+            <span class="c1"># Status request</span>
             <span class="k">if</span> <span class="n">data</span> <span class="o">==</span> <span class="s2">&quot;get_worker_status&quot;</span><span class="p">:</span>
                 <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">emit_worker_status</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">is_worker_online</span><span class="p">)</span>
                 <span class="k">continue</span>
 
-            <span class="c1"># Worker Broadcast: If worker sends a message, re-broadcast it to frontends</span>
+            <span class="c1"># Worker Broadcast: Re-broadcast worker messages to all frontend clients</span>
             <span class="k">if</span> <span class="n">client_type</span> <span class="o">==</span> <span class="n">ClientType</span><span class="o">.</span><span class="n">WORKER</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
-                    <span class="c1"># We assume worker sends valid JSON that matches the broadcast format</span>
-                    <span class="n">message</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-                    <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+                    <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                        <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: Worker sent non-dictionary JSON: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: Invalid JSON from worker | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-                    <span class="c1"># Intentionally continue to not break the worker connection on bad JSON</span>
-                    <span class="k">continue</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
                         <span class="sa">f</span><span class="s2">&quot;FAIL | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Worker broadcast error | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
                         <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                     <span class="p">)</span>
-                    <span class="c1"># Intentionally continue to not break the worker connection on internal errors</span>
-                    <span class="k">continue</span>
 
     <span class="k">except</span> <span class="n">WebSocketDisconnect</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FINISH | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: </span><span class="si">{</span><span class="n">client_type</span><span class="si">}</span><span class="s2"> Disconnected (Code: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="si">!r}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FINISH | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | </span><span class="si">{</span><span class="n">client_type</span><span class="si">}</span><span class="s2"> Disconnected [Code: </span><span class="si">{</span><span class="n">e</span><span class="o">.</span><span class="n">code</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FAIL | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: Unexpected Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;FAIL | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Unexpected error in WS loop | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">finally</span><span class="p">:</span>
-        <span class="c1"># Ensure cleanup on any exit</span>
+        <span class="c1"># 3. Cleanup Phase</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">disconnect</span><span class="p">(</span><span class="n">websocket</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-            <span class="c1"># Ignore failures during an already failing connection</span>
-            <span class="k">pass</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cleanup | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Disconnect failed (likely already closed) | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

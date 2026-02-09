@@ -1026,68 +1026,178 @@
 
     <div class="doc doc-contents ">
 
-        <p>Stream chat response for a session.
-Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
+        <p>Stream chat response for a session.</p>
+<p>Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>request</code></b>
+              (<code><span title="app.schemas.chat.ChatRequest">ChatRequest</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat request payload.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>chat_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.chat_service.ChatService">ChatService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.chat_service.get_chat_service">get_chat_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>assistant_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.assistant_service.AssistantService">AssistantService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.assistant_service.get_assistant_service">get_assistant_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The assistant service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="typing.Optional">Optional</span>[<span title="app.models.user.User">User</span>], <span title="fastapi.Depends">Depends</span>(<a class="autorefs autorefs-internal" title="get_optional_user(request, db)
+
+  
+      async
+   (app.api.v1.endpoints.chat.get_optional_user)" href="#app.api.v1.endpoints.chat.get_optional_user">get_optional_user</a>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The optional authenticated user.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="fastapi.responses.StreamingResponse">StreamingResponse</span></code>
+          –
+          <div class="doc-md-description">
+            <p>A StreamingResponse yielding the chat stream.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="app.core.exceptions.EntityNotFound">EntityNotFound</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If the assistant is not found.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><span title="fastapi.HTTPException">HTTPException</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If authentication is required but user is not authenticated.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+              <code><span title="app.core.exceptions.TechnicalError">TechnicalError</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If an unexpected error occurs during initialization.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">39</span>
-<span class="normal">40</span>
-<span class="normal">41</span>
-<span class="normal">42</span>
-<span class="normal">43</span>
-<span class="normal">44</span>
-<span class="normal">45</span>
-<span class="normal">46</span>
-<span class="normal">47</span>
-<span class="normal">48</span>
-<span class="normal">49</span>
-<span class="normal">50</span>
-<span class="normal">51</span>
-<span class="normal">52</span>
-<span class="normal">53</span>
-<span class="normal">54</span>
-<span class="normal">55</span>
-<span class="normal">56</span>
-<span class="normal">57</span>
-<span class="normal">58</span>
-<span class="normal">59</span>
-<span class="normal">60</span>
-<span class="normal">61</span>
-<span class="normal">62</span>
-<span class="normal">63</span>
-<span class="normal">64</span>
-<span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span>
-<span class="normal">72</span>
-<span class="normal">73</span>
-<span class="normal">74</span>
-<span class="normal">75</span>
-<span class="normal">76</span>
-<span class="normal">77</span>
-<span class="normal">78</span>
-<span class="normal">79</span>
-<span class="normal">80</span>
-<span class="normal">81</span>
-<span class="normal">82</span>
-<span class="normal">83</span>
-<span class="normal">84</span>
-<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/stream&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 47</span>
+<span class="normal"> 48</span>
+<span class="normal"> 49</span>
+<span class="normal"> 50</span>
+<span class="normal"> 51</span>
+<span class="normal"> 52</span>
+<span class="normal"> 53</span>
+<span class="normal"> 54</span>
+<span class="normal"> 55</span>
+<span class="normal"> 56</span>
+<span class="normal"> 57</span>
+<span class="normal"> 58</span>
+<span class="normal"> 59</span>
+<span class="normal"> 60</span>
+<span class="normal"> 61</span>
+<span class="normal"> 62</span>
+<span class="normal"> 63</span>
+<span class="normal"> 64</span>
+<span class="normal"> 65</span>
+<span class="normal"> 66</span>
+<span class="normal"> 67</span>
+<span class="normal"> 68</span>
+<span class="normal"> 69</span>
+<span class="normal"> 70</span>
+<span class="normal"> 71</span>
+<span class="normal"> 72</span>
+<span class="normal"> 73</span>
+<span class="normal"> 74</span>
+<span class="normal"> 75</span>
+<span class="normal"> 76</span>
+<span class="normal"> 77</span>
+<span class="normal"> 78</span>
+<span class="normal"> 79</span>
+<span class="normal"> 80</span>
+<span class="normal"> 81</span>
+<span class="normal"> 82</span>
+<span class="normal"> 83</span>
+<span class="normal"> 84</span>
+<span class="normal"> 85</span>
+<span class="normal"> 86</span>
+<span class="normal"> 87</span>
+<span class="normal"> 88</span>
+<span class="normal"> 89</span>
+<span class="normal"> 90</span>
+<span class="normal"> 91</span>
+<span class="normal"> 92</span>
+<span class="normal"> 93</span>
+<span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/stream&quot;</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">chat_stream</span><span class="p">(</span>
     <span class="n">request</span><span class="p">:</span> <span class="n">ChatRequest</span><span class="p">,</span>
     <span class="n">chat_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ChatService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_chat_service</span><span class="p">)],</span>
     <span class="n">assistant_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AssistantService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_assistant_service</span><span class="p">)],</span>
     <span class="n">user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">],</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_optional_user</span><span class="p">)],</span>
-<span class="p">):</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StreamingResponse</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stream chat response for a session.</span>
+
 <span class="sd">    Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: The chat request payload.</span>
+<span class="sd">        chat_service: The chat service instance.</span>
+<span class="sd">        assistant_service: The assistant service instance.</span>
+<span class="sd">        user: The optional authenticated user.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A StreamingResponse yielding the chat stream.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        EntityNotFound: If the assistant is not found.</span>
+<span class="sd">        HTTPException: If authentication is required but user is not authenticated.</span>
+<span class="sd">        TechnicalError: If an unexpected error occurs during initialization.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="c1"># 1. Fetch Assistant (raw SQLAlchemy model for ChatService)</span>
@@ -1101,7 +1211,8 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
         <span class="k">if</span> <span class="n">assistant</span><span class="o">.</span><span class="n">user_authentication</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">user_id</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Access denied for assistant </span><span class="si">{</span><span class="n">assistant</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">: User Authentication Required&quot;</span><span class="p">)</span>
             <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-                <span class="n">status_code</span><span class="o">=</span><span class="n">status</span><span class="o">.</span><span class="n">HTTP_401_UNAUTHORIZED</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Authentication required for this assistant&quot;</span>
+                <span class="n">status_code</span><span class="o">=</span><span class="n">status</span><span class="o">.</span><span class="n">HTTP_401_UNAUTHORIZED</span><span class="p">,</span>
+                <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Authentication required for this assistant&quot;</span><span class="p">,</span>
             <span class="p">)</span>
 
         <span class="c1"># 3. Stream</span>
@@ -1146,50 +1257,126 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Debug version that returns full exceptions</p>
+        <p>Debug version that returns full exceptions.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>request</code></b>
+              (<code><span title="app.schemas.chat.ChatRequest">ChatRequest</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat request payload.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>chat_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.chat_service.ChatService">ChatService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.chat_service.get_chat_service">get_chat_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>assistant_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.assistant_service.AssistantService">AssistantService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.assistant_service.get_assistant_service">get_assistant_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The assistant service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="typing.Optional">Optional</span>[<span title="app.models.user.User">User</span>], <span title="fastapi.Depends">Depends</span>(<a class="autorefs autorefs-internal" title="get_optional_user(request, db)
+
+  
+      async
+   (app.api.v1.endpoints.chat.get_optional_user)" href="#app.api.v1.endpoints.chat.get_optional_user">get_optional_user</a>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The optional authenticated user.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A dictionary containing debug information or the first event.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
-<span class="normal">218</span>
-<span class="normal">219</span>
-<span class="normal">220</span>
-<span class="normal">221</span>
-<span class="normal">222</span>
-<span class="normal">223</span>
-<span class="normal">224</span>
-<span class="normal">225</span>
-<span class="normal">226</span>
-<span class="normal">227</span>
-<span class="normal">228</span>
-<span class="normal">229</span>
-<span class="normal">230</span>
-<span class="normal">231</span>
-<span class="normal">232</span>
-<span class="normal">233</span>
-<span class="normal">234</span>
-<span class="normal">235</span>
-<span class="normal">236</span>
-<span class="normal">237</span>
-<span class="normal">238</span>
-<span class="normal">239</span>
-<span class="normal">240</span>
-<span class="normal">241</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/debug-stream&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">284</span>
+<span class="normal">285</span>
+<span class="normal">286</span>
+<span class="normal">287</span>
+<span class="normal">288</span>
+<span class="normal">289</span>
+<span class="normal">290</span>
+<span class="normal">291</span>
+<span class="normal">292</span>
+<span class="normal">293</span>
+<span class="normal">294</span>
+<span class="normal">295</span>
+<span class="normal">296</span>
+<span class="normal">297</span>
+<span class="normal">298</span>
+<span class="normal">299</span>
+<span class="normal">300</span>
+<span class="normal">301</span>
+<span class="normal">302</span>
+<span class="normal">303</span>
+<span class="normal">304</span>
+<span class="normal">305</span>
+<span class="normal">306</span>
+<span class="normal">307</span>
+<span class="normal">308</span>
+<span class="normal">309</span>
+<span class="normal">310</span>
+<span class="normal">311</span>
+<span class="normal">312</span>
+<span class="normal">313</span>
+<span class="normal">314</span>
+<span class="normal">315</span>
+<span class="normal">316</span>
+<span class="normal">317</span>
+<span class="normal">318</span>
+<span class="normal">319</span>
+<span class="normal">320</span>
+<span class="normal">321</span>
+<span class="normal">322</span>
+<span class="normal">323</span>
+<span class="normal">324</span>
+<span class="normal">325</span>
+<span class="normal">326</span>
+<span class="normal">327</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/debug-stream&quot;</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">debug_stream</span><span class="p">(</span>
     <span class="n">request</span><span class="p">:</span> <span class="n">ChatRequest</span><span class="p">,</span>
     <span class="n">chat_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ChatService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_chat_service</span><span class="p">)],</span>
     <span class="n">assistant_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AssistantService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_assistant_service</span><span class="p">)],</span>
     <span class="n">user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">],</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_optional_user</span><span class="p">)],</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Debug version that returns full exceptions&quot;&quot;&quot;</span>
-    <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Debug version that returns full exceptions.</span>
 
+<span class="sd">    Args:</span>
+<span class="sd">        request: The chat request payload.</span>
+<span class="sd">        chat_service: The chat service instance.</span>
+<span class="sd">        assistant_service: The assistant service instance.</span>
+<span class="sd">        user: The optional authenticated user.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary containing debug information or the first event.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">assistant_uuid</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">assistant_id</span>
         <span class="n">assistant</span> <span class="o">=</span> <span class="k">await</span> <span class="n">assistant_service</span><span class="o">.</span><span class="n">get_assistant_model</span><span class="p">(</span><span class="n">assistant_uuid</span><span class="p">)</span>
@@ -1209,7 +1396,12 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
         <span class="p">):</span>
             <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;first_event&quot;</span><span class="p">:</span> <span class="n">event</span><span class="p">[:</span><span class="mi">200</span><span class="p">]}</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="s2">&quot;traceback&quot;</span><span class="p">:</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="nb">type</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;traceback&quot;</span><span class="p">:</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">(),</span>
+        <span class="p">}</span>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;No events yielded&quot;</span><span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1234,46 +1426,54 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
         <p>Retrieve conversation history for a specific session ID.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>session_id</code></b>
+              (<code><span title="str">str</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The session ID to retrieve history for.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>chat_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.chat_service.ChatService">ChatService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.chat_service.get_chat_service">get_chat_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="typing.Optional">Optional</span>[<span title="app.models.user.User">User</span>], <span title="fastapi.Depends">Depends</span>(<a class="autorefs autorefs-internal" title="get_optional_user(request, db)
+
+  
+      async
+   (app.api.v1.endpoints.chat.get_optional_user)" href="#app.api.v1.endpoints.chat.get_optional_user">get_optional_user</a>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The optional authenticated user.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.List">List</span>[<span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]]</code>
+          –
+          <div class="doc-md-description">
+            <p>A list of formatted chat messages.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">102</span>
-<span class="normal">103</span>
-<span class="normal">104</span>
-<span class="normal">105</span>
-<span class="normal">106</span>
-<span class="normal">107</span>
-<span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
-<span class="normal">121</span>
-<span class="normal">122</span>
-<span class="normal">123</span>
-<span class="normal">124</span>
-<span class="normal">125</span>
-<span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">139</span>
 <span class="normal">140</span>
 <span class="normal">141</span>
 <span class="normal">142</span>
@@ -1326,121 +1526,50 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
 <span class="normal">189</span>
 <span class="normal">190</span>
 <span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span>
-<span class="normal">198</span>
-<span class="normal">199</span>
-<span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/</span><span class="si">{session_id}</span><span class="s2">/history&quot;</span><span class="p">)</span>
+<span class="normal">192</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/</span><span class="si">{session_id}</span><span class="s2">/history&quot;</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_chat_history</span><span class="p">(</span>
     <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">chat_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ChatService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_chat_service</span><span class="p">)],</span>
     <span class="n">user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">],</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_optional_user</span><span class="p">)],</span>
-<span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Retrieve conversation history for a specific session ID.&quot;&quot;&quot;</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve conversation history for a specific session ID.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        session_id: The session ID to retrieve history for.</span>
+<span class="sd">        chat_service: The chat service instance.</span>
+<span class="sd">        user: The optional authenticated user.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of formatted chat messages.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="c1"># Get history from the chat repository (Postgres) instead of Redis for full persistence</span>
         <span class="n">messages</span> <span class="o">=</span> <span class="k">await</span> <span class="n">chat_service</span><span class="o">.</span><span class="n">chat_repository</span><span class="o">.</span><span class="n">get_messages</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
 
         <span class="c1"># Transform to frontend-compatible format</span>
         <span class="n">formatted_messages</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">msg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">messages</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">:</span>
             <span class="n">m</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>  <span class="c1"># Use actual message UUID</span>
                 <span class="s2">&quot;text&quot;</span><span class="p">:</span> <span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
                 <span class="s2">&quot;sender&quot;</span><span class="p">:</span> <span class="s2">&quot;user&quot;</span> <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="s2">&quot;user&quot;</span> <span class="k">else</span> <span class="s2">&quot;bot&quot;</span><span class="p">,</span>
             <span class="p">}</span>
             <span class="c1"># Include metadata (visualization, sources, etc.)</span>
-            <span class="c1"># Include metadata (visualization, sources, etc.)</span>
             <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">metadata_</span><span class="p">:</span>
                 <span class="n">meta</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">metadata_</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
                 <span class="c1"># Format Sources for Frontend (Source[] interface)</span>
                 <span class="k">if</span> <span class="s2">&quot;sources&quot;</span> <span class="ow">in</span> <span class="n">meta</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                    <span class="n">formatted_sources</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">]:</span>
-                        <span class="c1"># Map backend &#39;file_name&#39; in metadata to frontend &#39;name&#39;</span>
-                        <span class="n">s_meta</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
-                        <span class="n">file_name</span> <span class="o">=</span> <span class="n">s_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;file_name&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">s_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;filename&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">s_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;Unknown&quot;</span>
-
-                        <span class="c1"># Type detection (simplified)</span>
-                        <span class="n">s_type</span> <span class="o">=</span> <span class="s2">&quot;txt&quot;</span>
-                        <span class="n">lower</span> <span class="o">=</span> <span class="n">file_name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-                        <span class="k">if</span> <span class="n">lower</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.pdf&quot;</span><span class="p">):</span>
-                            <span class="n">s_type</span> <span class="o">=</span> <span class="s2">&quot;pdf&quot;</span>
-                        <span class="k">elif</span> <span class="n">lower</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.docx&quot;</span><span class="p">):</span>
-                            <span class="n">s_type</span> <span class="o">=</span> <span class="s2">&quot;docx&quot;</span>
-
-                        <span class="n">formatted_sources</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                            <span class="p">{</span>
-                                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">),</span>
-                                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">file_name</span><span class="p">,</span>
-                                <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">s_type</span><span class="p">,</span>
-                                <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;text&quot;</span><span class="p">),</span>
-                                <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">s_meta</span><span class="p">,</span>
-                            <span class="p">}</span>
-                        <span class="p">)</span>
-                    <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">formatted_sources</span>
+                    <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_format_source</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;sources&quot;</span><span class="p">]]</span>
 
                 <span class="c1"># Format Steps (Ensure labels are present)</span>
                 <span class="k">if</span> <span class="s2">&quot;steps&quot;</span> <span class="ow">in</span> <span class="n">meta</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                    <span class="n">valid_steps</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]:</span>
-                        <span class="c1"># Filter out steps with no label and no meaningful data</span>
-                        <span class="k">if</span> <span class="ow">not</span> <span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;label&quot;</span><span class="p">):</span>
-                            <span class="c1"># Try to infer label from step_type</span>
-                            <span class="n">stype</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;step_type&quot;</span><span class="p">,</span> <span class="s2">&quot;unknown&quot;</span><span class="p">)</span>
-                            <span class="n">step</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stype</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot; &quot;</span><span class="p">)</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
-
-                        <span class="c1"># Map nesting metadata (backend &#39;is_substep&#39; -&gt; frontend &#39;isSubStep&#39;)</span>
-                        <span class="n">step_meta</span> <span class="o">=</span> <span class="n">step</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
-                        <span class="k">if</span> <span class="n">step_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;is_substep&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">step_meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;isSubStep&quot;</span><span class="p">):</span>
-                            <span class="n">step</span><span class="p">[</span><span class="s2">&quot;isSubStep&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-
-                        <span class="c1"># Clean up backend-specific large dicts if needed, or just pass through</span>
-                        <span class="n">valid_steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">step</span><span class="p">)</span>
-                    <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">valid_steps</span>
+                    <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_format_step</span><span class="p">(</span><span class="n">step</span><span class="p">)</span> <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;steps&quot;</span><span class="p">]]</span>
 
                 <span class="c1"># Format Visualization (Repair types if stringified by sanitization)</span>
                 <span class="k">if</span> <span class="s2">&quot;visualization&quot;</span> <span class="ow">in</span> <span class="n">meta</span> <span class="ow">and</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;visualization&quot;</span><span class="p">]:</span>
-                    <span class="n">viz</span> <span class="o">=</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;visualization&quot;</span><span class="p">]</span>
-                    <span class="c1"># Ensure Series is a List</span>
-                    <span class="k">if</span> <span class="s2">&quot;series&quot;</span> <span class="ow">in</span> <span class="n">viz</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">viz</span><span class="p">[</span><span class="s2">&quot;series&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">viz</span><span class="p">[</span><span class="s2">&quot;series&quot;</span><span class="p">]:</span>
-                            <span class="c1"># Handle Treemap/Hierarchical Data (x, y dicts)</span>
-                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;data&quot;</span> <span class="ow">in</span> <span class="n">s</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">],</span> <span class="nb">list</span><span class="p">):</span>
-                                <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">s</span><span class="p">[</span><span class="s2">&quot;data&quot;</span><span class="p">]:</span>
-                                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">point</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;y&quot;</span> <span class="ow">in</span> <span class="n">point</span><span class="p">:</span>
-                                        <span class="k">try</span><span class="p">:</span>
-                                            <span class="c1"># Force to float if it&#39;s a string</span>
-                                            <span class="n">point</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">])</span>
-                                        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
-                                            <span class="n">point</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-                            <span class="c1"># Handle standard Cartesian/Pie (simple value list)</span>
-                            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
-                                <span class="c1"># For Pie charts, series is just a list of values, but here we iterate over viz[&quot;series&quot;]</span>
-                                <span class="c1"># If viz[&quot;series&quot;] is [10, 20], then &#39;s&#39; is 10. We can&#39;t modify &#39;s&#39; in-place easily if it&#39;s a primitive.</span>
-                                <span class="c1"># But format_circular sets &#39;series&#39; to a list of values.</span>
-                                <span class="k">pass</span>
-
-                        <span class="c1"># Fix for simple value lists (Pie/Donut) being stringified</span>
-                        <span class="k">if</span> <span class="n">viz</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;viz_type&quot;</span><span class="p">)</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;pie&quot;</span><span class="p">,</span> <span class="s2">&quot;donut&quot;</span><span class="p">,</span> <span class="s2">&quot;polarArea&quot;</span><span class="p">,</span> <span class="s2">&quot;radialBar&quot;</span><span class="p">]:</span>
-                            <span class="k">try</span><span class="p">:</span>
-                                <span class="n">viz</span><span class="p">[</span><span class="s2">&quot;series&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">viz</span><span class="p">[</span><span class="s2">&quot;series&quot;</span><span class="p">]]</span>
-                            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-                                <span class="k">pass</span>
+                    <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;visualization&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_format_visualization</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;visualization&quot;</span><span class="p">])</span>
 
                 <span class="n">m</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">meta</span><span class="p">)</span>
 
@@ -1472,8 +1601,41 @@ Supports SSE (Server-Sent Events) via NDJSON or text/event-stream.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Resolves user from Bearer token if present, otherwise returns None.
-Does not raise 401 for invalid tokens, just returns None (for public access if allowed).</p>
+        <p>Resolves user from Bearer token if present, otherwise returns None.</p>
+<p>Does not raise 401 for invalid tokens, just returns None (for public access if allowed).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>request</code></b>
+              (<code><span title="fastapi.Request">Request</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The FastAPI request object.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>db</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="sqlalchemy.ext.asyncio.AsyncSession">AsyncSession</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.database.get_db">get_db</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The database session.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Optional">Optional</span>[<span title="app.models.user.User">User</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>The User object if found and valid, otherwise None.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
@@ -1490,10 +1652,26 @@ Does not raise 401 for invalid tokens, just returns None (for public access if a
 <span class="normal">33</span>
 <span class="normal">34</span>
 <span class="normal">35</span>
-<span class="normal">36</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_optional_user</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AsyncSession</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_db</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
+<span class="normal">36</span>
+<span class="normal">37</span>
+<span class="normal">38</span>
+<span class="normal">39</span>
+<span class="normal">40</span>
+<span class="normal">41</span>
+<span class="normal">42</span>
+<span class="normal">43</span>
+<span class="normal">44</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_optional_user</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AsyncSession</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_db</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Resolves user from Bearer token if present, otherwise returns None.</span>
+
 <span class="sd">    Does not raise 401 for invalid tokens, just returns None (for public access if allowed).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        request: The FastAPI request object.</span>
+<span class="sd">        db: The database session.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        The User object if found and valid, otherwise None.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">auth_header</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">headers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;Authorization&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">auth_header</span> <span class="ow">and</span> <span class="n">auth_header</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;Bearer &quot;</span><span class="p">):</span>
@@ -1524,17 +1702,39 @@ Does not raise 401 for invalid tokens, just returns None (for public access if a
 
     <div class="doc doc-contents ">
 
-        <p>Minimal test endpoint with zero dependencies</p>
+        <p>Minimal test endpoint with zero dependencies.</p>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A dictionary with status and message.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">244</span>
-<span class="normal">245</span>
-<span class="normal">246</span>
-<span class="normal">247</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ping&quot;</span><span class="p">)</span>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">ping</span><span class="p">():</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal test endpoint with zero dependencies&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">330</span>
+<span class="normal">331</span>
+<span class="normal">332</span>
+<span class="normal">333</span>
+<span class="normal">334</span>
+<span class="normal">335</span>
+<span class="normal">336</span>
+<span class="normal">337</span>
+<span class="normal">338</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ping&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">ping</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Minimal test endpoint with zero dependencies.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary with status and message.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;ok&quot;</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Backend is alive&quot;</span><span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1560,25 +1760,96 @@ Does not raise 401 for invalid tokens, just returns None (for public access if a
         <p>Resets the conversation history for a specific session ID.</p>
 
 
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>session_id</code></b>
+              (<code><span title="str">str</span></code>)
+          –
+          <div class="doc-md-description">
+            <p>The session ID to reset.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>chat_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.chat_service.ChatService">ChatService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.chat_service.get_chat_service">get_chat_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The chat service instance.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A success message.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="app.core.exceptions.TechnicalError">TechnicalError</span></code>
+            –
+          <div class="doc-md-description">
+            <p>If resetting the conversation fails.</p>
+          </div>
+        </li>
+    </ul>
+
+
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">88</span>
-<span class="normal">89</span>
-<span class="normal">90</span>
-<span class="normal">91</span>
-<span class="normal">92</span>
-<span class="normal">93</span>
-<span class="normal">94</span>
-<span class="normal">95</span>
-<span class="normal">96</span>
-<span class="normal">97</span>
-<span class="normal">98</span>
-<span class="normal">99</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;/</span><span class="si">{session_id}</span><span class="s2">&quot;</span><span class="p">)</span>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reset_chat_session</span><span class="p">(</span><span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">chat_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ChatService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_chat_service</span><span class="p">)]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resets the conversation history for a specific session ID.&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span>
+<span class="normal">122</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;/</span><span class="si">{session_id}</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reset_chat_session</span><span class="p">(</span>
+    <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">chat_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">ChatService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_chat_service</span><span class="p">)]</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Resets the conversation history for a specific session ID.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        session_id: The session ID to reset.</span>
+<span class="sd">        chat_service: The chat service instance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A success message.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        TechnicalError: If resetting the conversation fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">chat_service</span><span class="o">.</span><span class="n">reset_conversation</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Conversation history reset successfully&quot;</span><span class="p">}</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to reset conversation </span><span class="si">{</span><span class="n">session_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1606,17 +1877,62 @@ Does not raise 401 for invalid tokens, just returns None (for public access if a
 
     <div class="doc doc-contents ">
 
-        <p>Test if AssistantService injection works</p>
+        <p>Test if AssistantService injection works.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>assistant_service</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.services.assistant_service.AssistantService">AssistantService</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.services.assistant_service.get_assistant_service">get_assistant_service</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The assistant service instance.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A dictionary with status and service info.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">256</span>
-<span class="normal">257</span>
-<span class="normal">258</span>
-<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/test-assistant-service&quot;</span><span class="p">)</span>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_assistant_svc</span><span class="p">(</span><span class="n">assistant_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AssistantService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_assistant_service</span><span class="p">)]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test if AssistantService injection works&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/test-assistant-service&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_assistant_svc</span><span class="p">(</span>
+    <span class="n">assistant_service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AssistantService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_assistant_service</span><span class="p">)],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test if AssistantService injection works.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        assistant_service: The assistant service instance.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary with status and service info.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;ok&quot;</span><span class="p">,</span> <span class="s2">&quot;service&quot;</span><span class="p">:</span> <span class="s2">&quot;injected&quot;</span><span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1639,17 +1955,58 @@ Does not raise 401 for invalid tokens, just returns None (for public access if a
 
     <div class="doc doc-contents ">
 
-        <p>Test if DB injection works</p>
+        <p>Test if DB injection works.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+            <b><code>db</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="sqlalchemy.ext.asyncio.AsyncSession">AsyncSession</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.database.get_db">get_db</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The database session.</p>
+          </div>
+        </li>
+    </ul>
+
+
+<p><span class="doc-section-title">Returns:</span></p>
+    <ul>
+        <li class="doc-section-item field-body">
+              <code><span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]</code>
+          –
+          <div class="doc-md-description">
+            <p>A dictionary with status and db info.</p>
+          </div>
+        </li>
+    </ul>
 
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/chat.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">250</span>
-<span class="normal">251</span>
-<span class="normal">252</span>
-<span class="normal">253</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/test-db&quot;</span><span class="p">)</span>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_db</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AsyncSession</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_db</span><span class="p">)]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test if DB injection works&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">341</span>
+<span class="normal">342</span>
+<span class="normal">343</span>
+<span class="normal">344</span>
+<span class="normal">345</span>
+<span class="normal">346</span>
+<span class="normal">347</span>
+<span class="normal">348</span>
+<span class="normal">349</span>
+<span class="normal">350</span>
+<span class="normal">351</span>
+<span class="normal">352</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/test-db&quot;</span><span class="p">)</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">test_db</span><span class="p">(</span><span class="n">db</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AsyncSession</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_db</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Test if DB injection works.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        db: The database session.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary with status and db info.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;ok&quot;</span><span class="p">,</span> <span class="s2">&quot;db&quot;</span><span class="p">:</span> <span class="s2">&quot;connected&quot;</span><span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
