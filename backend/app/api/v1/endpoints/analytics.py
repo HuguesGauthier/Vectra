@@ -4,24 +4,28 @@ Advanced Analytics API Endpoints.
 
 import asyncio
 import logging
-from typing import Annotated, Optional, List
+from typing import Annotated, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
 from app.core.database import get_session_factory
-from app.schemas.advanced_analytics import (AdvancedAnalyticsResponse,
-                                            AssistantCost, DocumentFreshness,
-                                            TrendingTopic, TTFTPercentiles)
-from app.services.analytics_service import (AnalyticsService,
-                                            get_analytics_service)
+from app.schemas.advanced_analytics import (
+    AdvancedAnalyticsResponse,
+    AssistantCost,
+    DocumentFreshness,
+    TrendingTopic,
+    TTFTPercentiles,
+    StepBreakdown,  # Added StepBreakdown import
+)
+from app.services.analytics_service import AnalyticsService, get_analytics_service
 from app.services.settings_service import SettingsService
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Global flag for background task control
-_broadcast_task: asyncio.Task | None = None
+_broadcast_task: Optional[asyncio.Task[None]] = None
 _broadcast_running: bool = False
 
 
@@ -77,7 +81,7 @@ async def get_ttft_percentiles(
     Returns:
         TTFTPercentiles: The calculated TTFT percentiles (p50, p95, p99).
     """
-    result = await service.get_ttft_percentiles(hours)
+    result: Optional[TTFTPercentiles] = await service.get_ttft_percentiles(hours)
 
     if not result:
         return TTFTPercentiles(p50=0.0, p95=0.0, p99=0.0, period_hours=hours)
@@ -156,24 +160,19 @@ async def broadcast_analytics_loop(interval_seconds: int = 10) -> None:
 
     while _broadcast_running:
         try:
-            # P0 Fix: Pass the factory, not a session, to support parallel execution inside loop
             factory = get_session_factory()
-            # Initialize SettingsService (no DB session needed for advanced analytics as they use defaults/env)
             settings_service = SettingsService(db=None)
-            service = AnalyticsService(session_factory=factory, settings_service=settings_service)
+            service: AnalyticsService = AnalyticsService(session_factory=factory, settings_service=settings_service)
 
-            # Use standard defaults for the live view
-            stats = await service.get_all_advanced_analytics(
+            stats: AdvancedAnalyticsResponse = await service.get_all_advanced_analytics(
                 ttft_hours=24, step_days=7, cache_hours=24, cost_hours=24, trending_limit=10
             )
 
-            # Broadcast via WebSocket
             await manager.emit_advanced_analytics_stats(stats.model_dump(mode="json"))
 
         except Exception as e:
             logger.error("Error in analytics broadcast: %s", e, exc_info=True)
 
-        # Wait for next interval
         await asyncio.sleep(interval_seconds)
 
     logger.info("Advanced analytics broadcast loop stopped")
@@ -208,7 +207,6 @@ async def stop_broadcast_task() -> None:
 
     _broadcast_running = False
 
-    # Wait for task to finish
     try:
         await asyncio.wait_for(_broadcast_task, timeout=10.0)
     except asyncio.TimeoutError:

@@ -86,8 +86,19 @@ async def run_agent(goal: str, target_file: str = None):
             print(f"🛠️ Connected Tools: {tool_names}")
 
             # Define Tool Wrappers for Manual Execution
+            command_counts = {}
+
             async def execute_tool(name, args):
                 print(f"  🔧 Executing Tool: {name}({args})")
+                if name == "run_command":
+                    cmd = args.get("command", "")
+                    count = command_counts.get(cmd, 0) + 1
+                    command_counts[cmd] = count
+                    if count >= 3:
+                        msg = f"❌ LOOP DETECTED: You have run '{cmd}' {count} times. You MUST modify the code or tests to resolve the issue before re-running this command."
+                        print(f"  {msg}")
+                        return msg
+
                 try:
                     result = await session.call_tool(name, arguments=args)
                     return result.content[0].text
@@ -125,57 +136,64 @@ async def run_agent(goal: str, target_file: str = None):
 
             gemini_tools = [list_files, read_file, write_file, run_command]
 
-            # Initialize Model
-            model = genai.GenerativeModel(
-                model_name="gemini-2.5-flash",  # Upgrade to Gemini 3 Flash for latest capabilities
-                tools=gemini_tools,
-            )
+            # Ensure plans directory exists (Absolute path for reliability)
+            agent_root = os.path.dirname(os.path.abspath(__file__))
+            plans_dir = os.path.join(agent_root, "plans")
+            os.makedirs(plans_dir, exist_ok=True)
 
-            # Start Chat (Manual Execution Mode)
-            chat = model.start_chat()
+            # Define Project Roots for the Agent
+            project_root = "d:\\Vectra\\backend"
+            test_root = os.path.join(project_root, "tests")
 
-            context = ""
+            context_str = ""
             if target_file:
-                context = f"The user wants you to focus ONLY on this file: {target_file}. Read it first. All tools (black, isort, flake8, pytest) are available via 'python -m <tool>'."
+                context_str = f"The user wants you to focus ONLY on this file: {target_file}. Read it first. All tools (black, isort, flake8, pytest) are available via 'python -m <tool>'."
 
             system_instruction = f"""
             You are an autonomous AI Developer Agent.
-            Your goal is: {goal}
-            {context}
+            Goal: {goal}
+            {context_str}
 
-            FOLLOW THIS STRUCTURED WORKFLOW (STRICT PHASED EXECUTION):
+            PROJECT STRUCTURE:
+            - Source: `{project_root}/app`
+            - Tests: `{test_root}` (e.g., `{test_root}/api/v1/endpoints/test_auth.py`)
 
-            PHASE 1: RESEARCH & PLANNING
-            1. **Analyze**: Read the target file and any relevant project structure.
-            2. **Inventory**: Check if a test file exists (e.g., `tests/api/v1/endpoints/test_audio.py`).
-            3. **Output Plan**: Output a `[PLAN]` section describing your approach.
-            4. **Output Task List**: Output a `[TASK LIST]` with granular steps (e.g., "Add type hints to func X", "Create test skeleton").
+            EXECUTION PROTOCOL (MANDATORY):
+            1. **PLAN**: Your VERY FIRST tool call MUST be `write_file` to save a plan in `{plans_dir}/<file_basename>_plan.md`.
+            2. **CODE & TEST**: Batch code changes into ONE `write_file` call. Create/update tests in `{test_root}` to reach 90% coverage.
+            3. **LINT**: Run `python -m black`, `isort`, and `flake8` on modified files.
+            4. **VERIFY**: Run `pytest --cov`. If coverage < 90%, you MUST write more tests. 
+            5. **STOP LOOPING**: If a command fails twice, you MUST ANALYZE and MODIFY code/tests before a 3rd attempt.
 
-            PHASE 2: SEQUENTIAL EXECUTION
-            1. **Execute**: Follow your task list step-by-step.
-            2. **Batching**: Only perform ONE `write_file` call per turn, but include all necessary logic/docstring changes for that file in that single call. 
-            3. **Test Skeleton**: If the test file is missing, you MUST CREATE it before attempting to run tests.
-
-            PHASE 3: CLEANUP & VALIDATION
-            1. **Consolidated Tooling**: Chain your cleanup commands in one turn if possible: `python -m black <path> && python -m isort <path> && python -m flake8 <path>`.
-            2. **Fix & Verify**: If `flake8` fails, fix the code and RE-RUN the cleanup.
-
-            PHASE 4: TESTING & COVERAGE
-            1. **Verify**: Run `pytest` with coverage. Goal: 95% coverage on the source file.
-            2. **Report**: Your final response MUST include the final coverage percentage.
-            3. **Finalize**: Output "TASK_FINISHED" only when coverage is met and linting passes.
-
-            CRITICAL SAFETY & COST CONTROL:
-            - **STABILITY**: Once docstrings and logic are verified by tests, DO NOT modify them for cosmetic reasons.
-            - **ANTI-LOOP**: If you are stuck on a linting error for more than 2 turns, STOP and report the deadlock.
-            - **NO PIP**: Do NOT run `pip install`.
-            - **ROUTING**: NEVER modify FastAPI router prefixes or mounting logic (e.g., `APIRouter(prefix=...)`).
-            - **MANDATORY**: Use `python -m <tool>` for black, isort, and flake8.
+            CRITICAL: Output "TASK_FINISHED" ONLY when 90% coverage is reached and linting passes.
             """
 
-            # Initial Prompt
+            # Initialize Model
+            model = genai.GenerativeModel(
+                model_name="gemini-3.0-flash-preview",
+                tools=gemini_tools,
+                system_instruction=system_instruction,
+            )
+
+            # Start Chat
+            chat = model.start_chat()
+
+            # Initial Prompt - HARD REQ for write_file and coverage
             print("🤖 Agent Thinking...")
-            response = await chat.send_message_async(system_instruction)
+            plan_filename = (
+                f"{os.path.basename(target_file)}_plan.md"
+                if target_file
+                else "general_plan.md"
+            )
+            plan_path = os.path.join(plans_dir, plan_filename)
+            initial_prompt = (
+                f"1. Read {target_file}.\n"
+                f"2. Identify the corresponding test file in `{test_root}`.\n"
+                f"3. Use 'write_file' to save a plan in '{plan_path}'.\n"
+                "4. Your plan MUST include steps for reaching 90% coverage.\n"
+                "5. Proceed ONLY after the plan is saved."
+            )
+            response = await chat.send_message_async(initial_prompt)
 
             # Loop for Tool Calls
             max_turns = (
@@ -235,10 +253,25 @@ async def run_agent(goal: str, target_file: str = None):
                         except Exception as fallback_e:
                             print(f"  ❌ CRITICAL: Fallback failed too: {fallback_e}")
                             break
-
                 else:
                     # No tool calls, just text response
-                    agent_text = response.text
+                    try:
+                        agent_text = response.text
+                    except (ValueError, AttributeError):
+                        # Safely try to iterate over parts
+                        try:
+                            agent_text = "".join(
+                                part.text for part in response.parts if part.text
+                            )
+                        except (ValueError, AttributeError):
+                            agent_text = ""
+
+                    if not agent_text:
+                        print(
+                            "⚠️ No text or tool calls returned by the model. Stopping."
+                        )
+                        break
+
                     print(f"🤖 Agent: {agent_text}")
 
                     # Robust completion check (case-insensitive)

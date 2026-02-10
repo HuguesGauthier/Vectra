@@ -3,6 +3,7 @@ import sys
 import asyncio
 import glob
 import subprocess
+from datetime import datetime
 from typing import List
 
 try:
@@ -17,6 +18,14 @@ except ImportError:
 mcp = FastMCP("VectraRefactorAgent")
 
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp_server.log")
+
+
+def log_message(message: str):
+    """Log a message with a timestamp."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {message}\n")
+
 
 # --- TOOLS ---
 
@@ -93,8 +102,7 @@ async def run_command(command: str) -> str:
     """Run a shell command and return output. Use for git, linters, pytest."""
     try:
         # Log command start
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"Running command: {command}\n")
+        log_message(f"Running command: {command}")
 
         # Prepare environment with venv Scripts in PATH
         env = os.environ.copy()
@@ -133,14 +141,12 @@ async def run_command(command: str) -> str:
         output = f"STDOUT:\n{stdout_text}\nSTDERR:\n{stderr_text}"
 
         # Log completion
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"Command finished. Return code: {process.returncode}\n")
+        log_message(f"Command finished. Return code: {process.returncode}")
 
         return output
     except Exception as e:
         error_msg = f"Error running command: {str(e)}"
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(f"{error_msg}\n")
+        log_message(error_msg)
         return error_msg
 
 

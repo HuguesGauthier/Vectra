@@ -38,13 +38,11 @@ async def login_access_token(
         TechnicalError: If an unexpected error occurs during authentication.
     """
     try:
-        # P1 Fix: Use injected service, no direct DB access here
         return await auth_service.authenticate(form_data.username, form_data.password)
 
     except (FunctionalError, TechnicalError):
         # Re-raise known exceptions to be handled by global exception handlers
         raise
     except Exception as e:
-        # P2 Fix: Clean logging handled in Exception Handler ideally, but keeping context here
         logger.error(f"Login failed unexpectedly: {e}", exc_info=True)
         raise TechnicalError("Login failed")

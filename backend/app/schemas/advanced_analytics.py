@@ -49,6 +49,7 @@ class SessionDistribution(BaseModel):
 class TrendingTopic(BaseModel):
     """Popular question/topic."""
 
+    topic: str
     canonical_text: str
     frequency: int
     variation_count: int

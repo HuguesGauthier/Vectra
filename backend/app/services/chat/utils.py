@@ -1,10 +1,7 @@
 import json
 from typing import Any, Dict, Optional
 
-from llama_index.llms.google_genai import GoogleGenAI
-from llama_index.llms.mistralai import MistralAI
-from llama_index.llms.ollama import Ollama
-from llama_index.llms.openai import OpenAI
+from llama_index.core.llms import LLM
 
 from app.core.exceptions import ConfigurationError
 
@@ -31,9 +28,13 @@ class LLMFactory:
         llm = None
 
         if provider_clean == PROVIDER_GEMINI:
+            from llama_index.llms.google_genai import GoogleGenAI
+
             full_model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
             llm = GoogleGenAI(model=full_model_name, api_key=api_key, temperature=temperature)
         elif provider_clean == PROVIDER_OPENAI:
+            from llama_index.llms.openai import OpenAI
+
             # FIX: Enable stream_options to receive token usage in streaming mode
             llm = OpenAI(
                 model=model_name,
@@ -42,8 +43,12 @@ class LLMFactory:
                 additional_kwargs={"stream_options": {"include_usage": True}},
             )
         elif provider_clean == PROVIDER_MISTRAL:
+            from llama_index.llms.mistralai import MistralAI
+
             llm = MistralAI(model=model_name, api_key=api_key, temperature=temperature)
         elif provider_clean == PROVIDER_OLLAMA:
+            from llama_index.llms.ollama import Ollama
+
             # For Ollama, api_key is typically not needed but we handle base_url via factory args if possible,
             # or rely on default/settings. Ideally, base_url should be passed or we assume "api_key" param holds URL if needed?
             # Actually, create_llm signature has api_key. We can misuse it or add kwargs.

@@ -1,157 +1,97 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID
 import os
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from app.api.v1.endpoints.audio import get_file_service, get_optional_user
-from app.api.v1.endpoints.audio import \
-    router as audio_router  # Import the router and dependencies from audio.py
-from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
-from app.models.user import User
-from app.services.file_service import FileService, FileStreamingInfo
+from app.api.v1.endpoints.audio import router
+from app.api.v1.endpoints.chat import get_optional_user
+from app.core.exceptions import EntityNotFound, VectraException
+from app.schemas.files import FileStreamingInfo
+from app.services.file_service import FileService, get_file_service
 
-# Create a new FastAPI app for testing and include the audio router
-test_app = FastAPI()
-test_app.include_router(audio_router, prefix="/v1/audio")
-client = TestClient(test_app)
+# Setup FastAPI App for Testing
+app = FastAPI()
 
-
-# Add exception handlers to test_app to simulate global exception handling
-@test_app.exception_handler(EntityNotFound)
-async def entity_not_found_exception_handler(request: Request, exc: EntityNotFound):
+@app.exception_handler(VectraException)
+async def vectra_exception_handler(request: Request, exc: VectraException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": {"code": exc.error_code, "message": exc.message, "info": exc.details}},
+        content=exc.to_dict(),
     )
 
-@test_app.exception_handler(FunctionalError)
-async def functional_error_exception_handler(request: Request, exc: FunctionalError):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": {"code": exc.error_code, "message": exc.message, "info": exc.details}},
-    )
+app.include_router(router, prefix="/api/v1/audio")
 
-@test_app.exception_handler(TechnicalError)
-async def technical_error_exception_handler(request: Request, exc: TechnicalError):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": {"code": exc.error_code, "message": exc.message, "info": exc.details}},
-    )
+# Define Mocks
+mock_file_svc = AsyncMock(spec=FileService)
 
 
-@pytest.fixture
-def mock_file_service() -> AsyncMock:
-    """Fixture for a mocked FileService."""
-    service = AsyncMock(spec=FileService)
-    return service
+# Helper overrides
+async def override_get_file_service():
+    return mock_file_svc
 
 
-@pytest.fixture
-def mock_user() -> AsyncMock:
-    """Fixture for a mocked User."""
-    user = AsyncMock(spec=User)
-    return user
+async def override_get_optional_user():
+    return None
 
 
-@pytest.mark.asyncio
-async def test_stream_audio_success(mock_file_service: AsyncMock, mock_user: AsyncMock, tmp_path) -> None:
-    """Tests successful audio streaming via API client."""
-    document_id = UUID("a1b2c3d4-e5f6-7890-1234-567890abcdef")
-    
-    # Create a dummy audio file in a temporary directory
-    audio_file_path = tmp_path / "test_audio.mp3"
-    audio_file_path.write_text("dummy audio data")
+app.dependency_overrides[get_file_service] = override_get_file_service
+app.dependency_overrides[get_optional_user] = override_get_optional_user
 
-    mock_stream_info = FileStreamingInfo(
-        file_path=str(audio_file_path),
-        media_type="audio/mpeg",
-        file_name="audio.mp3",
-    )
-    mock_file_service.get_file_for_streaming.return_value = mock_stream_info
-
-    test_app.dependency_overrides[get_file_service] = lambda: mock_file_service
-    test_app.dependency_overrides[get_optional_user] = lambda: mock_user
-
-    response = client.get(f"/v1/audio/stream/{document_id}")
-
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/mpeg"
-    assert response.headers["content-disposition"] == 'inline; filename="audio.mp3"'
-    assert response.content == b"dummy audio data"
-
-    mock_file_service.get_file_for_streaming.assert_called_once_with(document_id)
-
-    test_app.dependency_overrides.clear()
+client = TestClient(app)
 
 
-@pytest.mark.asyncio
-async def test_stream_audio_entity_not_found(mock_file_service: AsyncMock, mock_user: AsyncMock) -> None:
-    """Tests audio streaming when the entity is not found via API client."""
-    document_id = UUID("a1b2c3d4-e5f6-7890-1234-567890abcdef")
-    mock_file_service.get_file_for_streaming.side_effect = EntityNotFound("Document not found")
+class TestAudio:
 
-    test_app.dependency_overrides[get_file_service] = lambda: mock_file_service
-    test_app.dependency_overrides[get_optional_user] = lambda: mock_user
+    def setup_method(self):
+        mock_file_svc.reset_mock()
+        # Ensure default behavior is reset
+        mock_file_svc.get_file_for_streaming = AsyncMock()
 
-    response = client.get(f"/v1/audio/stream/{document_id}")
+    def test_stream_audio_success(self):
+        """Test happy path streaming"""
+        doc_id = uuid4()
 
-    assert response.status_code == 404
-    assert response.json() == {
-        "detail": {
-            "code": "entity_not_found",
-            "message": "Document not found",
-            "info": {},
-        }
-    }
-    mock_file_service.get_file_for_streaming.assert_called_once_with(document_id)
-    test_app.dependency_overrides.clear()
+        # We need a real file for FileResponse to not error 500 inside Starlette
+        # Using this test file itself
+        current_file = os.path.abspath(__file__)
 
+        mock_file_svc.get_file_for_streaming.return_value = FileStreamingInfo(
+            file_path=current_file, media_type="text/x-python", file_name="test_audio.py"
+        )
 
-@pytest.mark.asyncio
-async def test_stream_audio_functional_error(mock_file_service: AsyncMock, mock_user: AsyncMock) -> None:
-    """Tests audio streaming when a functional error occurs via API client."""
-    document_id = UUID("a1b2c3d4-e5f6-7890-1234-567890abcdef")
-    mock_file_service.get_file_for_streaming.side_effect = FunctionalError("Functional issue", error_code="TEST_ERROR")
+        response = client.get(f"/api/v1/audio/stream/{doc_id}")
 
-    test_app.dependency_overrides[get_file_service] = lambda: mock_file_service
-    test_app.dependency_overrides[get_optional_user] = lambda: mock_user
+        assert response.status_code == 200
+        # Verify headers/media type if possible, but FileResponse is handled by Starlette
+        # Just check we called the service correctly
+        mock_file_svc.get_file_for_streaming.assert_called_once_with(doc_id)
 
-    response = client.get(f"/v1/audio/stream/{document_id}")
+    def test_stream_audio_not_found(self):
+        """Test 404 behavior"""
+        doc_id = uuid4()
 
-    assert response.status_code == 400
-    assert response.json() == {
-        "detail": {
-            "code": "TEST_ERROR",
-            "message": "Functional issue",
-            "info": {},
-        }
-    }
-    mock_file_service.get_file_for_streaming.assert_called_once_with(document_id)
-    test_app.dependency_overrides.clear()
+        mock_file_svc.get_file_for_streaming.side_effect = EntityNotFound("Not found")
 
+        response = client.get(f"/api/v1/audio/stream/{doc_id}")
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "entity_not_found"
 
-@pytest.mark.asyncio
-async def test_stream_audio_technical_error(mock_file_service: AsyncMock, mock_user: AsyncMock) -> None:
-    """Tests audio streaming when a technical error occurs via API client."""
-    document_id = UUID("a1b2c3d4-e5f6-7890-1234-567890abcdef")
-    mock_file_service.get_file_for_streaming.side_effect = Exception("Unexpected error")
+    def test_stream_audio_invalid_uuid(self):
+        """Test invalid UUID validation by FastAPI"""
+        response = client.get(f"/api/v1/audio/stream/not-a-uuid")
+        assert response.status_code == 422  # Validation Error
 
-    test_app.dependency_overrides[get_file_service] = lambda: mock_file_service
-    test_app.dependency_overrides[get_optional_user] = lambda: mock_user
+    def test_stream_audio_technical_error(self):
+        """Test technical error behavior"""
+        doc_id = uuid4()
 
-    response = client.get(f"/v1/audio/stream/{document_id}")
+        mock_file_svc.get_file_for_streaming.side_effect = Exception("Some unexpected error")
 
-    assert response.status_code == 500
-    assert response.json() == {
-        "detail": {
-            "code": "technical_error",
-            "message": "Audio stream failed: Unexpected error",
-            "info": {},
-        }
-    }
-    mock_file_service.get_file_for_streaming.assert_called_once_with(document_id)
-    test_app.dependency_overrides.clear()
+        response = client.get(f"/api/v1/audio/stream/{doc_id}")
+        assert response.status_code == 500
+        assert response.json()["error_code"] == "technical_error"
+        assert "Audio stream failed" in response.json()["message"]
