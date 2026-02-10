@@ -10,7 +10,7 @@
       </div>
 
       <!-- Stepper Header -->
-      <div class="bg-primary q-px-xl q-pt-md">
+      <div class="bg-primary q-px-sm">
         <q-stepper
           v-model="step"
           ref="stepper"
@@ -20,6 +20,7 @@
           alternative-labels
           animated
           flat
+          dense
           class="bg-transparent"
         >
           <q-step
@@ -41,7 +42,7 @@
       </div>
 
       <!-- Content Area -->
-      <div class="col scroll q-pa-lg relative-position bg-primary hide-scrollbar">
+      <div class="col scroll q-pl-lg q-pr-lg relative-position bg-primary hide-scrollbar">
         <!-- Step 1: Connector Type Selection -->
         <ConnectorTypeStep v-if="step === 1" v-model="selectedType" />
 
@@ -303,9 +304,6 @@ import { Connector } from 'src/models/Connector';
 import { ConnectorType, ScheduleType } from 'src/models/enums';
 import FolderForm from './forms/FolderForm.vue';
 import SqlForm from './forms/SqlForm.vue';
-import VannaSqlForm from './forms/VannaSqlForm.vue';
-import SharePointForm from './forms/SharePointForm.vue';
-import ConfluenceForm from './forms/ConfluenceForm.vue';
 import ConnectorFileForm from './forms/ConnectorFileForm.vue';
 import SmartExtractionConfig from './fields/SmartExtractionConfig.vue';
 import geminiLogo from 'src/assets/gemini_logo.svg';
@@ -416,10 +414,7 @@ const aiProviders = computed(() => [
 
 // Forms mapping
 const forms: Record<string, Component> = {
-  sharepoint: SharePointForm,
-  confluence: ConfluenceForm,
   sql: SqlForm,
-  vanna_sql: VannaSqlForm,
   local_folder: FolderForm,
   local_file: ConnectorFileForm,
 };
@@ -639,6 +634,11 @@ async function loadSettings() {
 </script>
 
 <style scoped>
+/* Quasar Overrides */
+:deep(.q-stepper__step-inner) {
+  padding-bottom: 0 !important;
+}
+
 .bg-dark-page {
   background-color: #121212;
 }
