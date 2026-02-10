@@ -182,9 +182,7 @@ class AnalyticsService:
         Returns:
             List[StepBreakdown]: A list of StepBreakdown objects.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_step_breakdown(self._get_cutoff_time(days=days))
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_step_breakdown(self._get_cutoff_time(days=days)))
         return [self._map_step_row(row) for row in rows]
 
     async def get_cache_metrics(self, hours: int) -> Optional[CacheMetrics]:
@@ -196,16 +194,12 @@ class AnalyticsService:
         Returns:
             Optional[CacheMetrics]: The cache metrics, or None if no data is available.
         """
-        row = await self._execute_repo_task(
-            lambda repo: repo.get_cache_stats(self._get_cutoff_time(hours=hours))
-        )
+        row = await self._execute_repo_task(lambda repo: repo.get_cache_stats(self._get_cutoff_time(hours=hours)))
         if not row or not getattr(row, "total_requests", 0):
             return None
         return self._calculate_cache_metrics(row, hours)
 
-    async def get_trending_topics(
-        self, assistant_id: Optional[UUID], limit: int
-    ) -> List[TrendingTopic]:
+    async def get_trending_topics(self, assistant_id: Optional[UUID], limit: int) -> List[TrendingTopic]:
         """Fetch the most frequently asked topics.
 
         Args:
@@ -215,14 +209,10 @@ class AnalyticsService:
         Returns:
             List[TrendingTopic]: A list of TrendingTopic objects.
         """
-        topics = await self._execute_repo_task(
-            lambda repo: repo.get_trending_topics(limit, assistant_id)
-        )
+        topics = await self._execute_repo_task(lambda repo: repo.get_trending_topics(limit, assistant_id))
         return [self._map_trending_topic(t) for t in topics]
 
-    async def get_topic_diversity(
-        self, assistant_id: Optional[UUID]
-    ) -> Optional[TopicDiversity]:
+    async def get_topic_diversity(self, assistant_id: Optional[UUID]) -> Optional[TopicDiversity]:
         """Calculate a diversity score for topics.
 
         Args:
@@ -231,9 +221,7 @@ class AnalyticsService:
         Returns:
             Optional[TopicDiversity]: The topic diversity metrics, or None if no data is available.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_topic_frequencies(assistant_id)
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_topic_frequencies(assistant_id))
         if not rows:
             return None
         return self._calculate_diversity_metrics(rows)
@@ -276,9 +264,7 @@ class AnalyticsService:
         Returns:
             List[SessionDistribution]: A list of SessionDistribution objects.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_session_counts(self._get_cutoff_time(days=days))
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_session_counts(self._get_cutoff_time(days=days)))
         return self._calculate_session_distribution(rows)
 
     async def get_document_utilization(self, days: int) -> List[DocumentUtilization]:
@@ -304,9 +290,7 @@ class AnalyticsService:
         Returns:
             Optional[RerankingImpact]: The reranking impact metrics, or None if no data is available.
         """
-        row = await self._execute_repo_task(
-            lambda repo: repo.get_reranking_stats(self._get_cutoff_time(hours=hours))
-        )
+        row = await self._execute_repo_task(lambda repo: repo.get_reranking_stats(self._get_cutoff_time(hours=hours)))
         if row and getattr(row, "reranking_count", 0) > 0:
             return self._map_reranking_impact(row)
         return None
@@ -334,9 +318,7 @@ class AnalyticsService:
         Returns:
             List[UserStat]: A list of UserStat objects.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_user_usage_stats(self._get_cutoff_time(days=days))
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_user_usage_stats(self._get_cutoff_time(days=days)))
         return [self._map_user_stat_row(row) for row in rows]
 
     # --- Private Helper Methods ---
@@ -367,9 +349,7 @@ class AnalyticsService:
             AnalyticsTask("ttft_percentiles", self.get_ttft_percentiles, (ttft_hours,)),
             AnalyticsTask("step_breakdown", self.get_step_breakdown, (step_days,), []),
             AnalyticsTask("cache_metrics", self.get_cache_metrics, (cache_hours,)),
-            AnalyticsTask(
-                "trending_topics", self.get_trending_topics, (assistant_id, trending_limit), []
-            ),
+            AnalyticsTask("trending_topics", self.get_trending_topics, (assistant_id, trending_limit), []),
             AnalyticsTask("topic_diversity", self.get_topic_diversity, (assistant_id,)),
             AnalyticsTask("assistant_costs", self.get_assistant_costs, (cost_hours,), []),
             AnalyticsTask("document_freshness", self.get_document_freshness, (), []),
@@ -381,15 +361,11 @@ class AnalyticsService:
                 [],
             ),
             AnalyticsTask("reranking_impact", self.get_reranking_impact, (cache_hours,)),
-            AnalyticsTask(
-                "connector_sync_rates", self.get_connector_sync_rates, (step_days,), []
-            ),
+            AnalyticsTask("connector_sync_rates", self.get_connector_sync_rates, (step_days,), []),
             AnalyticsTask("user_stats", self.get_user_stats, (DEFAULT_USER_STATS_DAYS,), []),
         ]
 
-    async def _execute_repo_task(
-        self, task: Callable[[AnalyticsRepository], Coroutine[Any, Any, T]]
-    ) -> T:
+    async def _execute_repo_task(self, task: Callable[[AnalyticsRepository], Coroutine[Any, Any, T]]) -> T:
         """Execute a task with an AnalyticsRepository.
 
         Args:
@@ -413,10 +389,7 @@ class AnalyticsService:
         """
         coroutines = [task.coro(*task.args) for task in tasks]
         results = await asyncio.gather(*coroutines, return_exceptions=True)
-        return {
-            tasks[i].key: self._safe_result(results[i], tasks[i].default)
-            for i in range(len(tasks))
-        }
+        return {tasks[i].key: self._safe_result(results[i], tasks[i].default) for i in range(len(tasks))}
 
     @staticmethod
     def _get_cutoff_time(days: int = 0, hours: int = 0) -> datetime:
@@ -453,9 +426,7 @@ class AnalyticsService:
         Returns:
             Tuple[float, float]: (cost_per_1k_tokens, minutes_saved_per_doc).
         """
-        cost_task = self.settings_service.get_value(
-            "analytics_cost_per_1k_tokens", default=DEFAULT_COST_PER_1K_TOKENS
-        )
+        cost_task = self.settings_service.get_value("analytics_cost_per_1k_tokens", default=DEFAULT_COST_PER_1K_TOKENS)
         min_saved_task = self.settings_service.get_value(
             "analytics_minutes_saved_per_doc", default=DEFAULT_MIN_SAVED_PER_DOC
         )
@@ -466,9 +437,7 @@ class AnalyticsService:
             return float(DEFAULT_COST_PER_1K_TOKENS), float(DEFAULT_MIN_SAVED_PER_DOC)
 
     @staticmethod
-    def _calculate_business_metrics(
-        stats: Dict[str, Any], cost_per_1k: float, min_saved: float
-    ) -> AnalyticsResponse:
+    def _calculate_business_metrics(stats: Dict[str, Any], cost_per_1k: float, min_saved: float) -> AnalyticsResponse:
         """Calculate and build the AnalyticsResponse.
 
         Args:
@@ -552,9 +521,7 @@ class AnalyticsService:
         """
         total_requests = getattr(row, "total_requests", 0)
         cache_hits = getattr(row, "cache_hits", 0)
-        hit_rate = (
-            round((cache_hits / total_requests) * 100, 2) if total_requests > 0 else 0.0
-        )
+        hit_rate = round((cache_hits / total_requests) * 100, 2) if total_requests > 0 else 0.0
 
         return CacheMetrics(
             hit_rate=hit_rate,
@@ -574,8 +541,10 @@ class AnalyticsService:
         Returns:
             TrendingTopic: Mapped trending topic info.
         """
+        canonical_text = getattr(t, "canonical_text", "")
         return TrendingTopic(
-            canonical_text=getattr(t, "canonical_text", ""),
+            topic=canonical_text,
+            canonical_text=canonical_text,
             frequency=getattr(t, "frequency", 0),
             variation_count=len(getattr(t, "raw_variations", [])),
             last_asked=getattr(t, "updated_at", None) or getattr(t, "created_at", None),
@@ -593,9 +562,7 @@ class AnalyticsService:
         """
         input_tokens = int(getattr(row, "input_tokens", 0) or 0)
         output_tokens = int(getattr(row, "output_tokens", 0) or 0)
-        estimated_cost = (input_tokens * COST_PER_INPUT_TOKEN) + (
-            output_tokens * COST_PER_OUTPUT_TOKEN
-        )
+        estimated_cost = (input_tokens * COST_PER_INPUT_TOKEN) + (output_tokens * COST_PER_OUTPUT_TOKEN)
 
         return AssistantCost(
             assistant_id=str(getattr(row, "id", "")),
@@ -726,9 +693,7 @@ class AnalyticsService:
         """
         total_syncs = getattr(row, "total_syncs", 0) or 0
         successful_syncs = getattr(row, "successful_syncs", 0) or 0
-        success_rate = (
-            round((successful_syncs / total_syncs) * 100, 2) if total_syncs > 0 else 0.0
-        )
+        success_rate = round((successful_syncs / total_syncs) * 100, 2) if total_syncs > 0 else 0.0
 
         return ConnectorSyncRate(
             connector_id=str(getattr(row, "id", "")),
@@ -737,9 +702,7 @@ class AnalyticsService:
             total_syncs=total_syncs,
             successful_syncs=successful_syncs,
             failed_syncs=getattr(row, "failed_syncs", 0) or 0,
-            avg_sync_duration=(
-                round(row.avg_duration, 2) if getattr(row, "avg_duration", None) else None
-            ),
+            avg_sync_duration=(round(row.avg_duration, 2) if getattr(row, "avg_duration", None) else None),
         )
 
     @staticmethod
@@ -774,9 +737,7 @@ class AnalyticsService:
 
 
 def get_analytics_service(
-    session_factory: Annotated[
-        async_sessionmaker[AsyncSession], Depends(get_session_factory)
-    ],
+    session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
 ) -> AnalyticsService:
     """FastAPI dependency provider for the AnalyticsService.
