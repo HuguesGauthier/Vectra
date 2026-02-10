@@ -4,7 +4,7 @@ Advanced Analytics API Endpoints.
 
 import asyncio
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -85,12 +85,12 @@ async def get_ttft_percentiles(
     return result
 
 
-@router.get("/trending", response_model=list[TrendingTopic])
+@router.get("/trending", response_model=List[TrendingTopic])
 async def get_trending_topics(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
     assistant_id: Optional[UUID] = Query(None, description="Filter by assistant ID"),
     limit: int = Query(10, ge=1, le=50, description="Number of topics to return"),
-) -> list[TrendingTopic]:
+) -> List[TrendingTopic]:
     """
     Get top trending questions/topics.
 
@@ -105,11 +105,11 @@ async def get_trending_topics(
     return await service.get_trending_topics(assistant_id, limit)
 
 
-@router.get("/costs", response_model=list[AssistantCost])
+@router.get("/costs", response_model=List[AssistantCost])
 async def get_assistant_costs(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
     hours: int = Query(24, ge=1, le=168, description="Analysis period in hours"),
-) -> list[AssistantCost]:
+) -> List[AssistantCost]:
     """
     Get token costs by assistant.
 
@@ -123,10 +123,10 @@ async def get_assistant_costs(
     return await service.get_assistant_costs(hours)
 
 
-@router.get("/freshness", response_model=list[DocumentFreshness])
+@router.get("/freshness", response_model=List[DocumentFreshness])
 async def get_document_freshness(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
-) -> list[DocumentFreshness]:
+) -> List[DocumentFreshness]:
     """
     Get knowledge base document freshness distribution.
 

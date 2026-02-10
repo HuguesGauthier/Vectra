@@ -192,9 +192,7 @@ import { useAiProviders } from 'src/composables/useAiProviders';
 import ConfigurationGeneralFields from './fields/ConfigurationGeneralFields.vue';
 import AccessFields from './fields/AccessFields.vue';
 import FolderConfigFields from './fields/FolderConfigFields.vue';
-import SharePointConfigFields from './fields/SharePointConfigFields.vue';
 import SqlConfigFields from './fields/SqlConfigFields.vue';
-import VannaSqlConfigFields from './fields/VannaSqlConfigFields.vue';
 import FileConfigFields from './fields/FileConfigFields.vue';
 import AdvancedIndexingSettings from './dialogs/AdvancedIndexingSettings.vue';
 import SmartExtractionConfig from './fields/SmartExtractionConfig.vue';
@@ -231,7 +229,6 @@ const showAdvancedSettings = ref(false);
 
 // Type definitions for connector-specific configurations
 type FolderConfig = { path: string; recursive?: boolean };
-type SharePointConfig = { siteUrl: string; tenantId: string; clientSecret: string };
 type SqlConfig = {
   host: string;
   port: number;
@@ -241,7 +238,7 @@ type SqlConfig = {
   password: string;
 };
 type FileConfig = Record<string, never>; // Empty object
-type ConnectorSpecificConfig = FolderConfig | SharePointConfig | SqlConfig | FileConfig;
+type ConnectorSpecificConfig = FolderConfig | SqlConfig | FileConfig;
 
 interface IndexationConfig {
   ai_provider: string;
@@ -282,9 +279,7 @@ const isOpen = computed({
 const typeConfigComponents: Record<string, Component> = {
   local_folder: FolderConfigFields,
   folder: FolderConfigFields, // Legacy
-  sharepoint: SharePointConfigFields,
   sql: SqlConfigFields,
-  vanna_sql: VannaSqlConfigFields,
   local_file: FileConfigFields,
   file: FileConfigFields, // Legacy
 };
@@ -354,12 +349,6 @@ function extractTypeSpecificConfig(connector: Connector): ConnectorSpecificConfi
         path: config.path || '',
         recursive: config.recursive,
       };
-    case 'sharepoint':
-      return {
-        siteUrl: config.siteUrl || '',
-        tenantId: config.tenantId || '',
-        clientSecret: config.clientSecret || '',
-      };
     case 'sql':
       return {
         host: config.host || '',
@@ -368,17 +357,6 @@ function extractTypeSpecificConfig(connector: Connector): ConnectorSpecificConfi
         schema: config.schema || 'vectra',
         user: config.user || '',
         password: config.password || '',
-      };
-    case 'vanna_sql':
-      return {
-        host: config.host || '',
-        port: config.port || 1433,
-        database: config.database || '',
-        schema: config.schema || 'vectra',
-        user: config.user || '',
-        password: config.password || '',
-        ddl_schema: config.ddl_schema || '',
-        trained_at: config.trained_at || '',
       };
     case 'local_file':
     case 'file': // Legacy support

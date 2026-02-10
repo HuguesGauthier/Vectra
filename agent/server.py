@@ -96,13 +96,21 @@ async def run_command(command: str) -> str:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"Running command: {command}\n")
 
+        # Prepare environment with venv Scripts in PATH
+        env = os.environ.copy()
+        python_exe = sys.executable
+        if "Scripts" in python_exe:
+            scripts_dir = os.path.dirname(python_exe)
+            env["PATH"] = scripts_dir + os.pathsep + env.get("PATH", "")
+
         # Use asyncio subprocess for non-blocking execution
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            stdin=asyncio.subprocess.DEVNULL,  # Prevent blocking on stdin
-            cwd=os.getcwd(),  # Ensure we run in the server's working directory (project root)
+            stdin=asyncio.subprocess.DEVNULL,
+            env=env,
+            cwd=os.getcwd(),
         )
         stdout, stderr = await process.communicate()
 

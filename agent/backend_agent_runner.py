@@ -127,7 +127,7 @@ async def run_agent(goal: str, target_file: str = None):
 
             # Initialize Model
             model = genai.GenerativeModel(
-                model_name="gemini-3-flash-preview",  # Upgrade to Gemini 3 Flash for latest capabilities
+                model_name="gemini-2.5-flash",  # Upgrade to Gemini 3 Flash for latest capabilities
                 tools=gemini_tools,
             )
 
@@ -136,98 +136,38 @@ async def run_agent(goal: str, target_file: str = None):
 
             context = ""
             if target_file:
-                context = f"The user wants you to focus ONLY on this file: {target_file}. Read it first."
-
-            # Load Architect Prompt if available
-            architect_prompt = ""
-            # The agent directory is now d:\Vectra\agent. Root is one level up.
-            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            architect_path = os.path.join(root_dir, "prompts", "prompt_architect_P0.md")
-
-            if os.path.exists(architect_path):
-                try:
-                    with open(architect_path, "r", encoding="utf-8") as f:
-                        architect_prompt = f"\n\n--- ARCHITECTURAL STANDARDS (MANDATORY) ---\n{f.read()}\n-------------------------------------------\n"
-                except Exception as e:
-                    print(f"⚠️ Could not read architect prompt: {e}")
+                context = f"The user wants you to focus ONLY on this file: {target_file}. Read it first. All tools (black, isort, flake8, pytest) are available via 'python -m <tool>'."
 
             system_instruction = f"""
             You are an autonomous AI Developer Agent.
             Your goal is: {goal}
             {context}
             
-            {architect_prompt}
+            EXECUTION PLAN (STRICT MANDATORY SEQUENCE):
+            1. Analyze the goal and read the target file.
+            2. Quality Assurance Workflow (YOU MUST FOLLOW THIS EXACT ORDER):
+               a. **Comment**: Add or improve Google-style docstrings for every class and function.
+                  - **Class/Service**: Document high-level purpose using the Google style format.
+                  - **Methods**: Document args, returns, and raises.
+               b. **Format**: Run `python -m black <file_path>` to ensure consistent formatting.
+               c. **Sort Imports**: Run `python -m isort <file_path>` to sort imports.
+               d. **Lint**: Run `python -m flake8 <file_path>`. You MUST fix ALL reported errors before proceeding.
+               e. **Pytest & Coverage**: Run tests with coverage:
+                  `pytest --cov=<source_file_path> --cov-report=term-missing --cov-report=html:reports/coverage/<filename_without_ext> <test_file_path>`
+               f. **Verify**: Goal is **95%** coverage. If tests fail or coverage is low, FIX the code or tests and RE-RUN the ENTIRE sequence starting from step (b) (Black) to ensure the final file is perfectly formatted and linted.
             
-            EXECUTION PLAN:
-            1. Analyze the goal.
-            2. Explore the codebase (if needed) or read the target file.
-            3. Make a plan.
-            4. Start Refactoring/Coding:
-               - **CRITICAL**: DO NOT RUN `pip install`. If a library is missing, FAIL and ask the user.
-               - **CRITICAL**: Stay on the CURRENT git branch. DO NOT create new branches or run `git checkout`.
-               - **CRITICAL**: DO NOT COMMIT ANY CHANGES. The user will review and commit manually.
-               - Run linters on target file first (if applicable).
-               - Read the file.
-               - Review against "ARCHITECTURAL STANDARDS" (P0, P1, P2).
-               - Rewrite the file with improvements:
-                 - **CRITICAL**: Apply ALL P0 (Security) and P1 (Architecture) fixes immediately.
-                 - **CRITICAL**: You are working on an EXISTING PRODUCTION FILE.
-                 - **NEVER** replace complex logic with "simplified examples" or placeholders.
-                 - **ALWAYS** preserve existing imports, classes, functions, and specific logic (like authentication, manager calls) unless explicitly refactoring them.
-                 - **ALWAYS** keep the existing functionality intact. Only ADD types/docstrings/formatting.
-                 - **MANDATORY**: Add Google-style docstrings to every class and function.
-                   - **Class/Service**: Document the high-level purpose and responsibilities using the Google style format.
-                   - **Methods**: Document args, returns, and raises.
-                   Example:
-                   ```python
-                   class MyService:
-                       \"\"\"
-                       Service for handling X operations.
-
-                       Attributes:
-                           db: Database session.
-                       \"\"\"
-
-                   def my_func(param1: int) -> int:
-                       \"\"\"
-                       Description of what the function does.
-
-                       Args:
-                           param1: Description of param1.
-
-                       Returns:
-                           Description of return value.
-                       \"\"\"
-                   ```
-               - **CRITICAL**: DO NOT OUTPUT PYTHON CODE TO CALL TOOLS. Use the provided functions directly.
-                 - **WRONG**: `print(read_file(path="..."))`
-                 - **RIGHT**: Call `read_file` as a tool call.
-               - **MANDATORY**: Run Formatters & Linters:
-                 - `black <file_path>`
-                 - `isort <file_path>`
-                 - `flake8 <file_path>` (Fix any errors it reports!)
-            5. Testing (MANDATORY) utilisant `AsyncMock`:
-               - **Locate Tests**:
-                 - All tests are in `tests`.
-                 - Map the source file to its test file (e.g., `app/services/analytics_service.py` -> `tests/services/test_analytics_service.py`).
-               - **Run Tests with Coverage (REQUIRED)**:
-                 - You MUST run tests using the following command format:
-                   `pytest --cov=<source_file_path> --cov-report=term-missing --cov-report=html:reports/coverage/<filename_without_ext> <test_file_path>`
-               - **Goal**: Ensure tests cover at least **95%** of the code in the target file.
-               - **Iterate**:
-                 - IF TESTS FAIL: Read errors, fix code or tests, run again.
-                 - IF COVERAGE < 95%: Add more test cases.
-                 - REPEAT until pass and coverage goal is met (MAX 3 RETRIES).
-                 - IF failures persist after 3 tries, STOP and output "TASK_FINISHED_WITH_ERRORS".
-            6. Finalize:
-               - **Final Report**: You must include the final coverage percentage in your last message.
-               - **HTML Report**: Inform the user that a detailed HTML report is available in `backend/reports/coverage/<filename>`.
+            3. Finalize:
+               - **MANDATORY**: Your final response MUST include the final coverage percentage.
                - Output "TASK_FINISHED".
             
             CRITICAL INSTRUCTIONS:
-            - You are in a loop. You must explicitly CALL TOOLS to do work.
-            - If tests fail, you MUST fix them. Do not just say you will.
-            - When you are finished, output "TASK_FINISHED" in your final response.
+            - **CRITICAL**: DO NOT RUN `pip install`.
+            - **CRITICAL**: Stay on the CURRENT git branch.
+            - **CRITICAL**: DO NOT COMMIT ANY CHANGES.
+            - **CRITICAL**: YOU ARE WORKING ON AN EXISTING PRODUCTION FILE. NEVER use placeholders.
+            - **CRITICAL**: DO NOT MODIFY FastAPI router configurations (e.g., `APIRouter(prefix=...)`, `router.include_router(...)`) unless explicitly asked to refactor the API structure. Preserving the existing routing prefix is essential to avoid "Not Found" errors.
+            - **MANDATORY**: Use `python -m <tool>` for black, isort, and flake8.
+            - When finished, output "TASK_FINISHED".
             """
 
             # Initial Prompt
@@ -235,7 +175,9 @@ async def run_agent(goal: str, target_file: str = None):
             response = await chat.send_message_async(system_instruction)
 
             # Loop for Tool Calls
-            max_turns = 50  # Increased from 30 to allow for complex tasks
+            max_turns = (
+                200  # Increased to allow for thorough refactoring/testing cycles
+            )
             for i in range(max_turns):
                 # Check for Function Calls
                 function_calls = []

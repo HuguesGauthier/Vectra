@@ -2,22 +2,19 @@ import logging
 from typing import Annotated, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import (APIRouter, Depends, File, HTTPException, Query,
-                     UploadFile, status)
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_current_admin, get_current_user_optional
 from app.models.user import User
-from app.schemas.assistant import (AssistantCreate, AssistantResponse,
-                                   AssistantUpdate)
-from app.services.assistant_service import (AssistantService,
-                                            get_assistant_service)
+from app.schemas.assistant import AssistantCreate, AssistantResponse, AssistantUpdate
+from app.services.assistant_service import AssistantService, get_assistant_service
 
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Assistants"])
 
 
 @router.get("/", response_model=List[AssistantResponse])
@@ -34,24 +31,24 @@ async def get_assistants(
     if no user is authenticated.
 
     Args:
-        service: Assistant service instance.
-        user: Current optional user.
-        skip: Number of records to skip for pagination.
-        limit: Maximum number of records to return.
+        service: The assistant service instance.
+        user: The current optional user. If None, guests are assumed.
+        skip: The number of records to skip for pagination.
+        limit: The maximum number of records to return.
 
     Returns:
         A list of assistant response objects.
 
     Raises:
-        TechnicalError: If fetching assistants fails.
+        TechnicalError: If fetching assistants fails due to an unexpected issue.
     """
     # Filter: If User is missing (Guest), exclude private assistants.
-    exclude_private = user is None
+    exclude_private: bool = user is None
 
     try:
         # TODO: Refactor Service to support DB-side pagination (P1)
         # Passing exclude_private to service layer
-        assistants = await service.get_assistants(exclude_private=exclude_private)
+        assistants: List[AssistantResponse] = await service.get_assistants(exclude_private=exclude_private)
 
         # Manual Slicing (Temporary P2 solution)
         return assistants[skip : skip + limit]
@@ -70,21 +67,25 @@ async def get_assistant(
     """
     Get a single assistant by ID.
 
+    Retrieves an assistant's details. Access control checks are applied:
+    if an assistant requires user authentication, an unauthenticated user will
+    receive a 401 Unauthorized error.
+
     Args:
-        assistant_id: Unique identifier of the assistant.
-        service: Assistant service instance.
-        user: Current optional user.
+        assistant_id: The unique identifier of the assistant.
+        service: The assistant service instance.
+        user: The current optional user.
 
     Returns:
         The assistant response object.
 
     Raises:
-        EntityNotFound: If the assistant does not exist.
-        HTTPException: If authentication is required but user is not logged in.
-        TechnicalError: If fetching the assistant fails.
+        EntityNotFound: If the assistant with the given ID does not exist.
+        HTTPException: If authentication is required but the user is not logged in (401 Unauthorized).
+        TechnicalError: If fetching the assistant fails due to an unexpected issue.
     """
     try:
-        assistant = await service.get_assistant(assistant_id)
+        assistant: Optional[AssistantResponse] = await service.get_assistant(assistant_id)
         if not assistant:
             raise EntityNotFound("Assistant not found")
 
@@ -114,17 +115,19 @@ async def create_assistant(
     """
     Create a new assistant (Admin only).
 
+    Allows an authenticated administrator to create a new assistant.
+
     Args:
-        assistant: Assistant creation data.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
+        assistant: The assistant creation data.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
 
     Returns:
         The created assistant response object.
 
     Raises:
-        FunctionalError: If there is a validation or functional error.
-        TechnicalError: If creating the assistant fails.
+        FunctionalError: If there is a validation or functional error during assistant creation.
+        TechnicalError: If creating the assistant fails due to an unexpected issue.
     """
     try:
         return await service.create_assistant(assistant)
@@ -145,22 +148,24 @@ async def update_assistant(
     """
     Update an existing assistant (Admin only).
 
+    Allows an authenticated administrator to update an existing assistant identified by its ID.
+
     Args:
-        assistant_id: Unique identifier of the assistant to update.
-        assistant: Assistant update data.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
+        assistant_id: The unique identifier of the assistant to update.
+        assistant: The assistant update data.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
 
     Returns:
         The updated assistant response object.
 
     Raises:
-        EntityNotFound: If the assistant does not exist.
-        FunctionalError: If there is a validation or functional error.
-        TechnicalError: If updating the assistant fails.
+        EntityNotFound: If the assistant with the given ID does not exist.
+        FunctionalError: If there is a validation or functional error during the update.
+        TechnicalError: If updating the assistant fails due to an unexpected issue.
     """
     try:
-        updated_assistant = await service.update_assistant(assistant_id, assistant)
+        updated_assistant: Optional[AssistantResponse] = await service.update_assistant(assistant_id, assistant)
         if not updated_assistant:
             raise EntityNotFound("Assistant not found")
         return updated_assistant
@@ -180,17 +185,19 @@ async def delete_assistant(
     """
     Delete an assistant (Admin only).
 
+    Allows an authenticated administrator to delete an existing assistant identified by its ID.
+
     Args:
-        assistant_id: Unique identifier of the assistant to delete.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
+        assistant_id: The unique identifier of the assistant to delete.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
 
     Raises:
-        EntityNotFound: If the assistant does not exist.
-        TechnicalError: If deleting the assistant fails.
+        EntityNotFound: If the assistant with the given ID does not exist.
+        TechnicalError: If deleting the assistant fails due to an unexpected issue.
     """
     try:
-        success = await service.delete_assistant(assistant_id)
+        success: bool = await service.delete_assistant(assistant_id)
         if not success:
             raise EntityNotFound("Assistant not found")
         return  # 204 No Content
@@ -204,30 +211,31 @@ async def delete_assistant(
 @router.post("/{assistant_id}/avatar", response_model=AssistantResponse)
 async def upload_assistant_avatar(
     assistant_id: UUID,
+    service: Annotated[AssistantService, Depends(get_assistant_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
     file: UploadFile = File(...),
-    service: Annotated[AssistantService, Depends(get_assistant_service)] = None,
-    current_user: Annotated[User, Depends(get_current_admin)] = None,
 ) -> AssistantResponse:
     """
     Upload an avatar image for the assistant.
 
+    Allows an authenticated administrator to upload an avatar image for a specific assistant.
+    The service layer handles file processing and ensures assistant existence.
+
     Args:
-        assistant_id: Unique identifier of the assistant.
+        assistant_id: The unique identifier of the assistant.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
         file: The image file to upload.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
 
     Returns:
-        The updated assistant response object with new avatar.
+        The updated assistant response object with the new avatar.
 
     Raises:
-        FunctionalError: If the file is invalid or not an image.
-        TechnicalError: If uploading the avatar fails.
+        FunctionalError: If the uploaded file is invalid or not an image.
+        TechnicalError: If uploading the avatar fails due to an unexpected issue.
     """
     try:
-        # P0: Security Check - Ensure assistant exists implicitly via Service,
-        # but explicit check helps return 404 cleanly before processing file.
-        # Service handles this update logic internally via DB constraint or check.
+        # The service layer implicitly checks for assistant existence and handles file processing.
         return await service.upload_avatar(assistant_id, file)
     except Exception as e:
         logger.error(f"Failed to upload avatar: {e}", exc_info=True)
@@ -245,16 +253,19 @@ async def delete_assistant_avatar(
     """
     Remove the avatar image from the assistant.
 
+    Allows an authenticated administrator to remove the avatar image associated with an assistant.
+
     Args:
-        assistant_id: Unique identifier of the assistant.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
+        assistant_id: The unique identifier of the assistant.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
 
     Returns:
-        The updated assistant response object.
+        The updated assistant response object with the avatar removed.
 
     Raises:
-        TechnicalError: If removing the avatar fails.
+        FunctionalError: If there is a functional error removing the avatar.
+        TechnicalError: If removing the avatar fails due to an unexpected issue.
     """
     try:
         return await service.remove_avatar(assistant_id)
@@ -274,30 +285,35 @@ async def get_assistant_avatar(
     """
     Get the avatar image file.
 
+    Retrieves the avatar image file for a specific assistant.
+    Access control is applied: if the assistant requires authentication,
+    unauthenticated users will receive a 404 Not Found error (for obfuscation).
+
     Args:
-        assistant_id: Unique identifier of the assistant.
-        service: Assistant service instance.
-        user: Current optional user.
+        assistant_id: The unique identifier of the assistant.
+        service: The assistant service instance.
+        user: The current optional user.
 
     Returns:
         The avatar image file response.
 
     Raises:
-        HTTPException: If the avatar or assistant is not found (404).
-        TechnicalError: If fetching the avatar fails.
+        HTTPException: If the avatar or assistant is not found (404), or
+                       if authentication is required but the user is not logged in (404 for obfuscation).
+        EntityNotFound: If the assistant or avatar is genuinely not found.
+        TechnicalError: If fetching the avatar fails due to an unexpected issue.
     """
     try:
-        # P0: Check Access Control before serving file
-        # Retrieve assistant first (lightweight DB fetch)
-        assistant = await service.get_assistant(assistant_id)
+        # Check Access Control before serving file
+        assistant: Optional[AssistantResponse] = await service.get_assistant(assistant_id)
         if not assistant:
-            raise EntityNotFound("Avatar not found")  # Or Assistant not found
+            raise EntityNotFound("Avatar not found")  # Obfuscate assistant not found as avatar not found
 
         if assistant.user_authentication and not user:
-            # Private assistant -> Private avatar
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")  # Obfuscate existence
+            # Private assistant -> Private avatar, obfuscate existence for unauthorized users
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Avatar not found")
 
-        file_path = await service.get_avatar_path(assistant_id)
+        file_path: Optional[str] = await service.get_avatar_path(assistant_id)
         if not file_path:
             raise EntityNotFound("Avatar not found")
 
@@ -318,23 +334,24 @@ async def clear_assistant_cache(
     current_user: Annotated[User, Depends(get_current_admin)],
 ) -> Dict[str, int]:
     """
-    Manually purge the semantic cache for a specific assistant.
+    Manually purge the semantic cache for a specific assistant (Admin only).
 
-    Useful when documents are updated or LLM instructions change.
+    Useful when documents are updated or LLM instructions change to ensure fresh data.
 
     Args:
-        assistant_id: Unique identifier of the assistant.
-        service: Assistant service instance.
-        current_user: Current authenticated admin user.
+        assistant_id: The unique identifier of the assistant.
+        service: The assistant service instance.
+        current_user: The current authenticated admin user.
 
     Returns:
         A dictionary containing the number of deleted cache entries.
 
     Raises:
-        TechnicalError: If clearing the cache fails.
+        FunctionalError: If there is a functional error clearing the cache.
+        TechnicalError: If clearing the cache fails due to an unexpected issue.
     """
     try:
-        count = await service.clear_cache(assistant_id)
+        count: int = await service.clear_cache(assistant_id)
         return {"deleted_count": count}
     except Exception as e:
         logger.error(f"Failed to clear cache for assistant {assistant_id}: {e}", exc_info=True)
