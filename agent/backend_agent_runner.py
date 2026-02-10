@@ -170,7 +170,7 @@ async def run_agent(goal: str, target_file: str = None):
 
             # Initialize Model
             model = genai.GenerativeModel(
-                model_name="gemini-3.0-flash-preview",
+                model_name="gemini-3-flash-preview",
                 tools=gemini_tools,
                 system_instruction=system_instruction,
             )
