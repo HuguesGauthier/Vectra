@@ -1,5 +1,9 @@
+"""
+This module provides API endpoints for streaming audio files.
+"""
+
 import logging
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -45,7 +49,7 @@ async def stream_audio(
         TechnicalError: If an unexpected error occurs during streaming.
     """
     try:
-        stream_info = await file_service.get_file_for_streaming(document_id)
+        stream_info: Any = await file_service.get_file_for_streaming(document_id)
 
         # Access log audit could go here if needed
         # if user: logger.debug(f"Streaming {document_id} for {user.email}")
@@ -54,6 +58,7 @@ async def stream_audio(
             path=stream_info.file_path,
             media_type=stream_info.media_type,
             filename=stream_info.file_name,
+            content_disposition_type="inline",
         )
 
     except (EntityNotFound, FunctionalError):
