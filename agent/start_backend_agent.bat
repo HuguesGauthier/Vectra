@@ -19,7 +19,7 @@ echo [INFO] Installing Agent dependencies...
 "%VENV_PYTHON%" -m pip install -q gitpython google-generativeai python-dotenv mcp
 
 echo [INFO] Running Nightly Agentic Worker...
-"%VENV_PYTHON%" ..\agent\agent_runner.py %*
+"%VENV_PYTHON%" ..\agent\backend_agent_runner.py %*
 
 echo [DONE] Agent Session Finished.
 pause

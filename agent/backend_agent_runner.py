@@ -33,7 +33,7 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 STATE_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "agent_state.json"
+    os.path.dirname(os.path.abspath(__file__)), "backend_agent_state.json"
 )
 
 

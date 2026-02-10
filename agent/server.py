@@ -4,6 +4,7 @@ import asyncio
 import glob
 import subprocess
 from typing import List
+
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
@@ -19,19 +20,22 @@ LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp_server.
 
 # --- TOOLS ---
 
+
 @mcp.tool()
-def list_files(directory: str) -> List[str]:
-    """Recursively list all Python files in a directory."""
+def list_files(directory: str, extensions: List[str] = [".py"]) -> List[str]:
+    """Recursively list files in a directory filtered by extensions."""
     files = []
     cwd = os.getcwd()
-    
+
     # Sanitize directory to prevent traversal above root
     if ".." in directory:
-        return [f"Error: Access denied. You cannot traverse above the root directory ({cwd}). Use '.' for root."]
-        
+        return [
+            f"Error: Access denied. You cannot traverse above the root directory ({cwd}). Use '.' for root."
+        ]
+
     # If directory is just ".", use current dir
     search_dir = directory if directory and directory != "." else cwd
-    
+
     # Handle relative paths properly
     if not os.path.isabs(search_dir):
         search_dir = os.path.join(cwd, search_dir)
@@ -41,14 +45,24 @@ def list_files(directory: str) -> List[str]:
 
     for root, _, filenames in os.walk(search_dir):
         for filename in filenames:
-            if filename.endswith(".py"):
+            if any(filename.endswith(ext) for ext in extensions):
                 full_path = os.path.join(root, filename)
                 # Return relative path to CWD for easier reading by LLM
                 rel_path = os.path.relpath(full_path, cwd)
                 # Filter out garbage
-                if "venv" not in rel_path and "migrations" not in rel_path and "__pycache__" not in rel_path and ".git" not in rel_path:
+                skip_dirs = [
+                    "venv",
+                    "node_modules",
+                    "dist",
+                    ".quasar",
+                    "migrations",
+                    "__pycache__",
+                    ".git",
+                ]
+                if not any(d in rel_path for d in skip_dirs):
                     files.append(rel_path)
     return sorted(files)
+
 
 @mcp.tool()
 def read_file(path: str) -> str:
@@ -61,6 +75,7 @@ def read_file(path: str) -> str:
     except Exception as e:
         return f"Error reading file: {str(e)}"
 
+
 @mcp.tool()
 def write_file(path: str, content: str) -> str:
     """Write content to a file. Overwrites existing content."""
@@ -71,6 +86,7 @@ def write_file(path: str, content: str) -> str:
         return f"Successfully wrote to {path}"
     except Exception as e:
         return f"Error writing file: {str(e)}"
+
 
 @mcp.tool()
 async def run_command(command: str) -> str:
@@ -85,23 +101,29 @@ async def run_command(command: str) -> str:
             command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            stdin=asyncio.subprocess.DEVNULL, # Prevent blocking on stdin
-            cwd=os.getcwd()  # Ensure we run in the server's working directory (project root)
+            stdin=asyncio.subprocess.DEVNULL,  # Prevent blocking on stdin
+            cwd=os.getcwd(),  # Ensure we run in the server's working directory (project root)
         )
         stdout, stderr = await process.communicate()
-        
-        stdout_text = stdout.decode(errors='replace').strip()
-        stderr_text = stderr.decode(errors='replace').strip()
+
+        stdout_text = stdout.decode(errors="replace").strip()
+        stderr_text = stderr.decode(errors="replace").strip()
 
         # Truncate output if too long to prevent token limit errors
         max_len = 100000
         if len(stdout_text) > max_len:
-            stdout_text = stdout_text[:max_len] + f"\n... [Output truncated. Total length: {len(stdout_text)}]"
+            stdout_text = (
+                stdout_text[:max_len]
+                + f"\n... [Output truncated. Total length: {len(stdout_text)}]"
+            )
         if len(stderr_text) > max_len:
-            stderr_text = stderr_text[:max_len] + f"\n... [Output truncated. Total length: {len(stderr_text)}]"
+            stderr_text = (
+                stderr_text[:max_len]
+                + f"\n... [Output truncated. Total length: {len(stderr_text)}]"
+            )
 
         output = f"STDOUT:\n{stdout_text}\nSTDERR:\n{stderr_text}"
-        
+
         # Log completion
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"Command finished. Return code: {process.returncode}\n")
@@ -112,6 +134,7 @@ async def run_command(command: str) -> str:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"{error_msg}\n")
         return error_msg
+
 
 if __name__ == "__main__":
     # Start the server (stdio mode by default for FastMCP)
