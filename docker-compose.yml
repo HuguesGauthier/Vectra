@@ -87,6 +87,7 @@ services:
       - vectra
 
   vectra-pgadmin:
+    profiles: ["debug"]
     image: dpage/pgadmin4
     restart: always
     environment:
@@ -134,6 +135,7 @@ services:
       start_period: 10s
 
   vectra-redis-web:
+    profiles: ["debug"]
     image: rediscommander/redis-commander:latest
     restart: always
     environment:
@@ -150,6 +152,7 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: vectra_ollama
+    restart: always
     ports:
       - "11434:11434"
     volumes:
