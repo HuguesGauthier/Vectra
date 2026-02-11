@@ -1,11 +1,12 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import Depends
 from redis.asyncio import Redis
-from sqlalchemy import text
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -41,7 +42,7 @@ class ChatRedisRepository:
             return
 
         key = self._get_key(session_id)
-        
+
         try:
             async with self.redis.pipeline() as pipe:
                 for message_data in messages:
@@ -50,7 +51,7 @@ class ChatRedisRepository:
                         pipe.rpush(key, message_json)
                     except (TypeError, ValueError) as e:
                         logger.error(f"Failed to serialize message for Redis: {e}")
-                
+
                 pipe.ltrim(key, -self.WINDOW_SIZE, -1)
                 pipe.expire(key, self.TTL_SECONDS)
                 await pipe.execute()
@@ -147,8 +148,8 @@ class ChatPostgresRepository:
     async def clear_history(self, session_id: str) -> bool:
         """Clear Postgres history (e.g. for hard reset)."""
         try:
-            stmt = text("DELETE FROM chat_history WHERE session_id = :session_id")
-            result = await self.db.execute(stmt, {"session_id": session_id})
+            stmt = delete(ChatHistory).where(ChatHistory.session_id == session_id)
+            result = await self.db.execute(stmt)
             await self.db.commit()
             return result.rowcount > 0
         except SQLAlchemyError as e:

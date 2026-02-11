@@ -101,13 +101,15 @@ class ConnectorRepository(SQLRepository[Connector, Any, Any]):
             )
 
             # 3. Delete Connector
-            # Note: We use the base class delete which handles the commit if needed,
-            # but here we want to ensure everything is in one transaction.
-            # SQLRepository.delete calls db.commit(), so we are safe assuming
-            # the sequence of operations is logical.
-            success = await self.delete(connector_id)
+            # We delete directly to ensure atomicity with relations deletion in a single commit
+            stmt = delete(Connector).where(Connector.id == connector_id)
+            result = await self.db.execute(stmt)
 
-            logger.info(f"Successfully deleted connector {connector_id} and all related records.")
+            await self.db.commit()
+
+            success = result.rowcount > 0
+            if success:
+                logger.info(f"Successfully deleted connector {connector_id} and all related records.")
             return success
 
         except SQLAlchemyError as e:

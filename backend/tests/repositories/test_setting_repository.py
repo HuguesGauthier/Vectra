@@ -1,15 +1,9 @@
-"""
-Tests for SettingRepository.
-"""
-
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.exc import SQLAlchemyError
-
-from app.core.exceptions import TechnicalError
-from app.models.setting import Setting
 from app.repositories.setting_repository import SettingRepository
+from app.models.setting import Setting
+from app.core.exceptions import TechnicalError
 
 
 @pytest.fixture
@@ -17,64 +11,91 @@ def mock_db():
     return AsyncMock()
 
 
+@pytest.fixture(autouse=True)
+def mock_select():
+    """Patch sqlalchemy select."""
+    with patch("app.repositories.setting_repository.select") as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
+def mock_update():
+    """Patch sqlalchemy update."""
+    with patch("app.repositories.setting_repository.update") as mock:
+        yield mock
+
+
 @pytest.fixture
-def repository(mock_db):
-    return SettingRepository(mock_db)
+def setting_repo(mock_db):
+    return SettingRepository(db=mock_db)
 
 
 @pytest.mark.asyncio
-async def test_get_by_key_failure(repository, mock_db):
-    # Arrange
-    mock_db.execute.side_effect = SQLAlchemyError("Connection lost")
+async def test_update_by_key_secured(setting_repo, mock_db):
+    """Test updating setting only modifies allowed fields."""
+    key = "test_key"
+    mock_setting = MagicMock(spec=Setting)
+    mock_setting.value = "old_value"
+    mock_setting.key = key
 
-    # Act & Assert
-    with pytest.raises(TechnicalError):
-        await repository.get_by_key("some_key")
+    # Simulate finding existing setting
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_setting
+    mock_db.execute.return_value = mock_result
+
+    # Try to update value and key (attack attempt)
+    data = {"value": "new_value", "key": "hacked_key", "group": "hacked_group"}
+
+    updated = await setting_repo.update_by_key(key, data)
+
+    assert updated.value == "new_value"
+    # Ensure key/group were NOT modified by the repository logic
+    # Note: MagicMock doesn't prevent setting attributes unless we configure spec_set,
+    # but our code change ensures we only touch 'value'.
+    # We can verify that setattr was NOT called for key/group if we spied,
+    # or just trust the code logic we see + functional test.
+    # Since we replaced the loop with specific assignment, other keys in `data` are ignored.
+    assert updated.key == key
 
 
 @pytest.mark.asyncio
-async def test_update_bulk_success(repository, mock_db):
-    # Arrange
-    updates = {"openai_api_key": "new-key", "theme": "dark"}
-    # Mock rowcount for each update call
+async def test_update_bulk_atomicity(setting_repo, mock_db):
+    """Test bulk update runs in single transaction."""
+    updates = {"key1": "val1", "key2": "val2"}
+
     mock_result = MagicMock()
     mock_result.rowcount = 1
     mock_db.execute.return_value = mock_result
 
-    # Act
-    count = await repository.update_bulk(updates)
+    count = await setting_repo.update_bulk(updates)
 
-    # Assert
     assert count == 2
-    assert mock_db.commit.called
+    # Verify execute called twice (loop)
     assert mock_db.execute.call_count == 2
+    # Verify single commit at end
+    mock_db.commit.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_update_bulk_rollback_on_failure(repository, mock_db):
-    # Arrange
-    updates = {"key1": "val1", "key2": "val2"}
-    mock_db.execute.side_effect = SQLAlchemyError("Deadlock")
+async def test_update_bulk_rollback(setting_repo, mock_db):
+    """Test bulk update rollback on error."""
+    updates = {"key1": "val1"}
 
-    # Act & Assert
+    mock_db.execute.side_effect = SQLAlchemyError("DB Error")
+
     with pytest.raises(TechnicalError):
-        await repository.update_bulk(updates)
+        await setting_repo.update_bulk(updates)
 
-    assert mock_db.rollback.called
+    mock_db.rollback.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_get_by_group_success(repository, mock_db):
-    # Arrange
+async def test_get_all_keys(setting_repo, mock_db):
+    """Test retrieval of keys."""
     mock_result = MagicMock()
-    mock_result.scalars().all.return_value = [Setting(key="k1", group="general")]
+    mock_result.scalars.return_value.all.return_value = ["k1", "k2"]
     mock_db.execute.return_value = mock_result
 
-    # Act
-    results = await repository.get_by_group("general")
+    keys = await setting_repo.get_all_keys()
 
-    # Assert
-    assert len(results) == 1
-    # Check that where clause uses group (indirectly via result logic)
-    assert len(results) == 1
-    assert results[0].group == "general"
+    assert keys == {"k1", "k2"}

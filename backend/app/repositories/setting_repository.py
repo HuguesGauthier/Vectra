@@ -61,9 +61,10 @@ class SettingRepository(SQLRepository[Setting, SettingCreate, SettingUpdate]):
             if not setting:
                 return None
 
-            for field, value in data.items():
-                if hasattr(setting, field):
-                    setattr(setting, field, value)
+            # Secure update: Only 'value' is mutable via this method.
+            # 'key' and 'group' are structural identifiers.
+            if "value" in data:
+                setting.value = data["value"]
 
             self.db.add(setting)
             await self.db.commit()
