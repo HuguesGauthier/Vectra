@@ -1,12 +1,6 @@
-"""
-Hybrid Search Strategy - Combines vector search with SQL metadata filtering.
-
-Uses both Qdrant for semantic search and PostgreSQL for metadata filtering.
-Hardened for production with strict validation and dependency injection.
-"""
-
+import asyncio
 import logging
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, List, Optional
 from uuid import UUID
 
 from pydantic import Field
@@ -17,10 +11,16 @@ from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
 from app.services.vector_service import VectorService
-from app.strategies.search.base import (DEFAULT_TOP_K, MAX_QUERY_LENGTH,
-                                        MAX_TOP_K, SearchExecutionError,
-                                        SearchFilters, SearchMetadata,
-                                        SearchResult, SearchStrategy)
+from app.strategies.search.base import (
+    DEFAULT_TOP_K,
+    MAX_QUERY_LENGTH,
+    MAX_TOP_K,
+    SearchExecutionError,
+    SearchFilters,
+    SearchMetadata,
+    SearchResult,
+    SearchStrategy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class HybridStrategy(SearchStrategy):
     1. Resolve Collection (via Connector)
     2. Vectorize Query (via VectorService)
     3. Retrieval (Qdrant)
-    4. Metadata Filtering (PostgreSQL)
+    4. Metadata Filtering (PostgreSQL) - Critical for status enforcement
     5. Fusion/Ranking
     """
 
@@ -50,12 +50,6 @@ class HybridStrategy(SearchStrategy):
     ):
         """
         Initialize with all required dependencies for hybrid RAG.
-
-        Args:
-            vector_repo: Qdrant DAO
-            document_repo: Postgraduate DAO
-            connector_repo: To resolve provider/collection
-            vector_service: To embed queries
         """
         super().__init__()
         self.vector_repo = vector_repo
@@ -70,83 +64,75 @@ class HybridStrategy(SearchStrategy):
         filters: Optional[SearchFilters] = None,
     ) -> list[SearchResult]:
         """
-        Execute hybrid search execution with multi-collection support.
+        Execute hybrid search with multi-collection support and SQL post-filtering.
         """
         self._log_search_start(query, top_k)
 
         try:
-            # 1. Resolve Collections (plural - can be multiple)
+            # 1. Resolve Collections
             collections_info = await self._resolve_collections(filters)
 
             if not collections_info:
-                logger.warning("⚠️ No collections resolved for search")
+                logger.warning("No collections resolved for search")
                 self._log_search_complete(0, 0)
                 return []
 
-            logger.info(
-                f"🔍 Searching across {len(collections_info)} collection(s): {[c['name'] for c in collections_info]}"
-            )
-
-            # 2.5 Build Pre-Filter (ACLs)
+            # 2. Build Pre-Filter (ACLs only for Qdrant)
             qdrant_filter = self._build_qdrant_filter(filters)
 
             # 3. Query all collections in parallel
-            import asyncio
-
             search_tasks = []
-
             for coll_info in collections_info:
                 task = self._search_single_collection(
                     collection_name=coll_info["name"],
                     provider=coll_info["provider"],
                     query=query,
-                    top_k=top_k * CANDIDATE_MULTIPLIER,  # Fetch more for filtering
+                    top_k=top_k * CANDIDATE_MULTIPLIER,
                     qdrant_filter=qdrant_filter,
                 )
                 search_tasks.append(task)
 
-            # Execute in parallel
             all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
 
-            # 4. Merge results from all collections
+            # 4. Merge and Initial Filter
             merged_results = []
             for idx, result in enumerate(all_results):
                 if isinstance(result, Exception):
-                    logger.error(f"❌ Error searching collection {collections_info[idx]['name']}: {result}")
+                    logger.error(f"Error searching collection {collections_info[idx]['name']}: {result}")
                     continue
-
-                logger.info(f"🔍 Collection '{collections_info[idx]['name']}' returned {len(result)} results")
                 merged_results.extend(result)
 
             if not merged_results:
-                logger.warning("⚠️ No results from any collection")
                 self._log_search_complete(0, 0)
                 return []
 
-            # 5. Sort by score (descending) and apply top_k
+            # 5. SQL Post-Filtering (P0 Security: Enforce current DB status)
+            effective_filters = filters or SearchFilters()
+            merged_results = await self._apply_sql_filters(merged_results, effective_filters)
+
+            # 6. Sort and Limit
             merged_results.sort(key=lambda x: x.score, reverse=True)
             final_results = merged_results[:top_k]
 
-            logger.info(f"✅ Merged {len(merged_results)} total results, returning top {len(final_results)}")
             self._log_search_complete(len(final_results), 0)
             return final_results
 
         except Exception as e:
             self._log_search_error(e)
-            raise SearchExecutionError(f"Hybrid search failed: {e}") from e
+            if isinstance(e, SearchExecutionError):
+                raise
+            raise SearchExecutionError(f"Hybrid search pipeline failed: {e}") from e
 
     async def _search_single_collection(
         self, collection_name: str, provider: str, query: str, top_k: int, qdrant_filter: Optional[Any]
     ) -> list[SearchResult]:
         """
-        Search a single collection with the appropriate embedding model.
+        Search a single collection with provider-specific embeddings.
         """
         try:
-            # Vectorize Query with matching provider
             embedding_model = await self.vector_service.get_embedding_model(provider=provider)
             query_vector = await embedding_model.aget_query_embedding(query)
 
-            # Retrieve Candidates
             candidates = await self.vector_repo.search(
                 collection_name=collection_name,
                 query_vector=query_vector,
@@ -156,152 +142,120 @@ class HybridStrategy(SearchStrategy):
                 with_vectors=False,
             )
 
-            logger.info(f"🔍 Collection '{collection_name}' (provider: {provider}): {len(candidates)} candidates")
-            logger.debug(f"   Query vector length: {len(query_vector)}")
-
-            # Map to SearchResults
             results = []
             for hit in candidates:
                 payload = hit.payload or {}
-                doc_id_str = payload.get("connector_document_id")
+                doc_id_val = payload.get("connector_document_id")
 
-                if not doc_id_str:
-                    logger.warning(f"Vector hit missing document_id: {hit.id}")
+                if not doc_id_val:
                     continue
 
                 try:
-                    from uuid import UUID
-
-                    # Handle both string and UUID objects
-                    if isinstance(doc_id_str, UUID):
-                        doc_id = doc_id_str
-                    else:
-                        doc_id = UUID(doc_id_str)
-
-                    # Extract content
+                    doc_id = UUID(doc_id_val) if isinstance(doc_id_val, str) else doc_id_val
                     content = payload.get("_node_content") or payload.get("content") or "No content available"
 
-                    # Create validated result
-                    result = SearchResult(
-                        document_id=doc_id,
-                        score=hit.score,
-                        content=content[:100000],  # Truncate safety
-                        metadata=SearchMetadata(
-                            file_name=payload.get("file_name"),
-                            file_path=payload.get("file_path"),
-                            connector_name=payload.get("connector_name"),
-                        ),
+                    results.append(
+                        SearchResult(
+                            document_id=doc_id,
+                            score=hit.score,
+                            content=content[:100000],
+                            metadata=SearchMetadata(
+                                file_name=payload.get("file_name"),
+                                file_path=payload.get("file_path"),
+                                connector_name=payload.get("connector_name"),
+                            ),
+                        )
                     )
-                    results.append(result)
-                except (ValueError, TypeError) as e:
-                    logger.warning(f"⚠️ Skipping result - Error: {e.__class__.__name__}: {str(e)}")
+                except (ValueError, TypeError):
                     continue
 
             return results
 
         except Exception as e:
-            logger.error(f"❌ Error searching collection '{collection_name}': {e}", exc_info=True)
+            logger.error(f"Collection search failed ({collection_name}): {e}")
             raise
 
     async def _resolve_collections(self, filters: Optional[SearchFilters]) -> list[dict]:
         """
-        Determine which Qdrant collections to search based on assistant's linked connectors.
-        Returns list of dicts with 'name' and 'provider' keys.
+        Determine Qdrant collections based on assistant or connector filters.
         """
         collections = []
 
-        # Case 1: Assistant provided with linked connectors
         if filters and filters.assistant and hasattr(filters.assistant, "linked_connectors"):
-            linked_connectors = filters.assistant.linked_connectors
-
-            if not linked_connectors:
-                # Assistant has no connectors, use default
-                logger.warning("⚠️ Assistant has no linked connectors, using default collection")
+            linked = filters.assistant.linked_connectors
+            if not linked:
                 default_provider = "gemini"
-                collection_name = await self.vector_service.get_collection_name(provider=default_provider)
-                return [{"name": collection_name, "provider": default_provider}]
+                name = await self.vector_service.get_collection_name(provider=default_provider)
+                return [{"name": name, "provider": default_provider}]
 
-            # Extract unique providers from all linked connectors
-            providers_seen = set()
-            for connector in linked_connectors:
-                provider = connector.configuration.get("ai_provider", "gemini")
-
-                if provider not in providers_seen:
-                    collection_name = await self.vector_service.get_collection_name(provider=provider)
-                    collections.append({"name": collection_name, "provider": provider})
-                    providers_seen.add(provider)
-
+            seen = set()
+            for conn in linked:
+                provider = conn.configuration.get("ai_provider", "gemini")
+                if provider not in seen:
+                    name = await self.vector_service.get_collection_name(provider=provider)
+                    collections.append({"name": name, "provider": provider})
+                    seen.add(provider)
             return collections
 
-        # Case 2: Single connector_id provided (legacy path)
         if filters and filters.connector_id:
             connector = await self.connector_repo.get_by_id(filters.connector_id)
             if not connector:
                 raise SearchExecutionError(f"Connector {filters.connector_id} not found")
 
             provider = connector.configuration.get("ai_provider", "gemini")
-            collection_name = await self.vector_service.get_collection_name(provider=provider)
-            return [{"name": collection_name, "provider": provider}]
+            name = await self.vector_service.get_collection_name(provider=provider)
+            return [{"name": name, "provider": provider}]
 
-        # Case 3: No context, use default
-        logger.warning("⚠️ No assistant or connector_id in filters, using default collection")
-        default_provider = "gemini"
-        collection_name = await self.vector_service.get_collection_name(provider=default_provider)
-        return [{"name": collection_name, "provider": default_provider}]
+        # Default
+        provider = "gemini"
+        name = await self.vector_service.get_collection_name(provider=provider)
+        return [{"name": name, "provider": provider}]
 
     async def _apply_sql_filters(self, results: list[SearchResult], filters: SearchFilters) -> list[SearchResult]:
         """
-        Apply SQL-based filtering to vector candidates.
+        Validate vector candidates against current database state.
+        Ensures status and permissions are enforced via PostgreSQL source of truth.
         """
         if not results:
             return []
 
-        # Extract candidate IDs
-        candidate_ids = [r.document_id for r in results]
+        # 1. Batch fetch from SQL (P1: Optimization)
+        doc_ids = [r.document_id for r in results]
+        db_docs = await self.document_repo.get_by_ids(doc_ids)
 
-        # Check status in DB if requested
-        if filters.status:
-            # P1: N+1 Optimization - Fetch valid IDs in one query
-            # We assume document_repo has updated method or we use generic get_by_ids logic
-            # Since proper Repo method might be missing, we'll verify via existence check loops or custom query
-            # For efficiency now, let's filter purely based on what pass validation
+        # Map for O(1) lookup
+        doc_map = {doc.id: doc for doc in db_docs}
 
-            # Using document_repo to validate/filter candidates
-            # "Select ID from documents where ID in candidates AND status = X"
-            # Since we can't write raw SQL here easily without Repo support,
-            # we will iterate or (better) ask for a batch check if Repo supports it.
+        valid_results = []
+        for res in results:
+            doc = doc_map.get(res.document_id)
+            if not doc:
+                continue
 
-            # Current DocumentRepo doesn't have batch check.
-            # We will assume Qdrant payload 'status' is reliable?
-            # NO, SQL is source of truth.
+            # 2. Status Enforcement
+            # Default to INDEXED if status check is desired but status filter not explicitly set,
+            # but usually we only filter if filters.status is present.
+            if filters.status and doc.status != filters.status:
+                continue
 
-            # Fallback P1: Iterate (Sub-optimal but safe) or add Repo method next
-            pass
+            # P1 Security: Ensure we only return indexed content by default in prod
+            if doc.status not in ["INDEXED"]:
+                logger.debug(f"Skipping doc {doc.id} with status {doc.status}")
+                continue
 
-        # Return results (Placeholder for actual SQL interaction which requires Repo update)
-        return results
+            valid_results.append(res)
+
+        return valid_results
 
     @property
     def strategy_name(self) -> str:
         return "Hybrid"
 
     def _build_qdrant_filter(self, filters: Optional[SearchFilters]) -> Optional[models.Filter]:
-        """
-        Construct Qdrant Filter for Pre-Filtering (ACLs).
-        """
-        if not filters:
+        """Construct Qdrant Filter for ACL pre-filtering."""
+        if not filters or not filters.user_acl:
             return None
 
-        conditions = []
-
-        # ACL Filter: Document must allow at least one of the user's groups
-        if filters.user_acl:
-            # P0 Security: If ACL provided, enforce it.
-            # "connector_acl" field in Qdrant is a List[str].
-            # We want to match if ANY of the document's ACLs are in the user's ACL list.
-            conditions.append(models.FieldCondition(key="connector_acl", match=models.MatchAny(any=filters.user_acl)))
-
-        if not conditions:
-            return None
-
-        return models.Filter(must=conditions)
+        return models.Filter(
+            must=[models.FieldCondition(key="connector_acl", match=models.MatchAny(any=filters.user_acl))]
+        )

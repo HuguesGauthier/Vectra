@@ -23,11 +23,12 @@ from app.repositories.chat_history_repository import ChatPostgresRepository
 
 # from app.services.analytics_service import AnalyticsService
 
+from app.core.settings import settings
+
 # Initialize logger
 logger = logging.getLogger(__name__)
 
-# Constants
-LOG_RETENTION_DAYS = 30
+# Constants (Legacy fallbacks, preferably use settings)
 HEARTBEAT_INTERVAL_SECONDS = 30
 LOG_CLEANUP_HOUR_UTC = 3  # 3 AM UTC
 LOG_CLEANUP_DAY = "sun"
@@ -49,7 +50,7 @@ class SchedulerService:
         """
         Starts the AsyncIO scheduler.
         """
-        if self._scheduler and self._is_running:
+        if self._is_running:
             logger.warning("Scheduler is already running.")
             return
 
@@ -79,22 +80,26 @@ class SchedulerService:
                 replace_existing=True,
             )
 
-            # NOTE: business metrics broadcast removed (legacy feature)
-
             self._scheduler.start()
             self._is_running = True
             logger.info("✅ Scheduler started successfully (UTC).")
 
         except Exception as e:
-            logger.error(f"❌ FAIL | SchedulerService.start | Error: {e}", exc_info=True)
-            # Critical infrastructure failure, but we allow app to proceed
+            logger.critical(f"❌ FAIL | SchedulerService.start | Error: {e}", exc_info=True)
+            # P1: We don't crash the app if scheduler fails, but we log it as critical
 
     def shutdown(self):
         """Gracefully shuts down the scheduler."""
-        if self._scheduler and self._is_running:
-            logger.info("Stopping scheduler...")
-            self._scheduler.shutdown()
-            self._is_running = False
+        if self._scheduler:
+            try:
+                if self._scheduler.running:
+                    logger.info("Stopping scheduler...")
+                    self._scheduler.shutdown()
+                self._is_running = False
+            except Exception as e:
+                logger.error(f"Error during scheduler shutdown: {e}")
+            finally:
+                self._scheduler = None
 
     async def cleanup_old_logs(self):
         """
@@ -105,11 +110,12 @@ class SchedulerService:
         logger.info(f"START | {func_name}")
 
         try:
-            # Calculate naive datetime for comparison if DB is naive (common in SQLAlchemy)
-            cutoff_date_aware = datetime.now(timezone.utc) - timedelta(days=LOG_RETENTION_DAYS)
-            cutoff_date = cutoff_date_aware.replace(tzinfo=None)
+            # P1: Standardize on aware datetimes for comparison
+            retention_days = getattr(settings, "LOG_RETENTION_DAYS", 30)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
             async with SessionLocal() as db:
+                # Use standard SQLAlchemy delete statement
                 statement = delete(ErrorLog).where(ErrorLog.timestamp < cutoff_date)
                 result = await db.execute(statement)
                 await db.commit()

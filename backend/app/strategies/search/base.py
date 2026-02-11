@@ -10,8 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Annotated, Any, Optional
 from uuid import UUID
 
-from pydantic import (BaseModel, ConfigDict, Field, field_validator,
-                      model_validator)
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,6 @@ logger = logging.getLogger(__name__)
 MAX_TOP_K = 100
 DEFAULT_TOP_K = 10
 MAX_QUERY_LENGTH = 1000
-MAX_METADATA_KEYS = 50
 
 
 class SearchFilters(BaseModel):

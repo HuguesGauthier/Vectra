@@ -16,8 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
 from app.core.exceptions import TechnicalError
-from app.repositories.base_repository import (DEFAULT_LIMIT, MAX_LIMIT,
-                                              BaseRepository)
+from app.repositories.base_repository import DEFAULT_LIMIT, MAX_LIMIT, BaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +97,18 @@ class SQLRepository(
         except SQLAlchemyError as e:
             logger.error(f"Failed to get {self.model.__name__} {entity_id}: {e}")
             raise TechnicalError(f"Database error retrieving entity: {e}")
+
+    async def get_by_ids(self, entity_ids: List[UUID]) -> List[ModelType]:
+        """Retrieve multiple entities by their IDs in a single batch."""
+        if not entity_ids:
+            return []
+        try:
+            statement = select(self.model).where(self.model.id.in_(entity_ids))
+            result = await self.db.execute(statement)
+            return list(result.scalars().all())
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to get {self.model.__name__} batch: {e}")
+            raise TechnicalError(f"Database error retrieving entities: {e}")
 
     async def get_all(
         self, skip: int = 0, limit: int = DEFAULT_LIMIT, filters: Optional[Dict[str, Any]] = None
