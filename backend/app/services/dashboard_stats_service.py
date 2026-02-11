@@ -5,7 +5,7 @@ Provides real-time aggregated metrics from the database for Connect, Vectorize, 
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import and_, func, or_, select
@@ -70,10 +70,6 @@ class DashboardStatsService:
             logger.error(f"Failed to get connect stats: {e}", exc_info=True)
             return ConnectStats()
 
-        except Exception as e:
-            logger.error(f"Failed to get connect stats: {e}", exc_info=True)
-            return ConnectStats()
-
     async def get_vectorize_stats(self) -> VectorizeStats:
         """
         Aggregate Vectorize pipeline statistics from connectors_documents table.
@@ -130,7 +126,7 @@ class DashboardStatsService:
         """
         try:
             # Get date 30 days ago
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            thirty_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
 
             # Query for chat metrics from last 30 days
             stmt = select(

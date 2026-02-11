@@ -2,7 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.models.assistant import Assistant, AssistantConfiguration
+from app.models.assistant import Assistant
+from app.schemas.assistant import AssistantConfig
 from app.services.chat_service import ChatService
 from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService

@@ -215,3 +215,25 @@ async def test_sync_document_nominal(document_service, mock_doc_repo, mock_ws_ma
     )  # Status change should be reflected in update call not necessarily on object if not refreshed
     mock_doc_repo.update.assert_called_once()
     mock_ws_manager.emit_trigger_document_sync.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_temp_file_security(document_service):
+    """P0 Security: Verify path traversal protection."""
+    traversal_path = "temp_uploads/../../etc/passwd"
+
+    with pytest.raises(FunctionalError) as exc:
+        await document_service.delete_temp_file(traversal_path)
+
+    assert exc.value.error_code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_delete_temp_file_nominal(document_service):
+    """Happy Path: Verify standard deletion."""
+    safe_path = "temp_uploads/my_file.csv"
+
+    with patch.object(document_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete:
+        result = await document_service.delete_temp_file(safe_path)
+        assert result is True
+        mock_delete.assert_awaited_once_with(safe_path)

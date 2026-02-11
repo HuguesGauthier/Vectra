@@ -96,22 +96,19 @@ class ChatService:
 
     async def reset_conversation(self, session_id: str) -> None:
         """
-        Reset conversation by clearing both Redis (hot storage) and Postgres (audit log).
+        Reset conversation by clearing Redis (hot storage).
+        Audit history in Postgres is preserved for analytics/logging.
 
         Args:
             session_id (str): The unique identifier of the chat session.
-
-        Raises:
-            ValueError: If session_id is empty.
         """
         self._validate_session_id(session_id)
 
         logger.info(LOG_RESET_START, session_id)
 
+        # Sequential destruction: we try to clear everything even if one fails
+        # but here we only have hot storage for now.
         await self._clear_hot_storage(session_id)
-        # P0 FIX: User requested to KEEP audit history in DB even on reset.
-        # Only Redis (context) is cleared. Old messages remain in Postgres for 1 year (Purge Policy).
-        # await self._clear_cold_storage(session_id)
 
         logger.info(LOG_RESET_COMPLETE, session_id)
 
@@ -292,13 +289,13 @@ class ChatService:
         """Iterates through processors and yields their output."""
         for processor in processors:
             name = processor.__class__.__name__
-            logger.info(LOG_PIPELINE_START, name)
+            logger.debug(LOG_PIPELINE_START, name)
 
             async for chunk in processor.process(ctx):
                 if chunk:
                     yield chunk
 
-            logger.info(LOG_PIPELINE_END, name)
+            logger.debug(LOG_PIPELINE_END, name)
 
     def _handle_pipeline_error(self, session_id: str, error: Exception) -> str:
         """Logs the critical error and returns a friendly JSON error message."""
@@ -324,5 +321,5 @@ async def get_chat_service(
         query_engine_factory=query_engine_factory,
         chat_repository=chat_repository,
         cache_service=cache_service,
-        trending_service_enabled=True,  # Consider configuring this via settings
+        trending_service_enabled=settings.ENABLE_TRENDING,
     )

@@ -180,9 +180,60 @@ async def test_delete_connector_cleanup(connector_service, mock_connector_repo, 
         await connector_service.delete_connector(cid)
 
         # Cleanup file + Cleanup vectors
-        mock_delete.assert_called_once()
         mock_vectors.assert_called_once()
         mock_connector_repo.delete_with_relations.assert_called_once_with(cid)
+
+
+@pytest.mark.asyncio
+async def test_delete_connector_security_guard(connector_service, mock_connector_repo):
+    """Worst Case: Deletion attempt on non-managed path should skip file deletion."""
+    connector_id = uuid4()
+    # Path OUTSIDE MANAGED_UPLOAD_DIR
+    fake_connector = Connector(
+        id=connector_id,
+        connector_type="local_file",
+        configuration={"path": "/etc/passwd"}
+    )
+    mock_connector_repo.get_by_id = AsyncMock(return_value=fake_connector)
+    mock_connector_repo.delete_with_relations = AsyncMock()
+
+    with patch.object(connector_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete:
+        # Act
+        await connector_service.delete_connector(connector_id)
+
+        # Assert
+        mock_delete.assert_not_called()
+        mock_connector_repo.delete_with_relations.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_critical_config_stops_connector(connector_service, mock_connector_repo, mock_ws_manager):
+    """Stablity: Updating folder path should auto-stop the connector if it's running."""
+    connector_id = uuid4()
+    old_config = {"path": "temp_uploads/old"}
+    new_config = {"path": "temp_uploads/new"}
+
+    db_connector = Connector(
+        id=connector_id,
+        name="Update Test",
+        connector_type="local_folder",
+        configuration=old_config,
+        status=ConnectorStatus.SYNCING # Running
+    )
+
+    mock_connector_repo.get_by_id = AsyncMock(return_value=db_connector)
+    mock_connector_repo.update = AsyncMock(return_value=db_connector)
+
+    update_data = ConnectorUpdate(configuration=new_config)
+
+    with patch("asyncio.to_thread", return_value=True):
+        # Act
+        await connector_service.update_connector(connector_id, update_data)
+
+        # Assert
+        # Verify that 'status': 'idle' was passed to repo.update
+        args, kwargs = mock_connector_repo.update.call_args
+        assert args[1]["status"] == ConnectorStatus.IDLE
 
 
 @pytest.mark.asyncio

@@ -51,11 +51,11 @@ Fournissez le code corrigé.
 - Concentrez-vous sur : Sécurité, Gestion d'erreur, Async correct.
 
 **Étape 3 : Tests (Essentiels)**
--Écrivez un test `pytest` qui couvre le "Happy Path" (cas normal) et le "Worst Case" (erreur critique). Ne visez pas 100% de coverage artificiel, visez les cas qui risquent de casser en prod.
--le fichier de test devra se nommer `test_` + nom du fichier à tester. Si le fichier existe déjà, modifiez-le au besoin. Le dossier de test sera le dossier `backend/tests`.
--Si le fichier contient des tests inutiles, supprimmez-les.
+
+- Écrivez un test `pytest` qui couvre le "Happy Path" (cas normal) et le "Worst Case" (erreur critique). Ne visez pas 100% de coverage artificiel, visez les cas qui risquent de casser en prod.
+- Le fichier de test devra se nommer `test_` + nom du fichier à tester.
+- **STRUCTURE :** Le fichier de test doit impérativement être placé dans le sous-dossier de `backend/tests/` qui correspond au chemin du fichier source dans `backend/app/`. (Exemple: `backend/app/services/chat_service.py` -> `backend/tests/services/test_chat_service.py`).
+- Si le fichier existe déjà, modifiez-le au besoin.
+- Si le fichier contient des tests inutiles ou obsolètes, supprimez-les.
 
 Input Code:
-"""
-[INSÉRER VOTRE CODE ICI]
-"""

@@ -9,7 +9,8 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, ValidationError
 
-from app.core.exceptions import ExternalDependencyError, TechnicalError
+from app.core.exceptions import (ConfigurationError, ExternalDependencyError,
+                                 TechnicalError)
 from app.core.settings import get_settings
 from app.services.settings_service import SettingsService
 

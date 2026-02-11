@@ -209,6 +209,24 @@ async def test_get_topic_diversity_empty_case(service, monkeypatch):
     assert result is None
 
 
+def test_calculate_diversity_metrics_logic(service):
+    """Test the math logic behind topic diversity."""
+    # Arrange
+    # Simulating rows result: frequencies [10, 10] -> perfect diversity among 2 topics
+    rows = [(10,), (10,)]
+
+    # Act
+    result = service._calculate_diversity_metrics(rows)
+
+    # Assert
+    # Total topics = 2, Total scale = 20
+    # Herfindahl = (10/20)^2 + (10/20)^2 = 0.25 + 0.25 = 0.5
+    # Score = 1 - 0.5 = 0.5
+    assert result.diversity_score == 0.5
+    assert result.total_topics == 2
+    assert result.dominant_topic_share == 50.0
+
+
 @pytest.mark.asyncio
 async def test_get_assistant_costs_calculation(service, monkeypatch):
     """Test token cost estimation per assistant."""

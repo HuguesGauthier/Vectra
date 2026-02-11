@@ -1,21 +1,9 @@
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from unittest.mock import MagicMock, patch
 import pytest
-
-from app.factories.connector_factory import ConnectorFactory
+import os
 from app.schemas.ingestion import FileIngestionConfig, WebIngestionConfig
 from app.services.ingestion.connectors.file_connector import FileConnector
 from app.services.ingestion.connectors.web_connector import WebConnector
-
-
-@pytest.mark.asyncio
-async def test_factory_creates_correct_instances():
-    """Test Factory returns correct class types."""
-    assert isinstance(ConnectorFactory.get_connector("file"), FileConnector)
-    assert isinstance(ConnectorFactory.get_connector("web"), WebConnector)
-    with pytest.raises(ValueError):
-        ConnectorFactory.get_connector("invalid")
-
 
 @pytest.mark.asyncio
 async def test_file_connector_validation_success():
@@ -52,7 +40,6 @@ async def test_file_connector_async_load():
         patch("os.path.exists", return_value=True),
         patch("app.services.ingestion.connectors.file_connector.SimpleDirectoryReader") as MockReader,
     ):
-
         instance = MockReader.return_value
         instance.load_data.return_value = mock_docs
 

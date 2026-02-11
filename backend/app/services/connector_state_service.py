@@ -37,21 +37,25 @@ class ConnectorStateService:
 
     async def update_connector_status(self, connector_id: UUID, status: ConnectorStatus) -> None:
         """Update and emit connector status."""
+        logger.info(f"🔄 Updating connector {connector_id} status to {status}")
         await self.connector_repo.update(connector_id, {"status": status})
         await manager.emit_connector_status(connector_id, status)
 
     async def update_document_status(self, doc_id: UUID, status: DocStatus, message: str = "") -> None:
         """Update and emit document status."""
+        logger.info(f"📄 Updating document {doc_id} status to {status}: {message}")
         await self.doc_repo.update(doc_id, {"status": status})
         await manager.emit_document_update(str(doc_id), status, message)
 
     async def mark_connector_failed(self, connector_id: UUID, error: str) -> None:
         """Mark connector as failed with error message."""
+        logger.error(f"❌ Connector {connector_id} failed: {error}")
         await self.connector_repo.update(connector_id, {"status": ConnectorStatus.ERROR, "last_error": error})
         await manager.emit_connector_status(connector_id, ConnectorStatus.ERROR)
 
     async def mark_document_failed(self, doc_id: UUID, error: str) -> None:
         """Mark document as failed with error message."""
+        logger.error(f"❌ Document {doc_id} failed: {error}")
         await self.doc_repo.update(doc_id, {"status": DocStatus.FAILED, "error_message": error})
         await manager.emit_document_update(str(doc_id), DocStatus.FAILED, error)
 
@@ -60,6 +64,7 @@ class ConnectorStateService:
         Set connector to IDLE and emit final status.
         Calculates total doc counts.
         """
+        logger.info(f"🏁 Finalizing connector {connector_id}")
         total_count = await self.doc_repo.count_by_connector(connector_id)
         updated = await self.connector_repo.update(
             connector_id,
@@ -70,11 +75,19 @@ class ConnectorStateService:
                 "last_error": None,
             },
         )
+        
+        if not updated:
+            logger.error(f"⚠️ Failed to finalize connector {connector_id}: not found in DB")
+            return
+
         await manager.emit_connector_status(connector_id, ConnectorStatus.IDLE)
 
         # Emit full state (Pydantic prevents data leaks)
-        resp = ConnectorResponse.model_validate(updated)
-        await manager.emit_connector_updated(resp.model_dump(mode="json"))
+        try:
+            resp = ConnectorResponse.model_validate(updated)
+            await manager.emit_connector_updated(resp.model_dump(mode="json"))
+        except Exception as e:
+            logger.error(f"❌ Failed to emit connector update for {connector_id}: {e}")
 
 
 # Dependency Injection

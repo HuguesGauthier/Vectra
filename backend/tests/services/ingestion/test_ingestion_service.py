@@ -41,7 +41,7 @@ def ingestion_service(mock_db_session, mock_vector_service, mock_settings_servic
 async def test_process_connector_nominal(ingestion_service, mock_db_session):
     """Test standard connector processing flow."""
     import app.services.ingestion_service as svc_mod
-    from app.services.ingestion.orchestrator import IngestionOrchestrator
+    from app.services.ingestion.ingestion_orchestrator import IngestionOrchestrator
 
     connector = MagicMock()
     connector.id = uuid4()
@@ -60,7 +60,10 @@ async def test_process_connector_nominal(ingestion_service, mock_db_session):
     mock_orch.ingest_files = AsyncMock()
 
     with patch.object(svc_mod, "IngestionOrchestrator", return_value=mock_orch):
-        with patch.object(svc_mod, "FileScanner") as mock_scanner_cls:
+        with patch("app.services.ingestion_service.IngestionOrchestrator", return_value=mock_orch), \
+             patch("app.services.ingestion_service.ConnectorFactory") as mock_factory:
+            
+            mock_factory.load_documents = AsyncMock(return_value=[])
             mock_scanner = mock_scanner_cls.return_value
             mock_scanner.__aenter__ = AsyncMock(return_value=mock_scanner)
             mock_scanner.__aexit__ = AsyncMock(return_value=None)
@@ -81,7 +84,7 @@ async def test_process_connector_nominal(ingestion_service, mock_db_session):
 async def test_process_single_document_nominal(ingestion_service):
     """Test single document processing."""
     import app.services.ingestion_service as svc_mod
-    from app.services.ingestion.orchestrator import IngestionOrchestrator
+    from app.services.ingestion.ingestion_orchestrator import IngestionOrchestrator
 
     doc = MagicMock()
     doc.id = uuid4()

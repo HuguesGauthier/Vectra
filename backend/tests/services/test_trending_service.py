@@ -76,3 +76,16 @@ async def test_ensure_collection_invoked(service, mock_vector_service):
 
     # Check that get_collections was called (part of _ensure_collection_exists_sync)
     client.get_collections.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_trending_service_delete(mock_db_session):
+    """Test delete delegation to vector repo."""
+    mock_vector_repo = AsyncMock()
+    from app.services.trending_service import TrendingService
+    service = TrendingService(mock_db_session, vector_repository=mock_vector_repo)
+
+    aid = uuid4()
+    await service.delete_assistant_topics(aid)
+
+    mock_vector_repo.delete_by_assistant_id.assert_called_with("trending_topics", aid)

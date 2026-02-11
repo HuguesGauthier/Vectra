@@ -6,7 +6,7 @@ import pytest
 
 from app.core.exceptions import TechnicalError
 from app.models.enums import ConnectorStatus, DocStatus
-from app.services.ingestion.orchestrator import (IngestionOrchestrator,
+from app.services.ingestion.ingestion_orchestrator import (IngestionOrchestrator,
                                                  IngestionStoppedError)
 
 
@@ -75,7 +75,7 @@ async def test_ingest_files_success(mock_dependencies):
         processor_mock.process.return_value = [success_doc]
 
         # Mock connection manager
-        with patch("app.services.ingestion.orchestrator.manager") as mock_manager:
+        with patch("app.services.ingestion.ingestion_orchestrator.manager") as mock_manager:
             mock_manager.emit_document_update = AsyncMock()
             mock_manager.emit_document_progress = AsyncMock()
             mock_manager.emit_connector_progress = AsyncMock()

@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from app.core.exceptions import TechnicalError
-from app.models.enums import (ConnectorStatus, ConnectorType, DocStatus,
-                              ScheduleType)
+from app.models.enums import ConnectorStatus, DocStatus
+from app.schemas.enums import ConnectorType, ScheduleType
 from app.services.scanner_service import ScannerService
 
 

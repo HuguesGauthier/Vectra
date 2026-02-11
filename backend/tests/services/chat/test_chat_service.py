@@ -5,8 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import pytest
 
 from app.core.exceptions import ConfigurationError, ExternalDependencyError
+from app.core.rag.types import PipelineEvent
 from app.core.settings import settings
-from app.services.chat_service import ChatService, LLMFactory
+from app.models.assistant import Assistant
+from app.services.chat_service import ChatService
+from app.services.chat.utils import LLMFactory
 from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService
 
@@ -205,13 +208,30 @@ async def test_stream_chat_config_error(chat_service, assistant_mock):
         patch("app.services.chat_service.ChatRepository"),
         patch.object(ChatService, "_get_components", side_effect=ConfigurationError("No API Key")),
     ):
-        chunks = []
-        async for chunk in chat_service.stream_chat("Hi", assistant_mock, "session_1"):
-            chunks.append(json.loads(chunk))
-
         # 0. Connection
         # 1. Error
         assert any(c.get("type") == "error" for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_exception_resilience(chat_service, assistant_mock):
+    """Worst Case: Pipeline crashes, service must yield a valid JSON error."""
+    session_id = "session-456"
+    message = "Hello"
+
+    # Mocking the pipeline execution to fail immediately
+    with patch.object(chat_service, "_execute_pipeline") as mock_exec:
+        mock_exec.side_effect = Exception("Anthropic/Gemini API Timeout or similar")
+
+        # We also need to mock _load_and_detach_assistant to avoid DB call
+        with patch.object(chat_service, "_load_and_detach_assistant", return_value=assistant_mock):
+            events = []
+            async for chunk in chat_service.stream_chat(message, assistant_mock, session_id):
+                events.append(json.loads(chunk))
+
+            # Assert
+            assert any(e["type"] == "error" for e in events)
+            assert "unexpected error" in events[-1]["message"]
 
 
 @pytest.mark.asyncio
@@ -224,6 +244,7 @@ async def test_reset_conversation(chat_service, mock_db):
     with (
         patch("app.services.chat_service.SessionLocal", side_effect=mock_session_cls),
         patch("app.services.chat_service.ChatRepository") as mock_repo_cls,
+        patch.object(chat_service.chat_history_service, "clear_history", new_callable=AsyncMock) as mock_clear_hot,
     ):
 
         mock_repo_instance = mock_repo_cls.return_value
@@ -231,5 +252,91 @@ async def test_reset_conversation(chat_service, mock_db):
 
         await chat_service.reset_conversation("session_1")
 
-        mock_repo_instance.clear_history.assert_called_once_with("session_1")
+        # Assert Hot Storage CLEARED
+        mock_clear_hot.assert_called_once_with("session_1")
+        # Assert Cold Storage NOT CLEARED (P0 Fix Verification)
+        mock_repo_instance.clear_history.assert_not_called()
         assert mock_session_cls.called
+
+
+@pytest.mark.asyncio
+async def test_pipeline_execution_flow(chat_service, mock_vector_service, mock_settings_service):
+    """Test full RAG flow execution via Processors merged from refactor."""
+    assistant = MagicMock(spec=Assistant)
+    assistant.id = "asst_123"
+    assistant.model_provider = "openai"
+    assistant.model = "gpt-4"
+    assistant.use_semantic_cache = False
+    assistant.search_strategy = "hybrid"
+    assistant.configuration = MagicMock()
+    assistant.configuration.temperature = 0.7
+
+    # Mock Settings
+    mock_settings_service.get_value.return_value = "fake_api_key_123"
+
+    # Mock Vectors
+    from llama_index.core.embeddings import BaseEmbedding
+    mock_embed = MagicMock(spec=BaseEmbedding)
+    mock_vector_service.get_embedding_model.return_value = mock_embed
+
+    # Mock Pipeline
+    with (
+        patch("app.services.chat_service.ChatRepository") as mock_repo_cls,
+        patch("app.services.chat.processors.rag_processor.RAGPipeline") as MockPipeline,
+        patch("app.services.chat.processors.rag_processor.LLMFactory") as MockFactory,
+        patch("app.services.chat_service.SessionLocal")
+    ):
+        from llama_index.core.llms import LLM
+        MockFactory.create_llm.return_value = MagicMock(spec=LLM)
+        
+        pipeline_instance = MockPipeline.return_value
+
+        async def event_generator(*args, **kwargs):
+            from dataclasses import dataclass
+            @dataclass
+            class Chunk:
+                delta: str
+
+            yield PipelineEvent(type="step", step_type="retrieval", status="running", payload=None)
+            yield PipelineEvent(type="step", step_type="retrieval", status="completed", payload={"count": 1})
+            
+            async def async_gen(items):
+                for i in items:
+                    yield i
+            yield PipelineEvent(type="response_stream", payload=async_gen([Chunk(delta="Hello")]))
+
+        pipeline_instance.run.side_effect = event_generator
+
+        # ACT
+        chunks = []
+        async for chunk in chat_service.stream_chat(message="Hello", assistant=assistant, session_id="sess_123"):
+            chunks.append(chunk)
+
+        assert len(chunks) > 0
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_short_circuit_merged(chat_service, mock_settings_service):
+    """Test that Semantic Cache HIT stops execution before RAG."""
+    assistant = MagicMock(spec=Assistant)
+    assistant.id = "asst_123"
+    assistant.use_semantic_cache = True
+
+    # Mock Cache Service Hit
+    with patch.object(chat_service.cache_service, "get_cached_response") as mock_cache_get:
+        mock_cache_get.return_value = {
+            "response": "Cached Answer",
+            "sources": [{"text": "s1", "metadata": {"file_path": "f1"}}],
+        }
+
+        # Patch RAGPipeline to ensure it is NOT called
+        with patch("app.services.chat.processors.rag_processor.RAGPipeline") as MockPipeline:
+            chunks = []
+            async for chunk in chat_service.stream_chat(message="Hello", assistant=assistant, session_id="sess_123"):
+                chunks.append(chunk)
+
+            # Assert RAG Pipeline was NOT instantiated
+            MockPipeline.assert_not_called()
+
+            # Assert Cache Response yielded
+            assert any("Cached Answer" in c for c in chunks)

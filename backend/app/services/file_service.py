@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.exceptions import EntityNotFound, TechnicalError
+from app.core.interfaces.base_connector import get_full_path_from_connector
+from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.files import FileStreamingInfo
 
@@ -45,17 +47,12 @@ class FileService:
             if not document:
                 raise EntityNotFound(f"Document {document_id} not found")
 
-            # Fix: Reconstruct full path using connector (same as ingestion does)
-            # The DB stores relative paths, we need to reconstruct the full path
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
-            from app.repositories.connector_repository import \
-                ConnectorRepository
-
+            # 🟠 P1: Cleaned up inline imports to top-level
             connector_repo = ConnectorRepository(self.document_repo.db)
             connector = await connector_repo.get_by_id(document.connector_id)
 
             if not connector:
+                logger.warning(f"CONNECTOR_NOT_FOUND | ConnID: {document.connector_id} | DocID: {document_id}")
                 raise EntityNotFound(f"Connector {document.connector_id} not found")
 
             # Reconstruct full path from connector + relative path

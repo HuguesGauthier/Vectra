@@ -17,8 +17,13 @@ def mock_client():
 
 
 @pytest.fixture
-def audio_service(mock_client):
-    return GeminiAudioService(mock_client)
+def mock_settings_service():
+    return AsyncMock()
+
+
+@pytest.fixture
+def audio_service(mock_client, mock_settings_service):
+    return GeminiAudioService(mock_client, mock_settings_service)
 
 
 @pytest.mark.asyncio

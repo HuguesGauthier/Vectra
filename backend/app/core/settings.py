@@ -64,6 +64,7 @@ class Settings(BaseSettings):
 
     # Observability
     ENABLE_PHOENIX_TRACING: bool = False  # Set to True via env to enable Arize Phoenix
+    ENABLE_TRENDING: bool = True         # Toggle trending analysis in ChatPipeline
 
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"

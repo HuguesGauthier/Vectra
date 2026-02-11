@@ -48,9 +48,6 @@ class ConnectorService:
     Security Hardened: Prevents arbitrary file deletion.
     """
 
-    # 🟠 P1: Prevent GC of fire-and-forget tasks
-    _background_tasks: Set[asyncio.Task] = set()
-
     def __init__(
         self,
         connector_repo: ConnectorRepository,
@@ -65,6 +62,9 @@ class ConnectorService:
         self.settings_service = settings_service or SettingsService(self.db)
         self.vector_service = vector_service or VectorService(self.settings_service)
         self.sql_discovery_service = sql_discovery_service or SQLDiscoveryService(self.db, self.settings_service)
+        
+        # 🟠 P1: Prevent GC of fire-and-forget tasks (Instance-level)
+        self._background_tasks: Set[asyncio.Task] = set()
 
     @staticmethod
     async def _run_blocking_io(func, *args):
@@ -162,7 +162,7 @@ class ConnectorService:
             elapsed = round((time.time() - start_time) * 1000, 2)
             logger.info(f"CREATED | {func_name} | {new_connector.id} | {elapsed}ms")
 
-            return ConnectorResponse.model_validate(new_connector)
+            return resp
 
         except (FunctionalError, IntegrityError):
             raise
@@ -374,9 +374,8 @@ class ConnectorService:
             supported_types = [
                 ConnectorType.LOCAL_FILE,
                 ConnectorType.LOCAL_FOLDER,
-                ConnectorType.SQL,  # Added support
-                ConnectorType.VANNA_SQL,  # Added support for Vanna SQL
-                "vanna_sql",  # String fallback
+                ConnectorType.SQL,
+                ConnectorType.VANNA_SQL,
             ]
 
             logger.info(
@@ -389,8 +388,7 @@ class ConnectorService:
                 )
 
             # Branching Logic
-            # Branching Logic
-            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL, "vanna_sql"]:
+            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]:
                 # SQL Scan (including Vanna SQL)
                 logger.info("SCAN ROUTE | SQL PATH SELECTED")
                 await self.sql_discovery_service.scan_and_persist_views(connector.id)
@@ -533,6 +531,7 @@ async def get_connector_service(
     db: Annotated[AsyncSession, Depends(get_db)],
     vector_service: Annotated[VectorService, Depends(get_vector_service)],
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
+    sql_discovery_service: Annotated[SQLDiscoveryService, Depends(get_sql_discovery_service)],
 ) -> ConnectorService:
     """Dependency provider for ConnectorService."""
     return ConnectorService(
@@ -540,4 +539,5 @@ async def get_connector_service(
         scanner_service=ScannerService(db),
         vector_service=vector_service,
         settings_service=settings_service,
+        sql_discovery_service=sql_discovery_service,
     )

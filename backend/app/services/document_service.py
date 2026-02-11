@@ -130,11 +130,17 @@ class DocumentService:
                 # 🟠 P1: Supervised Background Task
                 provider = connector.configuration.get("ai_provider") if connector.configuration else None
                 collection = await self.vector_service.get_collection_name(provider)
-                asyncio.create_task(self._safe_delete_vectors(document_id, collection))
+                asyncio.create_task(
+                    self._safe_delete_vectors(document_id, collection),
+                    name=f"vector-cleanup-{document_id}"
+                )
 
                 c_type = str(connector.connector_type).strip().lower()
                 if c_type in ["file", "folder"] and doc.file_path:
-                    asyncio.create_task(self._safe_delete_file(doc.file_path))
+                    asyncio.create_task(
+                        self._safe_delete_file(doc.file_path),
+                        name=f"file-cleanup-{document_id}"
+                    )
 
             # 3. Database Removals
             connector_id = doc.connector_id
@@ -173,10 +179,18 @@ class DocumentService:
             # 1. Prepare Updates
             update_data = doc_update if isinstance(doc_update, dict) else doc_update.model_dump(exclude_unset=True)
 
-            # 2. DB Update
+            # 3. DB Update
             updated_doc = await self.document_repo.update(document_id, update_data)
 
-            # 4. Broadcast
+            # 4. ACL Sync (Background)
+            if "configuration" in update_data and "connector_document_acl" in update_data["configuration"]:
+                acl = update_data["configuration"]["connector_document_acl"]
+                asyncio.create_task(
+                    self._safe_update_acl(document_id, acl),
+                    name=f"acl-update-{document_id}"
+                )
+
+            # 5. Broadcast
             resp = ConnectorDocumentResponse.model_validate(updated_doc)
             await manager.emit_document_updated(resp.model_dump(mode="json"))
 
@@ -292,12 +306,17 @@ class DocumentService:
         Only allows deletion from temp_uploads directory for security.
         """
         try:
-            # Security: Only allow deletion from temp_uploads
-            if not file_path.startswith("temp_uploads"):
-                raise FunctionalError("Can only delete files from temp_uploads directory", error_code="FORBIDDEN")
+            # 🔴 P0: Path Traversal Protection
+            # os.path.abspath is safe as string manipulation, but we must verify the result.
+            abs_temp_dir = os.path.abspath("temp_uploads")
+            requested_abs_path = os.path.abspath(file_path)
+
+            if not requested_abs_path.startswith(abs_temp_dir):
+                logger.warning(f"🛡️ Path traversal attempt blocked: {file_path}")
+                raise FunctionalError("Forbidden: Can only delete files from temp_uploads", error_code="FORBIDDEN")
 
             await self._safe_delete_file(file_path)
-            logger.info(f"Temp file deleted: {file_path}")
+            logger.info(f"🗑️ Temp file deleted: {file_path}")
             return True
         except FunctionalError:
             raise

@@ -8,8 +8,7 @@ import pytest
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
-from app.services.ingestion_service import (IngestionService,
-                                            IngestionStaticHelper)
+from app.services.ingestion_service import IngestionService
 
 
 @pytest.fixture
@@ -115,20 +114,3 @@ async def test_process_csv_data_success(ingestion_service, mock_connector_repo, 
         mock_orch.ingest_csv_document.assert_called_once_with(doc_id)
 
 
-@pytest.mark.asyncio
-async def test_static_helper_bridge_csv():
-    """Verify bridge for CSV methods."""
-    doc_id = uuid4()
-    with patch("app.services.ingestion_service.IngestionService", spec=True) as mock_service_cls:
-        mock_service = mock_service_cls.return_value
-        mock_service.analyze_and_map_csv = AsyncMock()
-        mock_service.process_csv_data = AsyncMock()
-
-        with patch("app.core.database.SessionLocal") as mock_session_local:
-            mock_session_local.return_value.__aenter__.return_value = MagicMock()
-
-            await IngestionStaticHelper.analyze_and_map_csv(doc_id)
-            mock_service.analyze_and_map_csv.assert_called_once_with(doc_id)
-
-            await IngestionStaticHelper.process_csv_data(doc_id)
-            mock_service.process_csv_data.assert_called_once_with(doc_id)
