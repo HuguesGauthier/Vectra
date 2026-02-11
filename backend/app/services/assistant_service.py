@@ -234,14 +234,23 @@ class AssistantService:
     # --- Private Helpers: SRP ---
 
     async def _cleanup_resources(self, assistant_id: UUID):
-        """Orchestrates cleanup of all external resources."""
+        """Orchestrates cleanup of all external resources (Best Effort)."""
+        # 1. Avatar (Async background, already safe)
         await self._cleanup_avatar_file(assistant_id)
 
+        # 2. Cache (Soft Fail)
         if self.cache_service:
-            await self.clear_cache(assistant_id)
+            try:
+                await self.clear_cache(assistant_id)
+            except Exception as e:
+                logger.warning(f"⚠️ Soft Fail: Could not clear cache for deleting assistant {assistant_id}: {e}")
 
+        # 3. Trending Topics (Soft Fail)
         if self.trending_service:
-            await self.trending_service.delete_assistant_topics(assistant_id)
+            try:
+                await self.trending_service.delete_assistant_topics(assistant_id)
+            except Exception as e:
+                logger.warning(f"⚠️ Soft Fail: Could not clear topics for deleting assistant {assistant_id}: {e}")
 
     def _apply_contrast_logic(self, data: AssistantCreate | AssistantUpdate):
         """Modifies data object in-place to ensure text contrast."""
@@ -289,8 +298,11 @@ class AssistantService:
 
 # Modern Dependency Injection
 DBDep = Annotated[AsyncSession, Depends(get_db)]
-from app.services.cache_service import (  # Runtime import for Depends
-    SemanticCacheService, get_cache_service)
+
+# Late import to handle potential circular dependencies safely (Pragmatic decision)
+# If we knew for sure CacheService didn't import AssistantService, we'd move it up.
+# Keeping it close to usage for now to respect "Don't break if it works".
+from app.services.cache_service import SemanticCacheService, get_cache_service
 
 
 async def get_assistant_service(

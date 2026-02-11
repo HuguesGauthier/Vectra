@@ -137,7 +137,8 @@ class AnalyticsService:
             return self._calculate_business_metrics(stats, cost_per_1k, min_saved)
 
         except Exception as e:
-            logger.error("Failed to calculate business metrics: %s", str(e), exc_info=True)
+            logger.error("DEGRADED_STATE | Failed to calculate business metrics: %s", str(e), exc_info=True)
+            # Return empty but log as degraded state for observability
             return AnalyticsResponse()
 
     async def get_all_advanced_analytics(
@@ -470,8 +471,9 @@ class AnalyticsService:
         herfindahl_index = sum((f / total_topics) ** 2 for f in freqs)
         dominant_topic_share = (max(freqs) / total_topics) * 100
 
+        diversity_score = round(1.0 - herfindahl_index, 3)
         return TopicDiversity(
-            diversity_score=round(1.0 - herfindahl_index, 3),
+            diversity_score=diversity_score,
             total_topics=len(freqs),
             dominant_topic_share=round(dominant_topic_share, 2),
         )

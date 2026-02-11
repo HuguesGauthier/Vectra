@@ -32,29 +32,36 @@ class ChatRedisRepository:
     def _get_key(self, session_id: str) -> str:
         return f"{self.KEY_PREFIX}{session_id}"
 
-    async def push_message(self, session_id: str, message_data: Dict[str, Any]) -> None:
+    async def push_messages(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """
-        Atomic Push + Trim + Expire.
+        Atomic Bulk Push + Trim + Expire.
+        Uses a single pipeline for multiple messages.
         """
-        if not session_id or not message_data:
+        if not session_id or not messages:
             return
 
         key = self._get_key(session_id)
-
-        try:
-            message_json = json.dumps(message_data)
-        except (TypeError, ValueError) as e:
-            logger.error(f"Failed to serialize message for Redis: {e}")
-            return
-
+        
         try:
             async with self.redis.pipeline() as pipe:
-                pipe.rpush(key, message_json)
+                for message_data in messages:
+                    try:
+                        message_json = json.dumps(message_data)
+                        pipe.rpush(key, message_json)
+                    except (TypeError, ValueError) as e:
+                        logger.error(f"Failed to serialize message for Redis: {e}")
+                
                 pipe.ltrim(key, -self.WINDOW_SIZE, -1)
                 pipe.expire(key, self.TTL_SECONDS)
                 await pipe.execute()
         except Exception as e:
-            logger.error(f"Redis write failed for session {session_id}: {e}")
+            logger.error(f"Redis bulk write failed for session {session_id}: {e}")
+
+    async def push_message(self, session_id: str, message_data: Dict[str, Any]) -> None:
+        """
+        Atomic Push + Trim + Expire.
+        """
+        await self.push_messages(session_id, [message_data])
 
     async def get_recent_messages(self, session_id: str) -> List[Dict[str, Any]]:
         """

@@ -77,11 +77,13 @@ class SemanticCacheService:
                 await self._init_redis_pool()
                 await self._ensure_qdrant_collection()
 
+                # CRITICAL: Only mark as initialized if both resources are OK
                 SemanticCacheService._initialized = True
                 logger.info("✅ SemanticCacheService fully initialized")
 
             except Exception as e:
-                logger.error(f"❌ Cache initialization failed: {e}. Cache will be disabled.")
+                logger.error(f"❌ Cache initialization failed: {e}. Will retry on next access.")
+                # We do NOT set _initialized to True, allowing retry
                 SemanticCacheService._redis_pool = None
 
     async def _init_redis_pool(self) -> None:

@@ -55,12 +55,12 @@ class AuthService:
             # 3. Generate Token
             token = self._create_user_token(user)
 
-            logger.info(f"✅ User authenticated: {username}")
+            logger.info("✅ User authenticated")
             return token
 
-        except FunctionalError:
-            raise
         except Exception as e:
+            if isinstance(e, FunctionalError):
+                raise
             logger.error(f"🚨 Unexpected Authentication Critical Error: {str(e)}", exc_info=True)
             raise TechnicalError("Authentication service temporarily unavailable", error_code=ERROR_AUTH_SYSTEM)
 
@@ -94,7 +94,8 @@ class AuthService:
 
 
 async def get_auth_service(
-    user_repo: Annotated[UserRepository, Depends(lambda db=Depends(get_db): UserRepository(db))],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthService:
     """Dependency provider for AuthService."""
+    user_repo = UserRepository(db)
     return AuthService(user_repo)
