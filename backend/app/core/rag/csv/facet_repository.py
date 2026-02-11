@@ -21,7 +21,7 @@ BATCH_SIZE = 100
 KEY_CONNECTOR_ID = "connector_id"
 
 
-class FacetQueryService:
+class FacetRepository:
     """
     Queries Qdrant for distinct values of filterable fields.
 

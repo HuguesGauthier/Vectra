@@ -5,12 +5,6 @@ import time
 from typing import (Any, AsyncGenerator, Dict, List, Optional, Set, Tuple,
                     TypeVar)
 
-from llama_index.core import VectorStoreIndex
-from llama_index.core.tools import FunctionTool
-from llama_index.core.vector_stores import (FilterOperator, MetadataFilter,
-                                            MetadataFilters)
-from llama_index.vector_stores.qdrant import QdrantVectorStore
-
 from app.core.rag.pipeline import RAGPipeline
 from app.core.rag.processors import (QueryRewriterProcessor,
                                      RerankingProcessor, RetrievalProcessor,
@@ -23,7 +17,7 @@ from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.source_service import SourceService
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter, LLMFactory
+from app.services.chat.utils import EventFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +174,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
         while True:
             try:
                 # Wait for next item with timeout
-                item = await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+                item = await asyncio.wait_for(anext(iterator), timeout=timeout)
                 yield item
             except StopAsyncIteration:
                 break
@@ -218,7 +212,8 @@ class RAGGenerationProcessor(BaseChatProcessor):
         await ctx.vector_service.ensure_collection_exists(col, provider)
         try:
             embed = await ctx.vector_service.get_embedding_model(provider=provider)
-        except:
+        except Exception as e:
+            logger.warning(f"Failed to get embedding model for provider '{provider}'. Falling back to local. Error: {e}")
             embed = await ctx.vector_service.get_embedding_model(
                 model_kwargs={"local_files_only": True}, provider="local"
             )

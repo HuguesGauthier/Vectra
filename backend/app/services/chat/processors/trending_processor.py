@@ -25,10 +25,6 @@ from app.services.chat.processors.base_chat_processor import (
 # Framework / Core
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
-# Repositories & Services
-# Note: Lazy loading inside method is acceptable if circular imports are a risk,
-# but for Type Checking we prefer top-level.
-# We assume standard architecture here.
 from app.services.trending_service import TrendingService
 
 logger = logging.getLogger(__name__)

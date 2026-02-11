@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-import re
+import logging
 import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
@@ -18,6 +18,7 @@ from app.services.chat.source_service import SourceService
 # Shared dependencies
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
+from app.core.utils.stream_parser import StreamBlockParser
 
 logger = logging.getLogger(__name__)
 
@@ -292,8 +293,6 @@ class AgenticProcessor(BaseChatProcessor):
         try:
             event_queue = asyncio.Queue()
             stream_handler = StreamingCallbackHandler(event_queue, ctx.language)
-            # Span started in process()
-            # span_id = ctx.metrics.start_span(PipelineStepType.ROUTER, label=LABEL_ROUTER_WORKFLOW)
 
             # A. Initialize Engine
             logger.info("[AgenticProcessor:Router] Initializing Query Engine...")
@@ -345,7 +344,12 @@ class AgenticProcessor(BaseChatProcessor):
             try:
                 response = await asyncio.wait_for(router_task, timeout=TIMEOUT_ROUTER_QUERY)
             except asyncio.TimeoutError:
-                router_task.cancel()  # Ensure we kill the hanging task
+                logger.warning(f"Router Query Timed Out ({TIMEOUT_ROUTER_QUERY}s). Cancelling task...")
+                router_task.cancel()
+                try:
+                    await router_task
+                except asyncio.CancelledError:
+                    logger.info("Router task cancelled successfully.")
                 raise TimeoutError(f"Query timed out after {TIMEOUT_ROUTER_QUERY}s")
 
             # Mark query as completed
@@ -464,56 +468,36 @@ class AgenticProcessor(BaseChatProcessor):
     async def _stream_response_content(
         self, ctx: ChatContext, response: Any, stream_handler: Any, event_queue: Optional[asyncio.Queue] = None
     ) -> AsyncGenerator[str, None]:
-        """Handles streaming the text tokens to the client with Intelligent Filtering."""
+        """Handles streaming the text tokens to the client using Robust Stream Parser."""
         stream_span = ctx.metrics.start_span(PipelineStepType.STREAMING)
-        # Note: We NO LONGER yield a manual STREAMING start here.
-        # The callback handler will yield ROUTER_REASONING or ROUTER_SYNTHESIS
-        # which already maps to "Generating Answer" in the UI.
 
         full_text = ""
         output_tokens = 0
-
-        # --- Stream Filtering Logic ---
-        # We buffer tokens to separate Data (JSON Table) from Response (Text)
-        # This satisfies the architectural requirement: "Payload with properties, data separated from text".
-        buffer = ""
-        is_suppressing = False
+        parser = StreamBlockParser()
 
         async def process_token_stream(token_gen):
-            nonlocal full_text, output_tokens, buffer, is_suppressing
+            nonlocal full_text, output_tokens
             async for token in token_gen:
                 token_str = str(token)
-                full_text += token_str  # ALWAYS capture full text for Visualization Processor
-
-                # Buffer logic
-                buffer += token_str
-
-                # Check for start tag
-                if not is_suppressing:
-                    if ":::" in buffer:
-                        # Potential start of table block
-                        if ":::table" in buffer:
-                            is_suppressing = True
-                            # Yield pre-table content if any (e.g. "Here is the data:\n")
-                            pre_table = buffer.split(":::table")[0]
-                            if pre_table:
-                                output_tokens += 1
-                                yield self._format_token(pre_table)
-                            buffer = ":::table"  # Keep only the tag in buffer to track structure
-                        else:
-                            # Wait for more tokens to confirm ":::table" or just ":"
-                            # Heuristic: if buffer too long without match, flush it
-                            if len(buffer) > 20:
-                                output_tokens += 1
-                                yield self._format_token(buffer)
-                                buffer = ""
-                    else:
-                        # flush safe buffer
+                
+                # feed parser
+                for event in parser.feed(token_str):
+                    if event.type == "token":
+                        full_text += event.content
                         output_tokens += 1
-                        yield self._format_token(buffer)
-                        buffer = ""
+                        yield self._format_token(event.content)
+                    elif event.type == "block":
+                        # We found a table block!
+                        table_data = event.content
+                        if "content_blocks" not in ctx.metadata:
+                            ctx.metadata["content_blocks"] = []
+                        ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
+                        logger.info("[AgenticProcessor] Stream: extracted table block")
+                        yield json.dumps(
+                            {"type": "content_block", "block_type": "table", "data": table_data}
+                        ) + "\n"
 
-                # Polling for events during streaming for better responsiveness
+                # Polling for events during streaming
                 if event_queue:
                     while not event_queue.empty():
                         try:
@@ -521,34 +505,6 @@ class AgenticProcessor(BaseChatProcessor):
                             yield self._process_router_event(event, ctx)
                         except asyncio.QueueEmpty:
                             break
-                else:
-                    # In Suppression Mode
-                    # Look for closing tag ":::"
-                    # Note: We need to be careful not to match the opening tag again if buffer wasn't cleared
-                    if buffer.endswith(":::"):
-                        # Check if it's the closing tag.
-                        # Simple heuristic: If buffer length > 10 (content exists), and ends with :::
-                        # We assume block closed.
-                        if len(buffer) > 10:
-                            # Try to extract and save the table data
-                            try:
-                                # buffer is ":::table ... :::"
-                                # Remove tags
-                                content = buffer[8:-3].strip()  # len(":::table")=8, len(":::")=3
-                                if content:
-                                    table_data = json.loads(content)
-                                    if "content_blocks" not in ctx.metadata:
-                                        ctx.metadata["content_blocks"] = []
-                                    ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
-                                    logger.info("[AgenticProcessor] Stream: extracted table block")
-                                    yield json.dumps(
-                                        {"type": "content_block", "block_type": "table", "data": table_data}
-                                    ) + "\n"
-                            except Exception as e:
-                                logger.warning(f"[AgenticProcessor] Stream: Failed to parse table block: {e}")
-
-                            is_suppressing = False
-                            buffer = ""  # Discard the block completely from stream
 
         try:
             if isinstance(response, StreamingResponse):
@@ -565,7 +521,7 @@ class AgenticProcessor(BaseChatProcessor):
                     async for event in process_token_stream(sync_gen_wrapper()):
                         yield event
 
-                # Exhaust the event queue after stream ends to catch late completion events
+                # Exhaust the event queue after stream ends
                 if event_queue:
                     while not event_queue.empty():
                         try:
@@ -574,95 +530,45 @@ class AgenticProcessor(BaseChatProcessor):
                         except asyncio.QueueEmpty:
                             break
             else:
-                full_text = str(response)
-                logger.debug(
-                    f"[stream_response_content] Non-streaming response. Full Text: {full_text[:200]}..."
-                )  # DEBUG
-
-                # For non-stream, we just strip the block regex-style (server-side)
-                # This handles the "Regex is noob" comment by doing it on backend.
-
-                # Extract table data before cleaning
-                table_matches = re.finditer(r":::table([\s\S]*?):::", full_text)
-                logger.info(f"[AgenticProcessor] DEBUG: Scanning full_text (len={len(full_text)}) for tables...")
-                if ":::table" in full_text:
-                    logger.info("[AgenticProcessor] DEBUG: Found ':::table' string in text!")
-                else:
-                    logger.warning("[AgenticProcessor] DEBUG: ':::table' NOT found in text.")
-
-                count = 0
-                for match in table_matches:
-                    count += 1
-                    try:
-                        json_str = match.group(1).strip()
-                        if json_str:
-                            # ... existing logic ...
-                            table_data = json.loads(json_str)
-                            if "content_blocks" not in ctx.metadata:
-                                ctx.metadata["content_blocks"] = []
-                            ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
-                            logger.info("[AgenticProcessor] Extracted table block from response")
-                            yield json.dumps(
-                                {"type": "content_block", "block_type": "table", "data": table_data}
-                            ) + "\n"
-                    except Exception as e:
-                        logger.warning(f"[AgenticProcessor] Failed to parse table block: {e}")
-
-                logger.info(f"[AgenticProcessor] DEBUG: Total table blocks extracted: {count}")
-
-                # Remove table blocks from the final text
-                clean_text = re.sub(r":::table[\s\S]*?:::(\s*:::)?", "", full_text).strip()
-
-                # Update the context with the CLEANED text so history doesn't contain raw JSON
-                ctx.full_response_text = clean_text
-                logger.debug(f"[stream_response_content] Cleaned Text: {clean_text[:200]}...")  # DEBUG
-
-                output_tokens = int(len(clean_text.split()) * 1.3)
-                yield self._format_token(clean_text)
+                # Non-streaming fallback
+                full_text_raw = str(response)
+                # Feed the whole text to the parser
+                for event in parser.feed(full_text_raw):
+                     if event.type == "token":
+                        full_text += event.content
+                        output_tokens += 1
+                        yield self._format_token(event.content)
+                     elif event.type == "block":
+                        table_data = event.content
+                        if "content_blocks" not in ctx.metadata:
+                            ctx.metadata["content_blocks"] = []
+                        ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
+                        yield json.dumps(
+                            {"type": "content_block", "block_type": "table", "data": table_data}
+                        ) + "\n"
 
         except Exception as e:
             logger.error(f"Stream Error: {e}")
-            # Fallback flush
-            if buffer and not is_suppressing:
-                yield self._format_token(buffer)
 
-        # Flush any remaining buffer if not suppressing
-        if buffer and not is_suppressing:
-            output_tokens += 1
-            yield self._format_token(buffer)
+        # Flush parser buffer
+        for event in parser.flush():
+             if event.type == "token":
+                full_text += event.content
+                output_tokens += 1
+                yield self._format_token(event.content)
+        
+        ctx.full_response_text = full_text
 
-        # Ensure we don't persist raw table blocks (for both stream and non-stream)
-        clean_full_text = re.sub(r":::table[\s\S]*?:::(\s*:::)?", "", full_text).strip()
-        ctx.full_response_text = clean_full_text
-
-        # Extract token counts from stream_handler which accumulated them during LLM events
+        # Extract token counts
         llm_input_tokens = getattr(stream_handler, "total_input_tokens", 0)
         llm_output_tokens = getattr(stream_handler, "total_output_tokens", 0)
-
-        logger.info(f"🔍 [TOKEN_TRACE] Handler - Input: {llm_input_tokens}, Output: {llm_output_tokens}")
-        logger.info(f"🔍 [TOKEN_TRACE] Manual Output: {output_tokens}")
-
-        # Extract tokens from payload if not provided explicitly
-        if event_queue and hasattr(event_queue, "payload") and "tokens" in event_queue.payload:
-            t = event_queue.payload["tokens"]
-            # P0 FIX: Support both 'input'/'output' (callbacks) and 'input_tokens'/'output_tokens' (standard)
-            p_input = t.get("input") or t.get("input_tokens", 0)
-            p_output = t.get("output") or t.get("output_tokens", 0)
-
-            if llm_input_tokens == 0:
-                llm_input_tokens = p_input
-            if llm_output_tokens == 0:
-                llm_output_tokens = p_output
 
         # Pass to metrics system
         ctx.metrics.end_span(
             stream_span,
             input_tokens=llm_input_tokens,
-            output_tokens=llm_output_tokens or output_tokens,  # Fallback to manual count
+            output_tokens=llm_output_tokens or output_tokens,
         )
-
-        # We also DON'T yield a manual completion event here to avoid duplicate "Finalizing Response"
-        # The parent task or the callback completion of REASONING handles the UI.
 
     # --- Metrics & Formatter Helpers ---
 
@@ -680,8 +586,6 @@ class AgenticProcessor(BaseChatProcessor):
 
             # Fallback for very old traces is risky for Folder Connectors (small count != SQL)
             # We strictly rely on the hint now.
-            # if not is_sql_meta and "source_count" in payload and 0 < payload["source_count"] <= 3:
-            #     is_sql_meta = True
 
             step_type = PipelineStepType.SQL_SCHEMA_RETRIEVAL if is_sql_meta else PipelineStepType.ROUTER_RETRIEVAL
 

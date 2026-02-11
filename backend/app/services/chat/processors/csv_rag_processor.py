@@ -15,11 +15,11 @@ from app.services.chat.processors.base_chat_processor import (
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter, LLMFactory
 # CSV Components
-from app.services.query.ambiguity_guard import (AmbiguityDecision,
+from app.core.rag.csv.ambiguity_guard import (AmbiguityDecision,
                                                 AmbiguityGuardAgent)
-from app.services.query.csv_response_synthesizer import CsvResponseSynthesizer
-from app.services.query.csv_retrieval_service import CSVRetrievalService
-from app.services.query.facet_query_service import FacetQueryService
+from app.core.rag.csv.csv_response_synthesizer import CsvResponseSynthesizer
+from app.core.rag.csv.csv_retriever import CsvRetriever
+from app.core.rag.csv.facet_repository import FacetRepository
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class CSVComponents(NamedTuple):
     collection_name: str
     vector_index: VectorStoreIndex
     # Service Facade
-    retrieval_service: CSVRetrievalService
+    retrieval_service: CsvRetriever
 
 
 class CSVRAGProcessor(BaseChatProcessor):
@@ -54,7 +54,7 @@ class CSVRAGProcessor(BaseChatProcessor):
     Enforces distinct phases:
     1. Validation & Initialization
     2. Ambiguity Analysis & Query Rewriting
-    3. Schema-Aware Retrieval (Delegated to CSVRetrievalService)
+    3. Schema-Aware Retrieval (Delegated to CsvRetriever)
     4. Tech Sheet Synthesis
     """
 
@@ -208,7 +208,7 @@ class CSVRAGProcessor(BaseChatProcessor):
 
             collection_name = await ctx.vector_service.get_collection_name(embedding_provider)
             qdrant_client = ctx.vector_service.get_qdrant_client()
-            facet_service = FacetQueryService(qdrant_client)
+            facet_service = FacetRepository(qdrant_client)
 
             facets = {}
             for col in ai_schema.get("filter_exact_cols", []):
@@ -473,7 +473,7 @@ class CSVRAGProcessor(BaseChatProcessor):
             qdrant_client=qdrant_client,
             collection_name=col_name,
             vector_index=vector_index,
-            retrieval_service=CSVRetrievalService(vector_index, qdrant_client, col_name),
+            retrieval_service=CsvRetriever(vector_index, qdrant_client, col_name),
         )
 
     def _format_error(self, message: str) -> str:

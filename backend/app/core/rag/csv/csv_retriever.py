@@ -24,7 +24,7 @@ KEY_CONNECTOR_ID = "connector_id"
 KEY_MODEL = "model"
 
 
-class CSVRetrievalService:
+class CsvRetriever:
     """
     Service encapsulating retrieval logic for CSV RAG.
 

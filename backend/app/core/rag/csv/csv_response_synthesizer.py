@@ -14,7 +14,7 @@ from llama_index.core.llms import LLM
 from llama_index.core.schema import NodeWithScore
 
 # Config / Prompts
-from app.services.query.response_synthesis_prompt import (
+from app.core.rag.csv.response_synthesis_prompt import (
     DYNAMIC_TECH_SHEET_SYSTEM_PROMPT, SIMPLE_TECH_SHEET_PROMPT)
 
 logger = logging.getLogger(__name__)

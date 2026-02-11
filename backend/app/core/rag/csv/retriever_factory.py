@@ -16,7 +16,7 @@ from llama_index.core.llms import LLM
 from llama_index.core.retrievers import BaseRetriever, VectorIndexAutoRetriever
 
 from app.schemas.ingestion import IndexingStrategy
-from app.services.query.schema_mapper import SchemaMapper
+from app.core.rag.csv.schema_mapper import SchemaMapper
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ MAX_AUTO_RETRIEVER_TOP_K: int = 100
 DEFAULT_COLLECTION_NAME: str = "default_collection"
 
 
-class DynamicRetrieverFactory:
+class RetrieverFactory:
     """
     Factory for instantiating Retrievers.
 
@@ -57,7 +57,7 @@ class DynamicRetrieverFactory:
         Returns:
             A configured BaseRetriever instance.
         """
-        factory = DynamicRetrieverFactory
+        factory = RetrieverFactory
 
         # 1. Decision Logic
         if not indexing_strategy:
@@ -102,4 +102,4 @@ class DynamicRetrieverFactory:
 
         except Exception as e:
             logger.error(f"❌ Query Factory: Failed to create AutoRetriever: {e}. Falling back to Standard.")
-            return DynamicRetrieverFactory._create_standard_retriever(index, top_k)
+            return RetrieverFactory._create_standard_retriever(index, top_k)

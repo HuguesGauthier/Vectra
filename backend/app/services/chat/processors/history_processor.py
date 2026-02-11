@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import AsyncGenerator, List, cast
+from typing import AsyncGenerator, List
 
 from app.schemas.chat import Message
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor

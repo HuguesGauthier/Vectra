@@ -1,9 +1,11 @@
 import asyncio
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from llama_index.core.callbacks.base import BaseCallbackHandler
 from llama_index.core.callbacks.schema import CBEventType, EventPayload
+from llama_index.core.llms import ChatMessage
 
 from app.services.chat.types import PipelineStepType
 from app.services.chat.utils import EventFormatter
@@ -38,8 +40,6 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> str:
         """Run when an event starts."""
-        import time
-
         self._event_starts[event_id] = time.time()
         self._obs_event(event_type, "start", payload, event_id=event_id)
         return event_id
@@ -55,10 +55,6 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         self._obs_event(event_type, "end", payload, event_id=event_id)
 
     def _obs_event(self, event_type: CBEventType, phase: str, payload: Optional[Dict] = None, event_id: str = ""):
-        import time
-
-        from llama_index.core.llms import ChatMessage
-
         step_type = None
         label = None
 
@@ -153,12 +149,6 @@ class StreamingCallbackHandler(BaseCallbackHandler):
 
             if payload:
                 token_count = self._extract_usage_from_payload(payload)
-                if token_count:
-                    logger.info(f"[CALLBACK_TOKEN_DEBUG] Extracted tokens: {token_count}")
-                else:
-                    logger.warning(
-                        f"[CALLBACK_TOKEN_DEBUG] No tokens extracted from payload keys: {list(payload.keys()) if isinstance(payload, dict) else 'not a dict'}"
-                    )
 
         event_status = "running" if phase == "start" else "completed"
 
@@ -234,19 +224,6 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             if "response" in payload:
                 resp = payload["response"]
 
-                # DEEP DEBUG: Dump key attributes to find where tokens are hiding
-                try:
-                    logger.info(f"[CALLBACK_DEEP_DEBUG] Response Type: {type(resp)}")
-                    if hasattr(resp, "raw"):
-                        logger.info(f"[CALLBACK_DEEP_DEBUG] resp.raw: {resp.raw}")
-                    if hasattr(resp, "additional_kwargs"):
-                        logger.info(f"[CALLBACK_DEEP_DEBUG] resp.additional_kwargs: {resp.additional_kwargs}")
-
-                    # Dump available attributes
-                    logger.info(f"[CALLBACK_DEEP_DEBUG] resp dir: {[d for d in dir(resp) if not d.startswith('_')]}")
-                except Exception as e:
-                    logger.error(f"[CALLBACK_DEEP_DEBUG] Error inspecting response: {e}")
-
                 # A. Google Gemini (usage_metadata in raw)
                 if hasattr(resp, "raw"):
                     # Handle Dict
@@ -294,7 +271,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
 
                     return {"input": i_tok, "output": o_tok}
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Error extracting usage from payload: {e}")
 
         return None

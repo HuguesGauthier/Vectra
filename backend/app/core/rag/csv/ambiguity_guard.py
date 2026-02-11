@@ -16,7 +16,7 @@ from llama_index.core.llms import LLM
 from pydantic import BaseModel, Field
 
 # Config
-from app.services.query.ambiguity_prompt import AMBIGUITY_GUARD_PROMPT_TEMPLATE
+from app.core.rag.csv.ambiguity_prompt import AMBIGUITY_GUARD_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 

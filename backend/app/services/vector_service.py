@@ -291,9 +291,9 @@ class VectorService:
 
         if indexing_strategy:
             # Lazy import to avoid circular dep
-            from app.services.query.factory import DynamicRetrieverFactory
+            from app.core.rag.csv.retriever_factory import RetrieverFactory
 
-            retriever = DynamicRetrieverFactory.get_retriever(
+            retriever = RetrieverFactory.get_retriever(
                 index=index,
                 indexing_strategy=indexing_strategy,
                 llm=llm,

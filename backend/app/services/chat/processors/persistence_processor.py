@@ -207,7 +207,11 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
             return data
         except (TypeError, OverflowError):
             # Slow path: clean recursive
-            return json.loads(json.dumps(data, default=str))
+            try:
+                return json.loads(json.dumps(data, default=str))
+            except Exception as e:
+                logger.error(f"METADATA_SANITIZE_FAIL | Error: {e}")
+                return {}
 
     # --- Cache Update Logic ---
 
