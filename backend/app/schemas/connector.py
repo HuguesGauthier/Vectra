@@ -7,7 +7,7 @@ We define the Pydantic schemas here to decouple API validation logic from Databa
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import ConfigDict, field_validator

@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.core.database import get_db
+from app.core.settings import settings
 from app.models.assistant import Assistant
 from app.repositories.chat_history_repository import ChatPostgresRepository, get_chat_postgres_repository
 from app.schemas.chat import Message

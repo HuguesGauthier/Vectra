@@ -12,7 +12,6 @@ from sqlmodel import SQLModel
 from app.schemas.enums import NotificationType
 
 # Constants
-MAX_TYPE_LENGTH = 50
 MAX_MESSAGE_LENGTH = 1000
 ALLOWED_NOTIFICATION_TYPES = [t.value for t in NotificationType]
 

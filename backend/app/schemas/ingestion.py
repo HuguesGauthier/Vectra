@@ -3,7 +3,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Legacy/Existing Configs (Restored) ---
@@ -17,6 +17,8 @@ class IngestionStatus(str, Enum):
 class BaseIngestionConfig(BaseModel):
     """Base class for all ingestion configs"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     enabled: bool = True
 
 
@@ -24,6 +26,8 @@ class FileIngestionConfig(BaseModel):
     """
     Configuration for ingesting a specific file type.
     """
+
+    model_config = ConfigDict(from_attributes=True)
 
     extensions: List[str] = ["*"]
     enabled: bool = True
@@ -36,6 +40,8 @@ class FolderIngestionConfig(BaseModel):
     Configuration for watching a folder.
     """
 
+    model_config = ConfigDict(from_attributes=True)
+
     path: str
     recursive: bool = True
     patterns: List[str] = ["*"]
@@ -46,13 +52,14 @@ class SqlIngestionConfig(BaseModel):
     Configuration for SQL Database.
     """
 
+    model_config = ConfigDict(populate_by_name=True, from_attributes=True)
+
     host: str
     port: int = 1433
     database: str
     user: str
     password: str
     db_schema: Optional[str] = Field("dbo", alias="schema", serialization_alias="schema")
-    model_config = {"populate_by_name": True}
     type: Optional[str] = "mssql"
     connection_string: Optional[str] = None
     views: List[str] = []
@@ -62,6 +69,8 @@ class IngestionConfig(BaseModel):
     """
     Global ingestion settings.
     """
+
+    model_config = ConfigDict(from_attributes=True)
 
     batch_size: int = 50
     workers: int = 4
@@ -79,6 +88,9 @@ class ColumnType(str, Enum):
 
 
 class IndexingStrategy(BaseModel):
+
+    model_config = ConfigDict(from_attributes=True)
+
     renaming_map: Dict[str, str] = Field(description="Map old headers to snake_case")
     # Classification
     semantic_cols: List[str] = Field(default_factory=list)

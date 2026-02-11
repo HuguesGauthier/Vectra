@@ -2,6 +2,8 @@
 Analytics Schemas.
 """
 
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -17,3 +19,4 @@ class AnalyticsResponse(BaseModel):
     total_tokens: int = Field(default=0, description="Total tokens processed")
     estimated_cost: float = Field(default=0.0, description="Estimated cost in USD (based on current model pricing)")
     time_saved_hours: float = Field(default=0.0, description="Estimated manual labor hours saved")
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

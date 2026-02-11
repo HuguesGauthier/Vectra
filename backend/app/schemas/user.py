@@ -20,7 +20,7 @@ class UserBase(SQLModel):
     Base properties for User.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, from_attributes=True)
 
     email: EmailStr = Field(index=True, unique=True, max_length=MAX_EMAIL_LENGTH, description="User email address")
     role: UserRole = Field(default=UserRole.USER, max_length=MAX_ROLE_LENGTH, description="User role (admin/user)")

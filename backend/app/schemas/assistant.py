@@ -173,6 +173,8 @@ class ConnectorRef(SQLModel):
 class AssistantResponse(AssistantBase):
     """Schema for Responses."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
     updated_at: datetime
