@@ -17,7 +17,11 @@ except ImportError:
 # Initialize FastMCP Server
 mcp = FastMCP("VectraRefactorAgent")
 
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mcp_server.log")
+LOG_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "logs",
+    "mcp_server.log",
+)
 
 
 def log_message(message: str):

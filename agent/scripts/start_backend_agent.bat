@@ -3,7 +3,7 @@ chcp 65001 >NUL
 cd /d "%~dp0"
 
 echo [INFO] Activating Virtual Environment...
-set VENV_PYTHON=%~dp0..\backend\.venv\Scripts\python.exe
+set VENV_PYTHON=%~dp0..\..\backend\.venv\Scripts\python.exe
 
 if not exist "%VENV_PYTHON%" (
     echo [ERROR] Virtual environment python not found at %VENV_PYTHON%
@@ -13,13 +13,14 @@ if not exist "%VENV_PYTHON%" (
 )
 
 echo [INFO] Switching context to backend...
-cd ..\backend
+echo [INFO] Switching context to backend...
+cd ..\..\backend
 
 echo [INFO] Installing Agent dependencies...
 "%VENV_PYTHON%" -m pip install -q gitpython google-generativeai python-dotenv mcp black isort flake8
 
 echo [INFO] Running Nightly Agentic Worker...
-"%VENV_PYTHON%" ..\agent\backend_agent_runner.py %*
+"%VENV_PYTHON%" ..\agent\src\runners\backend_agent_runner.py %*
 
 echo [DONE] Agent Session Finished.
 pause

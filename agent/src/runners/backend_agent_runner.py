@@ -20,8 +20,10 @@ except ImportError:
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    # Try finding .env in parent dir
-    parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Try finding .env in parent dir (Vectra root)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # src/runners -> src -> agent -> Vectra
+    parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
     env_path = os.path.join(parent_dir, ".env")
     load_dotenv(env_path)
     api_key = os.getenv("GEMINI_API_KEY")
@@ -33,7 +35,9 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 STATE_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "backend_agent_state.json"
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "data",
+    "backend_agent_state.json",
 )
 
 
@@ -70,7 +74,7 @@ async def run_agent(goal: str, target_file: str = None):
         print(f"📄 Target File: {target_file}")
 
     server_script = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "server.py"
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "server", "server.py"
     )
     server_params = StdioServerParameters(
         command=sys.executable, args=[server_script], env=None
@@ -137,8 +141,8 @@ async def run_agent(goal: str, target_file: str = None):
             gemini_tools = [list_files, read_file, write_file, run_command]
 
             # Ensure plans directory exists (Absolute path for reliability)
-            agent_root = os.path.dirname(os.path.abspath(__file__))
-            plans_dir = os.path.join(agent_root, "plans")
+            agent_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            plans_dir = os.path.join(agent_root, "data", "plans")
             os.makedirs(plans_dir, exist_ok=True)
 
             # Define Project Roots for the Agent
