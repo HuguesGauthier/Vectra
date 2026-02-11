@@ -1,7 +1,7 @@
 import logging
 import threading
 import time
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -207,18 +207,21 @@ class SQLEngineCache:
             }
 
 
-# Global singleton instance
+# Global singleton and lock for thread-safe initialization
 _global_cache: Optional[SQLEngineCache] = None
+_init_lock = threading.Lock()
 
 
 def get_sql_engine_cache() -> SQLEngineCache:
     """
-    Get or create the global SQL engine cache singleton.
+    Get or create the global SQL engine cache singleton using double-checked locking.
 
     Returns:
         Global SQLEngineCache instance
     """
     global _global_cache
     if _global_cache is None:
-        _global_cache = SQLEngineCache(max_size=100, ttl_seconds=3600)
+        with _init_lock:
+            if _global_cache is None:
+                _global_cache = SQLEngineCache(max_size=100, ttl_seconds=3600)
     return _global_cache

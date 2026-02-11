@@ -7,13 +7,9 @@ from uuid import UUID
 from fastapi import Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
 
-from app.core.connection_manager import manager
 from app.core.database import get_db
-from app.core.exceptions import (ConfigurationError, EntityNotFound,
-                                 FileSystemError)
+from app.core.exceptions import ConfigurationError, EntityNotFound, FileSystemError
 from app.core.interfaces.base_connector import get_full_path_from_connector
 from app.core.time import SystemClock, TimeProvider
 from app.factories.connector_factory import ConnectorFactory
@@ -21,14 +17,12 @@ from app.models.enums import ConnectorStatus, DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
-from app.services.connector_state_service import (ConnectorStateService,
-                                                  get_connector_state_service)
+from app.schemas.enums import ConnectorType
+from app.services.connector_state_service import ConnectorStateService, get_connector_state_service
 from app.services.ingestion.ingestion_orchestrator import IngestionOrchestrator
-from app.services.schema_discovery_service import (
-    SchemaDiscoveryService, get_schema_discovery_service)
+from app.services.schema_discovery_service import SchemaDiscoveryService, get_schema_discovery_service
 from app.services.settings_service import SettingsService, get_settings_service
-from app.services.sql_discovery_service import (SQLDiscoveryService,
-                                                get_sql_discovery_service)
+from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
 
 # ============================================================================
@@ -192,11 +186,7 @@ class IngestionService:
             orchestrator = await self._get_or_create_orchestrator()
 
             # SQL SPECIALIZED PATH (includes Vanna SQL)
-            from app.schemas.enums import ConnectorType
-
-            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL] or (
-                isinstance(connector.connector_type, str) and connector.connector_type in ["sql", "vanna_sql"]
-            ):
+            if self._is_sql_connector(connector):
                 await self.state_service.update_connector_status(connector.id, ConnectorStatus.VECTORIZING)
                 try:
                     await self.db.begin_nested()
@@ -328,12 +318,10 @@ class IngestionService:
             # P0 FIX: Detect File Bucket Connectors
             # For local_file connectors used as buckets (no file_path in config),
             # skip Factory and directly vectorize existing documents from DB
-            from app.schemas.enums import ConnectorType
-
             is_file_bucket = connector.connector_type == ConnectorType.LOCAL_FILE and not connector.configuration.get(
                 "file_path"
             )
-            is_sql = connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]
+            is_sql = self._is_sql_connector(connector)
 
             if is_file_bucket or is_sql:
                 mode_name = "SQL MODE" if is_sql else "BUCKET MODE"
@@ -445,6 +433,16 @@ class IngestionService:
                 await self.state_service.update_connector_status(connector_id, ConnectorStatus.IDLE)
         except Exception as e:
             logger.warning(f"CLEANUP_FAILED | {connector_id}: {e}")
+
+    def _is_sql_connector(self, connector) -> bool:
+        """Centralized check for SQL/Vanna SQL connector types."""
+        conn_type = str(connector.connector_type).lower().strip()
+        return conn_type in [
+            ConnectorType.SQL.value,
+            ConnectorType.VANNA_SQL.value,
+            "sql",
+            "vanna_sql",
+        ]
 
 
 # ============================================================================

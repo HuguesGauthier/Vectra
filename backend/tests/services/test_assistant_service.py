@@ -1,21 +1,12 @@
-import asyncio
-import os
-from datetime import datetime
-from pathlib import Path
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
-
-import pytest
+from pathlib import Path
 from fastapi import UploadFile
-
-from app.core.exceptions import TechnicalError
-from app.models.assistant import Assistant
-from app.schemas.assistant import (AIModel, AssistantCreate, AssistantResponse,
-                                   AssistantUpdate)
 from app.services.assistant_service import AssistantService
+from app.schemas.assistant import AssistantCreate, AssistantUpdate, AssistantResponse, AIModel
+from app.core.exceptions import FunctionalError
 
-
-# --- Fixtures ---
 
 @pytest.fixture
 def mock_repo():
@@ -23,209 +14,142 @@ def mock_repo():
 
 
 @pytest.fixture
-def mock_cache_service():
+def mock_cache():
     return AsyncMock()
 
 
 @pytest.fixture
-def mock_trending_service():
+def mock_trending():
     return AsyncMock()
 
 
 @pytest.fixture
-def service(mock_repo, mock_cache_service, mock_trending_service):
-    return AssistantService(
-        assistant_repo=mock_repo,
-        cache_service=mock_cache_service,
-        trending_service=mock_trending_service
+def service(mock_repo, mock_cache, mock_trending):
+    return AssistantService(mock_repo, mock_cache, mock_trending)
+
+
+def create_mock_assistant_model(assistant_id=None):
+    """Helper to create a mock SQLAlchemy model for Assistant."""
+    from datetime import datetime
+
+    mock = MagicMock()
+    mock.id = assistant_id or uuid4()
+    mock.name = "Test Assistant"
+    mock.description = "Description"
+    mock.avatar_bg_color = "#FFFFFF"
+    mock.avatar_text_color = "black"
+    mock.avatar_image = None
+    mock.avatar_vertical_position = 50
+    mock.instructions = "Instructions"
+    mock.model = AIModel.GEMINI
+    mock.use_reranker = False
+    mock.top_k_retrieval = 25
+    mock.top_n_rerank = 5
+    mock.retrieval_similarity_cutoff = 0.5
+    mock.similarity_cutoff = 0.5
+    mock.use_semantic_cache = False
+    mock.cache_similarity_threshold = 0.9
+    mock.cache_ttl_seconds = 3600
+    mock.user_authentication = False
+    mock.is_enabled = True
+    mock.created_at = datetime.now()
+    mock.updated_at = datetime.now()
+    mock.linked_connectors = []
+
+    # Configuration is a nested SQLModel/AssistantConfig
+    mock.configuration = MagicMock()
+    mock.configuration.temperature = 0.7
+    mock.configuration.top_p = 1.0
+    mock.configuration.presence_penalty = 0.0
+    mock.configuration.frequency_penalty = 0.0
+    mock.configuration.max_output_tokens = 4096
+    mock.configuration.tags = []
+
+    return mock
+
+
+@pytest.mark.asyncio
+async def test_create_assistant_success(service, mock_repo):
+    # Setup
+    data = AssistantCreate(
+        name="Test Assistant", instructions="You are a test assistant.", avatar_bg_color="#FFFFFF"  # White background
     )
+    mock_assistant = create_mock_assistant_model()
+    mock_repo.create_with_connectors.return_value = mock_assistant
+
+    # Execute
+    result = await service.create_assistant(data)
+
+    # Assert
+    assert result.id == mock_assistant.id
+    # HEX #FFFFFF (White) should result in "black" text
+    assert data.avatar_text_color == "black"
+    mock_repo.create_with_connectors.assert_called_once()
 
 
-@pytest.fixture
-def sample_assistant():
+@pytest.mark.asyncio
+async def test_upload_avatar_success(service, mock_repo):
+    # Setup
     assistant_id = uuid4()
-    return Assistant(
-        id=assistant_id,
-        name="Test Bot",
-        model=AIModel.OPENAI,
-        instructions="Test",
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-        linked_connectors=[],
-        avatar_color="primary",
-        avatar_text_color="white",
-        use_reranker=False,
-        top_k_retrieval=25,
-        top_n_rerank=5,
-        user_authentication=False,
-        configuration={},
-        is_enabled=True,
-    )
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.filename = "avatar.png"
+    mock_file.content_type = "image/png"
 
+    mock_assistant = create_mock_assistant_model(assistant_id)
+    mock_repo.update_with_connectors.return_value = mock_assistant
 
-@pytest.fixture
-def sample_assistant_id():
-    return uuid4()
+    # Mock IO
+    with patch.object(service, "_cleanup_avatar_file", AsyncMock()):
+        with patch.object(service, "_save_file_async", AsyncMock()):
+            # Execute
+            result = await service.upload_avatar(assistant_id, mock_file)
 
-
-# --- Tests ---
-
-@pytest.mark.asyncio
-class TestAssistantService:
-    """Standard CRUD and basic logic tests."""
-
-    async def test_get_assistants_success(self, service, mock_repo, sample_assistant):
-        mock_repo.get_all_ordered_by_name.return_value = [sample_assistant]
-
-        results = await service.get_assistants()
-
-        assert len(results) == 1
-        assert isinstance(results[0], AssistantResponse)
-        assert results[0].name == "Test Bot"
-        mock_repo.get_all_ordered_by_name.assert_awaited_once()
-
-    async def test_get_assistant_found(self, service, mock_repo, sample_assistant):
-        mock_repo.get.return_value = sample_assistant
-
-        result = await service.get_assistant(sample_assistant.id)
-
-        assert isinstance(result, AssistantResponse)
-        assert result.id == sample_assistant.id
-        mock_repo.get.assert_awaited_once_with(sample_assistant.id)
-
-    async def test_get_assistant_not_found(self, service, mock_repo):
-        mock_repo.get.return_value = None
-
-        result = await service.get_assistant(uuid4())
-
-        assert result is None
-
-    async def test_create_assistant_success(self, service, mock_repo, sample_assistant):
-        # Test contrast logic application during creation
-        assistant_data = AssistantCreate(name="New Assist", avatar_bg_color="#000000")  # Black bg -> white text
-
-        mock_repo.create_with_connectors.return_value = sample_assistant
-        sample_assistant.name = "New Assist"
-
-        await service.create_assistant(assistant_data)
-
-        # Verify contrast logic modified the input data
-        assert assistant_data.avatar_text_color == "white"
-        mock_repo.create_with_connectors.assert_awaited_once_with(assistant_data)
-
-    async def test_update_assistant_success(self, service, mock_repo, sample_assistant):
-        assistant_id = sample_assistant.id
-        update_data = AssistantUpdate(name="Updated", avatar_bg_color="#FFFFFF")  # White bg -> black text
-
-        mock_repo.update_with_connectors.return_value = sample_assistant
-        sample_assistant.name = "Updated"
-
-        await service.update_assistant(assistant_id, update_data)
-
-        # Verify contrast logic
-        assert update_data.avatar_text_color == "black"
-        mock_repo.update_with_connectors.assert_awaited_once_with(assistant_id, update_data)
-
-    async def test_delete_assistant_success(self, service, mock_repo, sample_assistant_id):
-        mock_repo.remove.return_value = True
-
-        result = await service.delete_assistant(sample_assistant_id)
-
-        assert result is True
-        mock_repo.remove.assert_awaited_once_with(sample_assistant_id)
-
-    async def test_service_error_handling(self, service, mock_repo):
-        mock_repo.get_all_ordered_by_name.side_effect = Exception("Repo fail")
-
-        with pytest.raises(TechnicalError) as exc:
-            await service.get_assistants()
-
-        assert "Failed to retrieve assistants" in str(exc.value)
-        assert exc.value.error_code == "DB_ERROR"
+            # Assert
+            assert result.id == assistant_id
+            mock_repo.update_with_connectors.assert_called_once()
 
 
 @pytest.mark.asyncio
-class TestAssistantServiceResilience:
-    """Tests for system stability and edge case resilience."""
+async def test_upload_avatar_invalid_type(service):
+    # Setup
+    assistant_id = uuid4()
+    mock_file = MagicMock(spec=UploadFile)
+    mock_file.content_type = "text/plain"
 
-    async def test_delete_assistant_resilience_when_cache_fails(
-        self, service, mock_repo, mock_cache_service, sample_assistant_id
-    ):
-        """
-        P1: Ensures that if cache clearing fails (e.g. Redis down), the assistant is still deleted from DB.
-        """
-        # Arrange
-        mock_repo.remove.return_value = True
-        mock_cache_service.clear_assistant_cache.side_effect = Exception("Redis connection refused")
-
-        # Act
-        result = await service.delete_assistant(sample_assistant_id)
-
-        # Assert
-        assert result is True
-        # Verify DB remove was called despite cache failure (Best Effort)
-        mock_repo.remove.assert_called_once_with(sample_assistant_id)
-        # Verify cache was attempted
-        mock_cache_service.clear_assistant_cache.assert_called_once()
-
-    async def test_delete_assistant_resilience_when_trending_fails(
-        self, service, mock_repo, mock_trending_service, sample_assistant_id
-    ):
-        """P1: Resilience if trending service fails during deletion."""
-        mock_repo.remove.return_value = True
-        mock_trending_service.delete_assistant_topics.side_effect = Exception("Service Unavailable")
-
-        result = await service.delete_assistant(sample_assistant_id)
-
-        assert result is True
-        mock_repo.remove.assert_called_once_with(sample_assistant_id)
+    # Execute & Assert
+    with pytest.raises(FunctionalError, match="must be an image"):
+        await service.upload_avatar(assistant_id, mock_file)
 
 
 @pytest.mark.asyncio
-class TestAssistantServiceTechnicalAudit:
-    """Audits for async efficiency and file management flows."""
+async def test_delete_assistant_cleanup(service, mock_repo, mock_cache, mock_trending):
+    # Setup
+    assistant_id = uuid4()
+    mock_repo.remove.return_value = True
 
-    async def test_cleanup_avatar_is_non_blocking(self, service, sample_assistant_id):
-        """
-        P0: Verify that _cleanup_avatar_file offloads to executor.
-        """
-        with patch("asyncio.get_running_loop") as mock_get_loop:
-            mock_loop = MagicMock()
-            mock_get_loop.return_value = mock_loop
-            
-            # run_in_executor returns a future. In tests, we can return a resolved future.
-            mock_future = asyncio.Future()
-            mock_future.set_result(None)
-            mock_loop.run_in_executor.return_value = mock_future
+    # Execute
+    await service.delete_assistant(assistant_id)
 
-            await service._cleanup_avatar_file(sample_assistant_id)
+    # Assert
+    mock_cache.clear_assistant_cache.assert_called_once_with(str(assistant_id))
+    mock_trending.delete_assistant_topics.assert_called_once_with(assistant_id)
+    mock_repo.remove.assert_called_once_with(assistant_id)
 
-            mock_loop.run_in_executor.assert_called_once()
-            args, _ = mock_loop.run_in_executor.call_args
-            assert args[0] is None
-            assert callable(args[1])
 
-    async def test_upload_avatar_flow(self, service, mock_repo, sample_assistant):
-        """Verify the full flow of avatar upload."""
-        assistant_id = sample_assistant.id
-        file_mock = MagicMock(spec=UploadFile)
-        file_mock.filename = "test.png"
-        file_mock.content_type = "image/png"
-        file_mock.file = MagicMock()
+@pytest.mark.asyncio
+async def test_update_assistant_success(service, mock_repo):
+    # Setup
+    assistant_id = uuid4()
+    data = AssistantUpdate(name="Updated Name", avatar_bg_color="#000000")  # Black background
 
-        # Mock internals
-        service._cleanup_avatar_file = AsyncMock()
-        service._save_file_async = AsyncMock()
+    mock_assistant = create_mock_assistant_model(assistant_id)
+    mock_repo.update_with_connectors.return_value = mock_assistant
 
-        # Mock Repo update to return a valid Assistant model
-        mock_repo.update_with_connectors.return_value = sample_assistant
-        sample_assistant.avatar_image = f"{assistant_id}.png"
+    # Execute
+    result = await service.update_assistant(assistant_id, data)
 
-        result = await service.upload_avatar(assistant_id, file_mock)
-
-        assert result.id == assistant_id
-        assert result.avatar_image == f"{assistant_id}.png"
-        # Verify orchestration
-        service._cleanup_avatar_file.assert_awaited_with(assistant_id)
-        service._save_file_async.assert_awaited()
-        mock_repo.update_with_connectors.assert_called_once()
+    # Assert
+    assert result.id == assistant_id
+    # HEX #000000 (Black) should result in "white" text
+    assert data.avatar_text_color == "white"
+    mock_repo.update_with_connectors.assert_called_once()

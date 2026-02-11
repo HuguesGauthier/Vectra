@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Annotated, List, Optional
 from uuid import UUID
@@ -47,7 +46,7 @@ class NotificationService:
 
         except Exception as e:
             logger.error(f"Failed to fetch notifications for user {user_id}: {e}", exc_info=True)
-            raise TechnicalError(message=f"Database fetch error", error_code="NOTIFICATION_FETCH_ERROR")
+            raise TechnicalError(message="Database fetch error", error_code="NOTIFICATION_FETCH_ERROR")
 
     async def create_notification(self, notification_data: NotificationCreate) -> NotificationResponse:
         """
@@ -62,16 +61,15 @@ class NotificationService:
                 message=notification_data.message,
                 read=notification_data.read,
             )
+            # The repository.create method already handles commit/refresh
             created_notif = await self.notification_repo.create(new_notification)
-
-            # Ensure commit if repo doesn't handle it
-            await self.notification_repo.db.commit()
 
             logger.info(f"Created notification {created_notif.id} for user {notification_data.user_id}")
             return NotificationResponse.model_validate(created_notif)
 
         except Exception as e:
             logger.error(f"Failed to create notification: {e}", exc_info=True)
+            # No need for manual rollback here if repo handles it, but kept for absolute safety in case of non-SQLAlchemy errors
             await self.notification_repo.db.rollback()
             raise TechnicalError(message="Notification creation failed", error_code="NOTIFICATION_CREATION_FAILED")
 
@@ -84,11 +82,11 @@ class NotificationService:
             db_notification = await self.notification_repo.get_by_id_secured(user_id, notification_id)
 
             if not db_notification:
-                raise EntityNotFound(message=f"Notification not found")
+                raise EntityNotFound(message="Notification not found")
 
-            db_notification.read = True
-            updated_notif = await self.notification_repo.update(db_notification)
-            await self.notification_repo.db.commit()
+            # Correct P0 bug: Pass ID and expected update data format to the generic update method
+            # SQLRepository.update(entity_id, data)
+            updated_notif = await self.notification_repo.update(db_notification.id, {"read": True})
 
             return NotificationResponse.model_validate(updated_notif)
 

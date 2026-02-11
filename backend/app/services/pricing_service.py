@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Dict
+from typing import Annotated
 
 from fastapi import Depends
 
@@ -22,24 +22,24 @@ class PricingService:
     async def get_pricing_map(self) -> PricingMapResponse:
         """
         Returns a dictionary of model names to price per 1k tokens.
-        Fixes P0: Sync context mismatch and P1 raw dict return.
+        Ensures a safe fallback to defaults in case of configuration errors.
         """
-        try:
-            # Start with static defaults
-            prices = MODEL_PRICES.copy()
+        # Start with static defaults
+        prices = MODEL_PRICES.copy()
 
-            # P0 Fix: Async resolution of settings
+        try:
+            # Async resolution of settings
             local_model = await self.settings_service.get_value("local_embedding_model")
 
-            if local_model:
+            if local_model and isinstance(local_model, str):
                 prices[local_model] = 0.0
 
             return PricingMapResponse(prices=prices)
 
         except Exception as e:
-            logger.error(f"Failed to calculate pricing map: {e}", exc_info=True)
-            # Return defaults at minimum to avoid breaking UI (Safe Fallback)
-            return PricingMapResponse(prices=MODEL_PRICES.copy())
+            logger.error(f"Failed to calculate pricing map, using defaults: {e}", exc_info=True)
+            # Return current state of 'prices' (which contains defaults) to avoid breaking UI
+            return PricingMapResponse(prices=prices)
 
 
 async def get_pricing_service(

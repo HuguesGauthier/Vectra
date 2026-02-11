@@ -4,7 +4,7 @@ import time
 from typing import Annotated, Any, Dict, List, Optional, Set
 from uuid import UUID
 
-from fastapi import BackgroundTasks, Depends
+from fastapi import Depends
 from qdrant_client import models
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -70,16 +70,7 @@ class TrendingService:
             # We use the Async client for the repo
             self.vector_repo = VectorRepository(self.vector_service.get_async_qdrant_client())
 
-        try:
-            # 1. Resolve collection based on provider
-            # We need to know which provider was used for this embedding
-            # Current implementation might not pass it, so we fallback or expect it.
-            # I will add provider as an argument to this method.
-            pass
-        except:
-            pass
-
-    async def _get_collection_name(self, provider: str) -> str:
+    def _get_collection_name(self, provider: str) -> str:
         """Helper to generate provider-specific collection name."""
         provider = provider.lower().strip()
         if provider in ["local", "huggingface"]:
@@ -106,7 +97,7 @@ class TrendingService:
 
         try:
             # 1. Resolve collection based on embedding provider
-            collection_name = await self._get_collection_name(embedding_provider)
+            collection_name = self._get_collection_name(embedding_provider)
 
             # 2. Ensure collection exists (Using Service Helper)
             await self.vector_service.ensure_collection_exists(collection_name, provider=embedding_provider)
@@ -166,8 +157,9 @@ class TrendingService:
 
         # Periodic title refinement
         if topic.frequency in REFINEMENT_MILESTONES:
-            logger.info(f"Milestone {topic.frequency} hit. Spawning background refinement.")
             # Fire and forget safely
+            import asyncio
+
             asyncio.create_task(self._safe_refine_title_task(topic_id, embedding_provider=embedding_provider))
 
     async def _create_new_topic(
@@ -176,7 +168,7 @@ class TrendingService:
         """Helper to create new topic."""
         logger.info(f"No Match | Creating new topic (Embedding Provider: {embedding_provider})")
 
-        collection_name = await self._get_collection_name(embedding_provider)
+        collection_name = self._get_collection_name(embedding_provider)
 
         new_topic = await self.repository.create(
             {"canonical_text": question, "frequency": 1, "raw_variations": [question], "assistant_id": assistant_id}
@@ -225,12 +217,12 @@ class TrendingService:
                                This is NOT used for the LLM - chat provider comes from assistant
         """
         # Collection name based on embedding provider (for updating vector payload)
-        collection_name = await self._get_collection_name(embedding_provider)
+        collection_name = self._get_collection_name(embedding_provider)
         topic = await self.repository.get_by_id(topic_id)
         if not topic or not topic.raw_variations:
             return
 
-        variations_str = "\\n".join([f"- {v}" for v in topic.raw_variations])
+        variations_str = "\n".join([f"- {v}" for v in topic.raw_variations])
         prompt = REFINEMENT_PROMPT_TEMPLATE.format(variations_str=variations_str)
 
         try:
@@ -275,7 +267,11 @@ class TrendingService:
                 pass
 
             llm = LLMFactory.create_llm(provider=chat_provider, model_name=chat_model, api_key=api_key, temperature=0.1)
-            response = await llm.acomplete(prompt)
+
+            # P0 Fix: Add timeout to prevent hanging background tasks
+            import asyncio
+
+            response = await asyncio.wait_for(llm.acomplete(prompt), timeout=45.0)
 
             refined_title = self._clean_ai_title(response.text)
 
@@ -336,7 +332,7 @@ class TrendingService:
             # Since we don't necessarily know which providers it used, we try all
             supported_providers = ["gemini", "openai", "local"]
             for p in supported_providers:
-                coll = await self._get_collection_name(p)
+                coll = self._get_collection_name(p)
                 await self.vector_repo.delete_by_assistant_id(coll, assistant_id)
 
             logger.info(f"Cleaned up vectors across all trending collections for assistant {assistant_id}")
