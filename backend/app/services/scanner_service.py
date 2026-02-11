@@ -23,16 +23,13 @@ from app.repositories.document_repository import DocumentRepository
 from app.services.ingestion.utils import IngestionUtils
 from app.services.vector_service import VectorService, get_vector_service
 
-# from app.services.settings_service import SettingsService # (Implicit via VectorService)
-
 logger = logging.getLogger(__name__)
 
 
 class ScannerService:
     """
-    Architect Refactor of ScannerService.
-    Hardens architecture via modern DI (P1), fixes P0 blocking IO,
-    and improves testability.
+    Service responsible for scanning file systems and syncing document records in the database.
+    Handles non-blocking I/O for file system operations and manages batch updates to the database.
     """
 
     SUPPORTED_EXTENSIONS = {
@@ -74,19 +71,16 @@ class ScannerService:
         self.db = db
         self.connector_repo = connector_repo or ConnectorRepository(db)
         self.document_repo = document_repo or DocumentRepository(db)
-        # P1: If vector_service not provided, we can't easily verify creation without Settings.
-        # Ideally, it should always be provided via DI.
         self.vector_service = vector_service
 
     async def _run_blocking_io(self, func, *args, **kwargs):
-        """Wrapper to offload blocking I/O to thread pool. Fixes P0."""
+        """Wrapper to offload blocking I/O to thread pool."""
         return await asyncio.to_thread(func, *args, **kwargs)
 
     async def scan_folder(self, connector_id: UUID, base_path: str, recursive: bool = True) -> Dict[str, int]:
         """
-        Scans folder and syncs ConnectorDocument records.
-        Fixes P0: Blocking path validation.
-        Fixes P1: Scalability (uses repo instead of direct select in loop).
+        Scans a folder and syncs ConnectorDocument records with the actual file system state.
+        Detects additions, updates, and deletions.
         """
         start_time = time.time()
         logger.info(f"START | ScannerService.scan_folder | connector={connector_id}, path={base_path}")

@@ -3,14 +3,19 @@ import time
 from typing import Annotated, Any, List, Optional
 
 from fastapi import Depends
-from llama_index.core import Settings
+from llama_index.core import PromptTemplate, Settings
 from llama_index.core.query_engine import BaseQueryEngine, RouterQueryEngine
 from llama_index.core.selectors import LLMSingleSelector
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from llama_index.core.vector_stores import FilterOperator, MetadataFilter, MetadataFilters
 
+from app.core.exceptions import ConfigurationError
+from app.core.prompts import AGENTIC_RESPONSE_PROMPT, AGENTIC_RESPONSE_PROMPT_FR
+from app.factories.chat_engine_factory import ChatEngineFactory
+from app.schemas.enums import ConnectorType
+from app.services.chat.utils import LLMFactory
 from app.services.settings_service import SettingsService
-from app.services.sql_discovery_service import (SQLDiscoveryService,
-                                                get_sql_discovery_service)
+from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
 
 logger = logging.getLogger(__name__)
@@ -74,9 +79,16 @@ class UnifiedQueryEngineFactory:
         has_docs = False
         if assistant.linked_connectors:
             for conn in assistant.linked_connectors:
-                ctype = str(conn.connector_type).lower() if conn.connector_type else ""
+                ctype = str(conn.connector_type).lower().strip() if conn.connector_type else ""
                 # If it's NOT a SQL connector, we assume it's a document source (file, web, etc.)
-                if ctype not in ["sql", "vanna_sql", "mssql", "postgres"]:
+                if ctype not in [
+                    ConnectorType.SQL.value,
+                    ConnectorType.VANNA_SQL.value,
+                    "sql",
+                    "vanna_sql",
+                    "mssql",
+                    "postgres",
+                ]:
                     has_docs = True
                     break
 
@@ -95,9 +107,7 @@ class UnifiedQueryEngineFactory:
         provider = self._determine_vector_provider(assistant)
 
         # Prepare Filters (ACL)
-        from llama_index.core.vector_stores import (FilterOperator,
-                                                    MetadataFilter,
-                                                    MetadataFilters)
+        from llama_index.core.vector_stores import FilterOperator, MetadataFilter, MetadataFilters
 
         filters = None
         if assistant.linked_connectors:
@@ -114,8 +124,7 @@ class UnifiedQueryEngineFactory:
         # Inject Language & Instructions
         from llama_index.core import PromptTemplate
 
-        from app.core.prompts import (AGENTIC_RESPONSE_PROMPT,
-                                      AGENTIC_RESPONSE_PROMPT_FR)
+        from app.core.prompts import AGENTIC_RESPONSE_PROMPT, AGENTIC_RESPONSE_PROMPT_FR
 
         if language and "fr" in language.lower():
             selected_prompt = AGENTIC_RESPONSE_PROMPT_FR
@@ -125,10 +134,6 @@ class UnifiedQueryEngineFactory:
 
         if hasattr(assistant, "instructions") and assistant.instructions:
             selected_prompt = f"{assistant.instructions}\n\n{selected_prompt}"
-
-        # CRITICAL FIX: Create LLM from assistant's model_provider for vector query engine
-        # Without this, the vector engine doesn't use any LLM or falls back to OpenAI default
-        from app.factories.chat_engine_factory import ChatEngineFactory
 
         settings_service = SettingsService(self.sql_service.db)
         await settings_service.load_cache()
@@ -169,11 +174,7 @@ class UnifiedQueryEngineFactory:
             )
 
             # Initialize Router LLM
-            from app.services.chat.utils import LLMFactory
-
-            # Quick Settings Load (Refactor note: Inject this properly later)
-            settings_service = SettingsService(self.sql_service.db)
-            await settings_service.load_cache()
+            # Settings service already loaded above
 
             # Router Model Selection - Use assistant's configured provider
             router_provider = assistant.model_provider or "gemini"

@@ -10,30 +10,24 @@ from sqlmodel import select
 
 from app.core.database import get_db
 from app.models.assistant import Assistant
-from app.repositories.chat_history_repository import (
-    ChatPostgresRepository, get_chat_postgres_repository)
+from app.repositories.chat_history_repository import ChatPostgresRepository, get_chat_postgres_repository
 from app.schemas.chat import Message
 from app.services.cache_service import SemanticCacheService, get_cache_service
 from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.agentic_processor import AgenticProcessor
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
-from app.services.chat.processors.history_processor import \
-    HistoryLoaderProcessor
-from app.services.chat.processors.persistence_processor import (
-    AssistantPersistenceProcessor, UserPersistenceProcessor)
+from app.services.chat.processors.history_processor import HistoryLoaderProcessor
+from app.services.chat.processors.persistence_processor import AssistantPersistenceProcessor, UserPersistenceProcessor
 from app.services.chat.processors.rag_processor import RAGGenerationProcessor
-from app.services.chat.processors.semantic_cache_processor import \
-    SemanticCacheProcessor
+from app.services.chat.processors.semantic_cache_processor import SemanticCacheProcessor
 from app.services.chat.processors.trending_processor import TrendingProcessor
-from app.services.chat.processors.visualization_processor import \
-    VisualizationProcessor
+from app.services.chat.processors.visualization_processor import VisualizationProcessor
+
 # Pipeline Imports
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
-from app.services.chat_history_service import (ChatHistoryService,
-                                               get_chat_history_service)
-from app.services.query_engine_factory import (UnifiedQueryEngineFactory,
-                                               get_query_engine_factory)
+from app.services.chat_history_service import ChatHistoryService, get_chat_history_service
+from app.factories.query_engine_factory import UnifiedQueryEngineFactory, get_query_engine_factory
 from app.services.settings_service import SettingsService, get_settings_service
 from app.services.vector_service import VectorService, get_vector_service
 

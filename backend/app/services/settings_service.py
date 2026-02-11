@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional, Set
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,6 +132,9 @@ class SettingsService:
         """
         Atomic update of a setting and its corresponding cache.
         """
+        if self.repository is None:
+            raise TechnicalError("Cannot update setting without database session.")
+
         log_val = "********" if is_secret else value
         logger.info(f"Updating setting: {key}={log_val}")
 
@@ -165,13 +168,16 @@ class SettingsService:
 
         except Exception as e:
             logger.error(f"Failed to update setting {key}: {e}", exc_info=True)
-            raise TechnicalError(f"Database error updating setting: {e}")
+            raise TechnicalError(f"Database error updating setting: {key}")
 
     async def seed_defaults(self) -> None:
         """
         Seeds missing default settings using optimized batching.
         Fixes P1: N+1 Seeding pattern.
         """
+        if self.repository is None or self.db is None:
+            raise TechnicalError("Cannot seed settings without database session.")
+
         try:
             existing_keys = await self.repository.get_all_keys()
 
@@ -204,6 +210,8 @@ class SettingsService:
 
     async def get_all_settings(self) -> List[Setting]:
         """Proxy to repository for list display."""
+        if self.repository is None:
+            return []
         return await self.repository.get_all(limit=1000)
 
 

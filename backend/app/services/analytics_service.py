@@ -58,7 +58,7 @@ DEFAULT_MIN_SAVED_PER_DOC: float = 5.0
 DEFAULT_TRENDING_LIMIT: int = 10
 DEFAULT_USER_STATS_DAYS: int = 30
 
-# Fallback costs (USD)
+# Fallback costs (USD) per 1k tokens
 FALLBACK_INPUT_TOKEN_COST: float = 0.00001
 FALLBACK_OUTPUT_TOKEN_COST: float = 0.00003
 
@@ -138,8 +138,10 @@ class AnalyticsService:
 
         except Exception as e:
             logger.error("DEGRADED_STATE | Failed to calculate business metrics: %s", str(e), exc_info=True)
-            # Return empty but log as degraded state for observability
-            return AnalyticsResponse()
+            # Return empty response in degraded mode
+            return AnalyticsResponse(
+                total_docs=0, total_vectors=0, total_tokens=0, estimated_cost=0.0, time_saved_hours=0.0
+            )
 
     async def get_all_advanced_analytics(
         self,
@@ -511,8 +513,10 @@ class AnalyticsService:
         input_tokens = int(getattr(row, "input_tokens", 0) or 0)
         output_tokens = int(getattr(row, "output_tokens", 0) or 0)
 
-        # Implementation Note: Future work could fetch these costs dynamically from MODEL_PRICES mapping
-        estimated_cost = (input_tokens * FALLBACK_INPUT_TOKEN_COST) + (output_tokens * FALLBACK_OUTPUT_TOKEN_COST)
+        # Costs are calculated per 1k tokens
+        estimated_cost = ((input_tokens / 1000.0) * FALLBACK_INPUT_TOKEN_COST) + (
+            (output_tokens / 1000.0) * FALLBACK_OUTPUT_TOKEN_COST
+        )
 
         return AssistantCost(
             assistant_id=str(getattr(row, "id", "unknown")),
@@ -520,7 +524,7 @@ class AnalyticsService:
             total_tokens=int(getattr(row, "total_tokens", 0) or 0),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            estimated_cost_usd=round(estimated_cost, 4),
+            estimated_cost_usd=round(estimated_cost, 6),
         )
 
     @staticmethod
@@ -573,8 +577,8 @@ class AnalyticsService:
         status = "hot" if count > 10 else ("warm" if count > 0 else "cold")
 
         return DocumentUtilization(
-            file_name=str(getattr(row, "doc_id", "unknown")),
-            connector_name="Internal",
+            file_name=str(getattr(row, "file_name", "unknown")),
+            connector_name=str(getattr(row, "connector_name", "Internal")),
             retrieval_count=count,
             last_retrieved=getattr(row, "last_retrieved", None),
             status=status,

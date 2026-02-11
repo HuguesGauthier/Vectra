@@ -1,7 +1,16 @@
 import asyncio
 import sys
+from unittest.mock import MagicMock
+
+# Pragmatic Mock for pyodbc and vanna to avoid collection errors in environments without native drivers
+sys.modules["pyodbc"] = MagicMock()
+sys.modules["vanna"] = MagicMock()
+sys.modules["vanna.base"] = MagicMock()
+sys.modules["vanna.remote"] = MagicMock()
+sys.modules["vanna.openai"] = MagicMock()
+
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -242,8 +251,8 @@ async def test_get_assistant_costs_calculation(service, monkeypatch):
 
     result = await service.get_assistant_costs(24)
     assert len(result) == 1
-    # Costs: (2000 * 0.00001) + (1000 * 0.00003) = 0.02 + 0.03 = 0.05
-    assert result[0].estimated_cost_usd == 0.05
+    # Costs: (2000 / 1000 * 0.00001) + (1000 / 1000 * 0.00003) = 0.00002 + 0.00003 = 0.00005
+    assert result[0].estimated_cost_usd == 0.00005
 
 
 @pytest.mark.asyncio
@@ -260,6 +269,25 @@ async def test_get_document_freshness_percentages(service, monkeypatch):
     result = await service.get_document_freshness()
     assert result[0].percentage == 20.0
     assert result[1].percentage == 80.0
+
+
+@pytest.mark.asyncio
+async def test_get_document_utilization_enriched_mapping(service, monkeypatch):
+    """Verify document utilization report uses enriched names from repository."""
+    mock_repo = AsyncMock()
+    row = MagicMock()
+    row.file_name = "report.pdf"
+    row.connector_name = "SharePoint"
+    row.retrieval_count = 15
+    row.last_retrieved = datetime.now(timezone.utc)
+    mock_repo.get_document_retrieval_stats.return_value = [row]
+    monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
+
+    result = await service.get_document_utilization(30)
+    assert len(result) == 1
+    assert result[0].file_name == "report.pdf"
+    assert result[0].connector_name == "SharePoint"
+    assert result[0].status == "hot"
 
 
 @pytest.mark.asyncio

@@ -7,7 +7,6 @@ Uses Repository Pattern for data access and Pydantic for API consistency.
 
 import asyncio
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, List, Optional
@@ -20,8 +19,7 @@ from app.core.database import get_db
 from app.core.exceptions import FunctionalError, TechnicalError
 from app.core.utils.ui import calculate_contrast_text_color
 from app.repositories.assistant_repository import AssistantRepository
-from app.schemas.assistant import (AssistantCreate, AssistantResponse,
-                                   AssistantUpdate)
+from app.schemas.assistant import AssistantCreate, AssistantResponse, AssistantUpdate
 from app.services.trending_service import TrendingService, get_trending_service
 
 if TYPE_CHECKING:
@@ -32,16 +30,9 @@ logger = logging.getLogger(__name__)
 # Constants
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 AVATAR_DIR = BASE_DIR / "assistant_avatars"
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
-DEFAULT_EXTENSION = "png"
+ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
+DEFAULT_EXTENSION = ".png"
 ERROR_DB = "DB_ERROR"
-
-# Ensure directory exists safely
-if not AVATAR_DIR.exists():
-    try:
-        AVATAR_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        logger.error(f"❌ Failed to create avatar directory: {e}")
 
 
 class AssistantService:
@@ -64,6 +55,15 @@ class AssistantService:
         self.assistant_repo = assistant_repo
         self.cache_service = cache_service
         self.trending_service = trending_service
+        self._ensure_avatar_dir()
+
+    def _ensure_avatar_dir(self):
+        """Ensures avatar directory exists safely."""
+        if not AVATAR_DIR.exists():
+            try:
+                AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                logger.error(f"❌ Failed to create avatar directory: {e}")
 
     async def get_assistants(self, exclude_private: bool = False) -> List[AssistantResponse]:
         """Fetch all assistants, mapped to response schemas."""
@@ -122,7 +122,7 @@ class AssistantService:
 
         except Exception as e:
             logger.error(f"Failed to create assistant: {e}", exc_info=True)
-            if isinstance(e, TechnicalError):
+            if isinstance(e, (TechnicalError, FunctionalError)):
                 raise e
             raise TechnicalError("Failed to create assistant", error_code="ASSISTANT_CREATION_FAILED")
 
@@ -145,7 +145,7 @@ class AssistantService:
 
         except Exception as e:
             logger.error(f"Failed to update assistant {assistant_id}: {e}", exc_info=True)
-            if isinstance(e, TechnicalError):
+            if isinstance(e, (TechnicalError, FunctionalError)):
                 raise e
             raise TechnicalError(f"Failed to update assistant", error_code="ASSISTANT_UPDATE_FAILED")
 
@@ -186,7 +186,7 @@ class AssistantService:
 
             # 2. Prepare Path
             extension = self._get_safe_extension(file.filename)
-            filename = f"{assistant_id}.{extension}"
+            filename = f"{assistant_id}{extension}"
             file_path = AVATAR_DIR / filename
 
             # 3. Cleanup Old & Save New (Blocking IO offloaded)
@@ -263,11 +263,9 @@ class AssistantService:
 
     def _get_safe_extension(self, filename: Optional[str]) -> str:
         if filename:
-            parts = filename.split(".")
-            if len(parts) > 1:
-                ext = parts[-1].lower()
-                if ext in ALLOWED_EXTENSIONS:
-                    return ext
+            ext = Path(filename).suffix.lower()
+            if ext in ALLOWED_EXTENSIONS:
+                return ext
         return DEFAULT_EXTENSION
 
     async def _cleanup_avatar_file(self, assistant_id: UUID):
@@ -275,10 +273,10 @@ class AssistantService:
 
         def _delete_sync():
             try:
-                for file in AVATAR_DIR.glob(f"{assistant_id}.*"):
-                    if file.is_file():
-                        os.remove(file)
-                        logger.debug(f"Removed avatar file: {file}")
+                for file_path in AVATAR_DIR.glob(f"{assistant_id}.*"):
+                    if file_path.is_file():
+                        file_path.unlink()
+                        logger.debug(f"Removed avatar file: {file_path}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup avatar file for {assistant_id}: {e}")
 
@@ -299,9 +297,7 @@ class AssistantService:
 # Modern Dependency Injection
 DBDep = Annotated[AsyncSession, Depends(get_db)]
 
-# Late import to handle potential circular dependencies safely (Pragmatic decision)
-# If we knew for sure CacheService didn't import AssistantService, we'd move it up.
-# Keeping it close to usage for now to respect "Don't break if it works".
+# Late import to handle potential circular dependencies safely
 from app.services.cache_service import SemanticCacheService, get_cache_service
 
 

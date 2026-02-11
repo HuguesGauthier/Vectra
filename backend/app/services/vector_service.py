@@ -74,8 +74,7 @@ class VectorService:
                 return VectorService._model_cache[cache_key]
 
             # Delegate to factory
-            from app.factories.embedding_factory import \
-                EmbeddingProviderFactory
+            from app.factories.embedding_factory import EmbeddingProviderFactory
 
             model = await EmbeddingProviderFactory.create_embedding_model(
                 provider=provider, settings_service=self.settings_service, **kwargs
@@ -183,22 +182,25 @@ class VectorService:
 
     async def ensure_collection_exists(self, collection_name: str, provider: str):
         """Ensures Qdrant collection exists with correct dimensionality."""
-        client = self.get_qdrant_client()
-        if client.collection_exists(collection_name):
-            return
-
-        dimension = self._determine_dimension(provider)
+        client = self.get_async_qdrant_client()
 
         try:
+            exists = await client.collection_exists(collection_name)
+            if exists:
+                return
+
+            dimension = self._determine_dimension(provider)
             logger.info(f"Creating collection '{collection_name}' with dim={dimension}")
+
             from qdrant_client.http import models as qmodels
 
-            client.create_collection(
+            await client.create_collection(
                 collection_name=collection_name,
                 vectors_config=qmodels.VectorParams(size=dimension, distance=qmodels.Distance.COSINE),
             )
         except Exception as e:
-            logger.error(f"Failed to create collection {collection_name}: {e}")
+            logger.error(f"Failed to ensure collection {collection_name} exists: {e}", exc_info=True)
+            raise TechnicalError(f"Vector database collection initialization failed: {e}")
 
     def _determine_dimension(self, provider: str) -> int:
         provider = provider.lower().strip()

@@ -98,14 +98,13 @@ class SystemService:
         try:
             file_path = Path(path).resolve()
 
-            # 1. Path Safety Check (Relaxed for Desktop Usage)
+            # 1. Path Safety Check
             if not self._is_safe_path(file_path):
-                logger.warning(f"Opening path outside safe sandbox: {file_path}")
-                # We permit this for now to allow opening files on external drives (G:\\ etc.)
-                # raise TechnicalError(
-                #     message="Unauthorized path access blocked for security reasons.",
-                #     error_code="UNAUTHORIZED_PATH_ACCESS"
-                # )
+                logger.error(f"Unauthorized path access blocked: {file_path}")
+                raise TechnicalError(
+                    message="Unauthorized path access blocked for security reasons.",
+                    error_code="UNAUTHORIZED_PATH_ACCESS",
+                )
 
             if not file_path.exists():
                 raise EntityNotFound(f"File not found: {path}")

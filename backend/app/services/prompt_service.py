@@ -6,11 +6,8 @@ from typing import Annotated, Optional
 from fastapi import Depends
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.llms.google_genai import GoogleGenAI
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.exceptions import (ConfigurationError, ExternalDependencyError,
-                                 TechnicalError)
+from app.core.exceptions import ConfigurationError, ExternalDependencyError, TechnicalError
 from app.services.settings_service import SettingsService, get_settings_service
 
 logger = logging.getLogger(__name__)
@@ -18,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 class PromptService:
     """
-    Architect Refactor of PromptService.
-    Ensures non-blocking IO (P0) and proper DI (P1).
+    Service responsible for prompt optimization using LLM.
+    Handles loading templates, managing LLM clients, and executing chat-based optimization.
     """
 
     # Class-level cache for the prompt template
@@ -31,16 +28,16 @@ class PromptService:
 
     async def _get_optimizer_prompt(self) -> str:
         """
-        Loads the optimizer prompt from external markdown file.
-        Fixes P0: Synchronous file IO in event loop.
+        Loads the optimizer prompt from an external markdown file.
+        Uses a thread pool for non-blocking file IO and caches the result.
         """
-        if self.__class__._CACHED_OPTIMIZER_PROMPT is not None:
-            return self.__class__._CACHED_OPTIMIZER_PROMPT
+        if PromptService._CACHED_OPTIMIZER_PROMPT is not None:
+            return PromptService._CACHED_OPTIMIZER_PROMPT
 
         async with self._load_lock:
             # Double check after lock acquisition
-            if self.__class__._CACHED_OPTIMIZER_PROMPT is not None:
-                return self.__class__._CACHED_OPTIMIZER_PROMPT
+            if PromptService._CACHED_OPTIMIZER_PROMPT is not None:
+                return PromptService._CACHED_OPTIMIZER_PROMPT
 
             try:
                 current_dir = Path(__file__).parent
@@ -54,7 +51,7 @@ class PromptService:
                         return f.read()
 
                 content = await asyncio.to_thread(read_file)
-                self.__class__._CACHED_OPTIMIZER_PROMPT = content
+                PromptService._CACHED_OPTIMIZER_PROMPT = content
                 logger.info(f"Loaded optimizer prompt from {prompt_path}")
                 return content
 
@@ -64,8 +61,7 @@ class PromptService:
 
     async def _get_llm_client(self) -> GoogleGenAI:
         """
-        Initializes and returns the GoogleGenAI client.
-        Fixes P1: Decoupling settings and normalization logic.
+        Initializes and returns the GoogleGenAI client based on current settings.
         """
         api_key = await self.settings_service.get_value("gemini_api_key")
         if not api_key:
@@ -84,7 +80,7 @@ class PromptService:
     async def optimize_instruction(self, user_input: str) -> str:
         """
         Optimizes a user instruction using Gemini AI.
-        Uses Chat API with System/User separation for better performance.
+        Splits the template into system and user contexts for better performance via Chat API.
         """
         # Input validation
         if not user_input or not user_input.strip():
