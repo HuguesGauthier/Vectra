@@ -13,7 +13,7 @@ from app.core.exceptions import ConfigurationError
 from app.core.prompts import AGENTIC_RESPONSE_PROMPT, AGENTIC_RESPONSE_PROMPT_FR
 from app.factories.chat_engine_factory import ChatEngineFactory
 from app.schemas.enums import ConnectorType
-from app.services.chat.utils import LLMFactory
+from app.factories.llm_factory import LLMFactory
 from app.services.settings_service import SettingsService
 from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service

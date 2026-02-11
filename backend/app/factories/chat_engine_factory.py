@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from app.models.assistant import Assistant
-from app.services.chat.utils import LLMFactory
+from app.factories.llm_factory import LLMFactory
 from app.services.settings_service import SettingsService
 
 logger = logging.getLogger(__name__)

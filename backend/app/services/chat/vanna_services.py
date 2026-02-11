@@ -1,13 +1,17 @@
 import asyncio
+import json
 import logging
-from typing import Any, List, Optional
+import re
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import pyodbc
+from llama_index.core.llms import ChatMessage, MessageRole
+from qdrant_client.http import models as qmodels
 from vanna.base import VannaBase
 
 from app.core.settings import settings
-from app.factories.chat_engine_factory import LLMFactory
+from app.factories.llm_factory import LLMFactory
 from app.factories.embedding_factory import EmbeddingProviderFactory
 from app.services.settings_service import SettingsService
 
@@ -75,8 +79,6 @@ class VectraCustomVanna(VannaBase):
             collection_name = self.collection_name
 
             # 4. Search Qdrant
-            from qdrant_client.http import models as qmodels
-
             logger.info(f"Vanna DDLocal Search | Collection: {collection_name} | Connector: {self.connector_id}")
 
             # Use query_points instead of search (version compatibility)
@@ -99,7 +101,6 @@ class VectraCustomVanna(VannaBase):
 
             # 5. Extract DDL
             ddl_list = []
-            import re
 
             for hit in points:
                 payload = hit.payload or {}
@@ -110,8 +111,6 @@ class VectraCustomVanna(VannaBase):
                 # 2. LlamaIndex Fallback: Parse _node_content JSON
                 if not content and "_node_content" in payload:
                     try:
-                        import json
-
                         node_content = json.loads(payload["_node_content"])
                         content = node_content.get("text")
                     except Exception as e:
@@ -147,8 +146,6 @@ class VectraCustomVanna(VannaBase):
         if not self.llm:
             raise ValueError("LLM not initialized in Vanna Service")
 
-        from llama_index.core.llms import ChatMessage, MessageRole
-
         try:
             # Generate System Instruction (Dynamic)
             system_instruction = self._get_system_instructions()
@@ -174,10 +171,10 @@ class VectraCustomVanna(VannaBase):
 
                     messages.append(ChatMessage(role=role, content=msg.get("content", "")))
 
-                # Use achat for list of messages
-                logger.info(f"Sending {len(messages)} messages to LLM via achat...")
-                response = asyncio.run(self.llm.achat(messages))
-
+                # Use sync API because VannaBase methods (like submit_prompt) are called synchronously.
+                # Avoid asyncio.run() inside a thread that may already have an event loop (FastAPI).
+                logger.info(f"Sending {len(messages)} messages to LLM via chat...")
+                response = self.llm.chat(messages)
                 response_text = response.message.content if hasattr(response, "message") else str(response)
 
             else:
@@ -190,29 +187,25 @@ class VectraCustomVanna(VannaBase):
                     ChatMessage(role=MessageRole.SYSTEM, content=system_instruction),
                     ChatMessage(role=MessageRole.USER, content=str(prompt)),
                 ]
-                response = asyncio.run(self.llm.achat(messages))
+                response = self.llm.chat(messages)
                 response_text = response.message.content if hasattr(response, "message") else str(response)
 
             logger.info(f"Vanna LLM Response: {response_text}")
             return response_text
 
-        except RuntimeError as e:
-            # Fallback for Sync (if loop issues)
-            logger.warning(f"Asyncio run failed in thread, retrying with sync API: {e}")
+        except Exception as e:
+            # P0: Catch broad exceptions for the fallback since we are blocking.
+            logger.warning(f"LLM call failed, attempting fallback: {e}")
             if isinstance(prompt, list):
-                # Re-construct messages for sync chat
-                messages = []
-                for msg in prompt:
-                    role = MessageRole.USER
-                    if msg.get("role") == "system":
-                        role = MessageRole.SYSTEM
-                    elif msg.get("role") == "assistant":
-                        role = MessageRole.ASSISTANT
-                    messages.append(ChatMessage(role=role, content=msg.get("content", "")))
-                response = self.llm.chat(messages)
-                return str(response.message.content)
+                # Re-construct messages for sync chat (already done but safe to retry completion if chat fails)
+                try:
+                    # In some rare cases where .chat fails, .complete might work or vice versa
+                    response = self.llm.complete(str(prompt[-1].get("content", "")) if prompt else "")
+                    return str(response)
+                except Exception:
+                    raise e
             else:
-                response = self.llm.complete(prompt)
+                response = self.llm.complete(str(prompt))
                 return str(response)
 
     def generate_embedding(self, data: str) -> List[float]:
@@ -234,9 +227,11 @@ class VectraCustomVanna(VannaBase):
             logger.info(f"Vanna executing SQL on {host} (DB: {database})...")
 
             conn = pyodbc.connect(conn_str)
-            df = pd.read_sql(sql, conn)
-            conn.close()
-            return df
+            try:
+                df = pd.read_sql(sql, conn)
+                return df
+            finally:
+                conn.close()
         except Exception as e:
             logger.error(f"Vanna SQL Execution failed: {e}")
             raise e
@@ -350,8 +345,6 @@ class VectraCustomVanna(VannaBase):
                 lines = cleaned_response.split("\n")
                 if len(lines) >= 3:
                     cleaned_response = "\n".join(lines[1:-1]).strip()
-
-            import re
 
             cleaned_response = re.sub(r"/\*[\s\S]*?\*/", "", cleaned_response).strip()
 

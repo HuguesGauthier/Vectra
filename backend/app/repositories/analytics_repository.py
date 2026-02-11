@@ -192,12 +192,12 @@ class AnalyticsRepository:
                     c.name as connector_name,
                     COUNT(DISTINCT us.id) as retrieval_count,
                     MAX(us.timestamp) as last_retrieved
-                FROM usage_stats us,
-                     jsonb_array_elements_text(step_duration_breakdown->'retrieved_document_ids') as doc_id
-                JOIN connector_documents cd ON cd.id = (doc_id)::uuid
+                FROM usage_stats us
+                CROSS JOIN LATERAL jsonb_array_elements_text(us.step_duration_breakdown->'retrieved_document_ids') AS doc_id
+                JOIN connectors_documents cd ON cd.id = (doc_id)::uuid
                 JOIN connectors c ON c.id = cd.connector_id
                 WHERE us.timestamp > :cutoff
-                  AND step_duration_breakdown ? 'retrieved_document_ids'
+                  AND us.step_duration_breakdown ? 'retrieved_document_ids'
                 GROUP BY cd.file_name, c.name
                 ORDER BY retrieval_count DESC
                 LIMIT :limit

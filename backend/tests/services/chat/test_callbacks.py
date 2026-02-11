@@ -5,32 +5,23 @@ from app.services.chat.callbacks import StreamingCallbackHandler
 from app.services.chat.types import PipelineStepType
 from llama_index.core.callbacks.schema import CBEventType
 
+
 class TestStreamingCallbackHandler:
-    
+
     @pytest.fixture
     def handler(self):
         return StreamingCallbackHandler(asyncio.Queue())
 
     def test_extract_usage_openai_style(self, handler):
         """Test usage extraction from OpenAI-style payload."""
-        payload = {
-            "usage": {
-                "prompt_tokens": 10,
-                "completion_tokens": 20
-            }
-        }
+        payload = {"usage": {"prompt_tokens": 10, "completion_tokens": 20}}
         usage = handler._extract_usage_from_payload(payload)
         assert usage == {"input": 10, "output": 20}
 
     def test_extract_usage_gemini_dict_style(self, handler):
         """Test usage extraction from Gemini-style (dict) response."""
         response = MagicMock()
-        response.raw = {
-            "usage_metadata": {
-                "prompt_token_count": 5,
-                "candidates_token_count": 15
-            }
-        }
+        response.raw = {"usage_metadata": {"prompt_token_count": 5, "candidates_token_count": 15}}
         payload = {"response": response}
         usage = handler._extract_usage_from_payload(payload)
         assert usage == {"input": 5, "output": 15}
@@ -40,42 +31,70 @@ class TestStreamingCallbackHandler:
         usage_meta = MagicMock()
         usage_meta.prompt_token_count = 8
         usage_meta.candidates_token_count = 12
-        
+
         response = MagicMock()
         response.raw = MagicMock()
+        # Mocking usage_metadata as an object attribute
         response.raw.usage_metadata = usage_meta
-        
+
         payload = {"response": response}
         usage = handler._extract_usage_from_payload(payload)
         assert usage == {"input": 8, "output": 12}
 
-    def test_obs_event_sql_detection(self, handler):
+    def test_determine_step_type_sql(self, handler):
         """Test detection of SQL generation step."""
-        # Start event
-        payload = {
-            "serialized": "NLSQLRetriever"
-        }
-        handler.on_event_start(
-            event_type=CBEventType.LLM,
-            payload=payload,
-            event_id="evt1"
-        )
-        
-        assert "evt1" in handler._event_map
-        assert handler._event_map["evt1"]["step_type"] == PipelineStepType.SQL_GENERATION
+        # Using the helper directly or via on_event_start
+        payload = {"serialized": "NLSQLRetriever"}
+        step_type = handler._determine_step_type(CBEventType.LLM, payload)
+
+        assert step_type == PipelineStepType.SQL_GENERATION
         assert handler._is_sql_flow is True
 
-    def test_obs_event_router_selection(self, handler):
+    def test_determine_step_type_router(self, handler):
         """Test detection of Router selection step."""
-        # Start event with Selector in serialized
-        payload = {
-            "serialized": "LLMSingleSelector"
-        }
-        handler.on_event_start(
-            event_type=CBEventType.LLM,
-            payload=payload,
-            event_id="evt2"
-        )
-        
-        assert "evt2" in handler._event_map
-        assert handler._event_map["evt2"]["step_type"] == PipelineStepType.ROUTER_SELECTION
+        payload = {"serialized": "LLMSingleSelector"}
+        step_type = handler._determine_step_type(CBEventType.LLM, payload)
+
+        assert step_type == PipelineStepType.ROUTER_SELECTION
+
+    def test_determine_step_type_tool(self, handler):
+        """Test detection of Tool execution."""
+        step_type = handler._determine_step_type(CBEventType.FUNCTION_CALL, {})
+        assert step_type == PipelineStepType.TOOL_EXECUTION
+        assert handler._has_used_tools is True
+
+    def test_determine_step_type_synthesis(self, handler):
+        """Test detection of Synthesis (LLM after Tool)."""
+        handler._has_used_tools = True
+        step_type = handler._determine_step_type(CBEventType.LLM, {})
+        assert step_type == PipelineStepType.ROUTER_SYNTHESIS
+
+    def test_enrich_retrieval_payload(self, handler):
+        """Test retrieval payload enrichment."""
+        # Case 1: Standard retrieval
+        payload = {"nodes": [1, 2, 3]}
+        out = {}
+        handler._enrich_retrieval_payload(payload, out)
+        assert out["source_count"] == 3
+        assert "is_sql" not in out
+
+        # Case 2: SQL Flow active
+        handler._is_sql_flow = True
+        out = {}
+        handler._enrich_retrieval_payload(payload, out)
+        assert out["is_sql"] is True
+
+    @pytest.mark.asyncio
+    async def test_obs_event_full_queue(self):
+        """Test graceful handling of full queue."""
+        q = asyncio.Queue(maxsize=1)
+        handler = StreamingCallbackHandler(q)
+
+        # Fill queue
+        await q.put("dummy")
+
+        # Trigger event (should not raise)
+        handler.on_event_start(CBEventType.RETRIEVE, {"nodes": []}, "evt1")
+
+        # Verify queue is still full but didn't crash
+        assert q.full()

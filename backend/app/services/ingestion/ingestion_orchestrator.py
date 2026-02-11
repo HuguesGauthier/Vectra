@@ -11,6 +11,7 @@ from typing import Annotated, Dict, List, Optional, Union
 from uuid import UUID
 
 from fastapi import Depends
+
 # LlamaIndex Imports
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
@@ -120,8 +121,7 @@ class IngestionOrchestrator:
             pipeline, vector_store, batch_size, workers, text_splitter, docstore = await self.setup_pipeline(connector)
 
             # Reconstruct path
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             full_path = get_full_path_from_connector(connector, doc.file_path)
 
@@ -179,8 +179,7 @@ class IngestionOrchestrator:
             connector = await self.connector_repo.get_by_id(connector_id)
             pipeline, vector_store, batch_size, workers, text_splitter, docstore = await self.setup_pipeline(connector)
 
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             file_paths = []
             docs_map = {}
@@ -252,8 +251,7 @@ class IngestionOrchestrator:
                 logger.info("✨ Smart metadata extraction ENABLED for this connector")
 
                 # Import extractor
-                from app.core.ingestion.extractors import \
-                    ComboMetadataExtractor
+                from app.core.ingestion.extractors import ComboMetadataExtractor
 
                 # Get fast LLM for extraction
                 extraction_model = await self.settings_service.get_value("gemini_extraction_model")
@@ -613,16 +611,14 @@ class IngestionOrchestrator:
             await self.doc_repo.update(doc.id, {"status": DocStatus.PROCESSING})
 
             # Resolve Dependencies - Path Reconstruction
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             full_path = get_full_path_from_connector(connector, doc.file_path)
 
             # --- SMART PIPELINE FACTORY ---
             # Injected imports (better to be at top, but acceptable here for optional dependency isolation)
             from app.schemas.ingestion import IndexingStrategy
-            from app.services.ingestion.transformers.smart_row_transformer import \
-                SmartRowTransformer
+            from app.services.ingestion.transformers.smart_row_transformer import SmartRowTransformer
 
             file_metadata = doc.file_metadata or {}
             ai_schema_dict = file_metadata.get("ai_schema")
@@ -669,7 +665,7 @@ class IngestionOrchestrator:
             # 3. Stream & Process
             # 3. Stream & Process (Non-Blocking)
             # P0: Offload CPU-bound CSV parsing to thread pool to prevent Event Loop blocking
-            processor = self._processor_factory(chunk_size=100)
+            processor = self._processor_factory()
 
             def _process_stream():
                 """CPU-bound sync generator wrapper"""

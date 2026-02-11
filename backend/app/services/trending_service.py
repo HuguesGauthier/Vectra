@@ -227,7 +227,7 @@ class TrendingService:
 
         try:
             from app.models.assistant import Assistant
-            from app.services.chat.utils import LLMFactory
+            from app.factories.llm_factory import LLMFactory
 
             # 1. Get Assistant to determine CHAT model provider (not embedding provider!)
             assistant = await self.db.get(Assistant, topic.assistant_id)

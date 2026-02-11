@@ -41,38 +41,6 @@ class FolderIngestionConfig(BaseModel):
     patterns: List[str] = ["*"]
 
 
-class WebIngestionConfig(BaseModel):
-    """
-    Configuration for web crawling.
-    """
-
-    url: str
-    depth: int = 1
-    max_pages: int = 100
-
-
-class ConfluenceIngestionConfig(BaseModel):
-    """
-    Configuration for Confluence.
-    """
-
-    url: str
-    space_key: str
-    api_key: Optional[str] = None
-    username: Optional[str] = None
-
-
-class SharePointIngestionConfig(BaseModel):
-    """
-    Configuration for SharePoint.
-    """
-
-    site_url: str
-    folder_path: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-
-
 class SqlIngestionConfig(BaseModel):
     """
     Configuration for SQL Database.

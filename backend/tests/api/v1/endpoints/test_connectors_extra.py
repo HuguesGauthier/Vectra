@@ -1,5 +1,6 @@
 import sys
 from unittest.mock import MagicMock
+
 # Mock vanna before it's imported
 sys.modules["vanna"] = MagicMock()
 sys.modules["vanna.base"] = MagicMock()
@@ -27,17 +28,22 @@ mock_doc_svc.document_repo.get_by_id = AsyncMock()
 
 mock_sql_svc = AsyncMock()
 
+
 async def override_get_connector_service():
     return mock_conn_svc
+
 
 async def override_get_document_service():
     return mock_doc_svc
 
+
 async def override_get_sql_discovery_service():
     return mock_sql_svc
 
+
 def override_get_admin():
     return User(id=uuid4(), email="admin@test.com", is_superuser=True)
+
 
 app.dependency_overrides[get_connector_service] = override_get_connector_service
 app.dependency_overrides[get_document_service] = override_get_document_service
@@ -45,6 +51,7 @@ app.dependency_overrides[get_sql_discovery_service] = override_get_sql_discovery
 app.dependency_overrides[get_current_admin] = override_get_admin
 
 client = TestClient(app)
+
 
 class TestConnectorsExtra:
     def setup_method(self):
@@ -87,9 +94,20 @@ class TestConnectorsExtra:
         mock_response.id = conn_id
         mock_response.name = "Updated Name"
         # Mocking all required fields for ConnectorResponse
-        fields = ["description", "connector_type", "configuration", "schedule_type", 
-                  "schedule_cron", "created_at", "updated_at", "last_vectorized_at", 
-                  "total_docs_count", "status", "credential_id", "last_error"]
+        fields = [
+            "description",
+            "connector_type",
+            "configuration",
+            "schedule_type",
+            "schedule_cron",
+            "created_at",
+            "updated_at",
+            "last_vectorized_at",
+            "total_docs_count",
+            "status",
+            "credential_id",
+            "last_error",
+        ]
         for field in fields:
             setattr(mock_response, field, None)
         mock_response.connector_type = "local_file"
@@ -109,9 +127,21 @@ class TestConnectorsExtra:
         conn_id = uuid4()
         mock_response = MagicMock()
         mock_response.id = conn_id
-        fields = ["name", "description", "connector_type", "configuration", "schedule_type", 
-                  "schedule_cron", "created_at", "updated_at", "last_vectorized_at", 
-                  "total_docs_count", "status", "credential_id", "last_error"]
+        fields = [
+            "name",
+            "description",
+            "connector_type",
+            "configuration",
+            "schedule_type",
+            "schedule_cron",
+            "created_at",
+            "updated_at",
+            "last_vectorized_at",
+            "total_docs_count",
+            "status",
+            "credential_id",
+            "last_error",
+        ]
         for field in fields:
             setattr(mock_response, field, None)
         mock_response.name = "Test"
@@ -122,7 +152,7 @@ class TestConnectorsExtra:
         mock_response.updated_at = "2024-01-01T00:00:00"
         mock_response.total_docs_count = 0
         mock_response.status = "syncing"
-        
+
         mock_conn_svc.scan_connector.return_value = mock_response
         response = client.post(f"/api/v1/connectors/{conn_id}/scan-files")
         assert response.status_code == 200
@@ -133,9 +163,21 @@ class TestConnectorsExtra:
         mock_response = MagicMock()
         mock_response.id = conn_id
         # Set required fields
-        for field in ["name", "description", "connector_type", "configuration", "schedule_type", 
-                      "schedule_cron", "created_at", "updated_at", "last_vectorized_at", 
-                      "total_docs_count", "status", "credential_id", "last_error"]:
+        for field in [
+            "name",
+            "description",
+            "connector_type",
+            "configuration",
+            "schedule_type",
+            "schedule_cron",
+            "created_at",
+            "updated_at",
+            "last_vectorized_at",
+            "total_docs_count",
+            "status",
+            "credential_id",
+            "last_error",
+        ]:
             setattr(mock_response, field, None)
         mock_response.name = "Test"
         mock_response.connector_type = "local_folder"
@@ -145,36 +187,36 @@ class TestConnectorsExtra:
         mock_response.updated_at = "2024-01-01T00:00:00"
         mock_response.total_docs_count = 0
         mock_response.status = "idle"
-        
+
         mock_conn_svc.stop_connector.return_value = mock_response
         response = client.post(f"/api/v1/connectors/{conn_id}/stop")
         assert response.status_code == 200
         mock_conn_svc.stop_connector.assert_called_once_with(conn_id)
 
-    @patch("app.services.chat.vectra_vanna_service.VannaServiceFactory", new_callable=AsyncMock)
+    @patch("app.services.chat.vanna_services.VannaServiceFactory", new_callable=AsyncMock)
     def test_train_vanna_connector_success(self, mock_vanna_factory):
         conn_id = uuid4()
         doc_id = uuid4()
         payload = {"document_ids": [str(doc_id)]}
-        
+
         mock_connector = MagicMock()
         mock_connector.connector_type = "vanna_sql"
         mock_conn_svc.get_connector.return_value = mock_connector
-        
+
         mock_vanna_svc = MagicMock()
         mock_vanna_factory.return_value = mock_vanna_svc
-        
+
         mock_doc = MagicMock()
         mock_doc.id = doc_id
         mock_doc.file_name = "test_view"
         mock_doc.file_metadata = {"ddl": "CREATE VIEW ..."}
         mock_doc_svc.document_repo.get_by_id.return_value = mock_doc
-        
+
         response = client.post(f"/api/v1/connectors/{conn_id}/train", json=payload)
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert response.json()["trained_count"] == 1
-        
+
     def test_train_vanna_not_found(self):
         conn_id = uuid4()
         mock_conn_svc.get_connector.return_value = None

@@ -17,13 +17,9 @@ from app.core.connection_manager import manager
 from app.core.security import get_current_admin
 from app.models.enums import DocStatus
 from app.models.user import User
-from app.schemas.connector import (ConnectorCreate, ConnectorResponse,
-                                   ConnectorUpdate)
-from app.schemas.documents import (ConnectorDocumentCreate,
-                                   ConnectorDocumentResponse,
-                                   ConnectorDocumentUpdate)
-from app.services.connector_service import (ConnectorService,
-                                            get_connector_service)
+from app.schemas.connector import ConnectorCreate, ConnectorResponse, ConnectorUpdate
+from app.schemas.documents import ConnectorDocumentCreate, ConnectorDocumentResponse, ConnectorDocumentUpdate
+from app.services.connector_service import ConnectorService, get_connector_service
 from app.services.document_service import DocumentService, get_document_service
 from app.services.sql_discovery_service import get_sql_discovery_service
 
@@ -252,7 +248,7 @@ async def train_vanna_connector(
     try:
         # Initialize Vanna service (Async Factory)
         # P1: Local import to avoid missing dependency issues in some environments
-        from app.services.chat.vectra_vanna_service import VannaServiceFactory
+        from app.services.chat.vanna_services import VannaServiceFactory
 
         vanna_svc = await VannaServiceFactory(service.settings_service)
 

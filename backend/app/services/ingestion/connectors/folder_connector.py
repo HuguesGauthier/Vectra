@@ -25,27 +25,30 @@ class FolderConnector(BaseConnector[FolderIngestionConfig]):
         if not await self.validate_config(config):
             raise ValueError(f"Invalid configuration or folder not found: {config.path}")
 
-        # P0: Async Blocking Fix
+        # P1: Config-driven filtering
+        # Convert glob patterns to extensions if they are simple *.ext,
+        # or handle as needed. SimpleDirectoryReader's required_exts
+        # is the most efficient way for simple extensions.
+        required_exts = None
+        if config.patterns and "*" not in config.patterns:
+            # If patterns are like [".pdf", ".docx"], SimpleDirectoryReader handles them
+            required_exts = [p if p.startswith(".") else f".{p}" for p in config.patterns]
+
         def _load_sync():
             reader = SimpleDirectoryReader(
-                input_dir=config.path,
-                recursive=config.recursive,
-                # required_exts=None # P0: Config handles filtering via patterns, or defaults to all.
+                input_dir=config.path, recursive=config.recursive, required_exts=required_exts
             )
             docs = reader.load_data()
 
-            # P0 Fix: Enforce relative paths
+            # P0 Fix: Enforce relative paths for cross-platform/portable persistence
             for doc in docs:
-                # LlamaIndex might put absolute path in doc.id_ or metadata
                 full_path = doc.metadata.get("file_path") or doc.id_
                 if full_path and os.path.isabs(full_path):
-                    # Make relative to config.path
                     try:
                         rel_path = os.path.relpath(full_path, config.path)
                         doc.metadata["file_path"] = rel_path
-                        doc.id_ = rel_path  # Use relative path as ID for consistency
+                        doc.id_ = rel_path
                     except ValueError:
-                        # Path is not relative to root (edge case), keep as is or log warning
                         pass
             return docs
 

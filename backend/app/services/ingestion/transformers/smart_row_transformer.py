@@ -35,11 +35,9 @@ class SmartRowTransformer:
         # STEP 2: TYPE ENFORCEMENT FOR FILTER COLUMNS
         # ========================================================================
         # Ensure filter columns have proper types (e.g., "2010" -> 2010)
-        for col in self.strategy.filter_exact_cols:
-            if col in payload and payload[col] is not None:
-                payload[col] = self._enforce_type(payload[col])
-
-        for col in self.strategy.filter_range_cols:
+        # We combine both lists and use a set to avoid processing the same column twice
+        filter_cols = set(self.strategy.filter_exact_cols) | set(self.strategy.filter_range_cols)
+        for col in filter_cols:
             if col in payload and payload[col] is not None:
                 payload[col] = self._enforce_type(payload[col])
 
@@ -56,8 +54,8 @@ class SmartRowTransformer:
                     s_year = int(float(start_val))
                     e_year = int(float(end_val))
 
-                    # Sanity check
-                    if 1900 < s_year < 2100 and 1900 < e_year < 2100:
+                    # Sanity check and order verification
+                    if 1900 < s_year < 2100 and 1900 < e_year < 2100 and s_year <= e_year:
                         # Generate years list [2010, 2011, 2012, ...]
                         years = list(range(s_year, e_year + 1))
 
@@ -65,8 +63,6 @@ class SmartRowTransformer:
                         payload["years_covered"] = years
                         payload["year_start"] = s_year
                         payload["year_end"] = e_year
-
-                        # Original start/end columns remain in payload!
             except (ValueError, TypeError):
                 # Graceful degradation - skip enrichment but keep row
                 logger.debug(f"Could not parse years for row {line_number}")

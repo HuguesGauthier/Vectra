@@ -2,8 +2,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from app.services.chat.types import PipelineStepType
-
 
 @dataclass
 class StepMetric:
@@ -51,9 +49,30 @@ class ChatMetricsManager:
             self.custom_metrics[key] = value
 
     def __getitem__(self, key: str) -> Any:
-        """Allow dict-style getting."""
+        """Allow dict-style getting with lazy evaluation."""
+        if key == "ttft":
+            return self.ttft
+        if key == "input_tokens":
+            return self.total_input_tokens
+        if key == "output_tokens":
+            return self.total_output_tokens
+        if key == "total_duration":
+            return round(time.time() - self.start_time, 3)
+
+        # Retrieve summary only if complex keys are requested
+        # or if key is not found in fast paths (could be in custom_metrics)
+        # Note: get_summary() builds the whole dict, which is heavy.
+        # We try to look in custom_metrics first as a common fallback?
+        # The original code did: summary = self.get_summary(); return summary[key]
+        # get_summary() merges custom_metrics into the result.
+        # So if key is in custom_metrics, it returns it.
+
+        if key in self.custom_metrics:
+            return self.custom_metrics[key]
+
+        # Fallback for calculated fields usually found in summary
         summary = self.get_summary()
-        return summary[key]  # Raises Key error if missing, consistent with dict
+        return summary[key]
 
     def get(self, key: str, default: Any = None) -> Any:
         """Safe get method."""

@@ -1,6 +1,5 @@
 import asyncio
 import os
-from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 from llama_index.core import Document, SimpleDirectoryReader
@@ -17,15 +16,33 @@ class FileConnector(BaseConnector[FileIngestionConfig]):
     Performance: Offloads file IO to thread pool.
     """
 
+    # P0 FIX: Special formats handled by specific Processors via IngestionFactory
+    SPECIAL_FORMATS = {
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".flac",
+        ".aac",
+        ".ogg",  # Audio
+        ".zip",  # Archive
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".tiff",
+        ".bmp",
+        ".heic",  # Images
+        ".eml",
+        ".msg",  # Emails
+    }
+
     async def validate_config(self, config: FileIngestionConfig) -> bool:
         """Checks if file exists and is safe."""
         if not config.path:
             return False
 
-        # P0: Path Traversal Check
-        # Ensure path is absolute and within expected directories (if we had a root restriction)
-        # For now, we at least ensure it exists.
-        return await asyncio.to_thread(os.path.exists, config.path)
+        # P0: Path Traversal Check & Strict File Validation
+        # Ensure path is absolute and is a FILE (not a directory)
+        return await asyncio.to_thread(os.path.isfile, config.path)
 
     async def load_data(self, config: FileIngestionConfig) -> List[Document]:
         """Loads data asynchronously."""
@@ -48,29 +65,13 @@ class FileConnector(BaseConnector[FileIngestionConfig]):
             # Audio files will be processed by AudioProcessor via IngestionFactory
             file_ext = os.path.splitext(config.path)[-1].lower()
 
-            # P0 FIX: Skip SimpleDirectoryReader for special binary formats (Audio, Zip, Images, Email)
-            # These are handled by specific Processors via IngestionFactory
-            special_formats = {
-                ".mp3",
-                ".wav",
-                ".m4a",
-                ".flac",
-                ".aac",
-                ".ogg",  # Audio
-                ".zip",  # Archive
-                ".jpg",
-                ".jpeg",
-                ".png",
-                ".tiff",
-                ".bmp",
-                ".heic",  # Images
-                ".eml",
-                ".msg",  # Emails
-            }
-
-            if file_ext in special_formats:
+            if file_ext in self.SPECIAL_FORMATS:
                 # Return placeholder - actual processing happens via IngestionFactory
-                file_size = os.path.getsize(config.path)
+                try:
+                    file_size = os.path.getsize(config.path)
+                except OSError:
+                    file_size = 0
+
                 return [
                     Document(
                         text="",  # Empty - will be filled by specific Processor

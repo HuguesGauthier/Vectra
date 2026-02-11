@@ -1,16 +1,18 @@
-import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypedDict
 
 from app.models.assistant import Assistant
 from app.schemas.chat import Message
-from app.services.cache_service import SemanticCacheService
-from app.services.chat_history_service import ChatHistoryService
-from app.services.settings_service import SettingsService
-from app.services.vector_service import VectorService
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.services.cache_service import SemanticCacheService
+    from app.services.chat_history_service import ChatHistoryService
+    from app.services.settings_service import SettingsService
+    from app.services.vector_service import VectorService
+    from app.services.chat.chat_metrics_manager import ChatMetricsManager
+    from app.services.visualization_service import VisualizationService
 
 
 class PipelineStepType(str, Enum):
@@ -75,12 +77,11 @@ class ChatContext:
     language: str
 
     # Dependencies
-    db: AsyncSession
-    settings_service: SettingsService
-    vector_service: VectorService
-    chat_history_service: ChatHistoryService
-    chat_history_service: ChatHistoryService
-    cache_service: Optional[SemanticCacheService]
+    db: "AsyncSession"
+    settings_service: "SettingsService"
+    vector_service: "VectorService"
+    chat_history_service: "ChatHistoryService"
+    cache_service: Optional["SemanticCacheService"]
     query_engine_factory: Optional["UnifiedQueryEngineFactory"] = None
 
     # State flags
@@ -89,7 +90,7 @@ class ChatContext:
     user_id: Optional[str] = None
 
     # Data Accumulators
-    start_time: float = field(default_factory=time.time)
+    start_time: float = field(default_factory=lambda: __import__("time").time())
     history: List[Message] = field(default_factory=list)
     question_embedding: Optional[List[float]] = None
     captured_source_embedding: Optional[List[float]] = None
@@ -98,17 +99,13 @@ class ChatContext:
     sql_results: Optional[List] = None  # Raw SQL results (List[Tuple]) for visualization
 
     # Centralized Metrics Manager
-    # We delay import to avoid circular dep if needed, or better, we import nicely
-    # For now, we type as Any to allow import at top level without issues if metrics.py imports types.py
-    # But metrics.py imports PipelineStepType from here. So we have circular dependency if we import metrics in types.
-    # Solution: Use forward ref or TYPE_CHECKING.
-    metrics: Any = field(default=None)  # ChatMetricsManager initialized in service
+    metrics: Optional["ChatMetricsManager"] = field(default=None)
 
-    step_timers: Dict = field(default_factory=dict)  # Legacy: usage to be removed progressively
-    metadata: Dict = field(default_factory=dict)  # For storing pipeline-specific data (e.g., CSV decisions)
+    step_timers: Dict[str, float] = field(default_factory=dict)  # Legacy: usage to be removed progressively
+    metadata: Dict[str, Any] = field(default_factory=dict)  # For storing pipeline-specific data (e.g., CSV decisions)
 
     # Flags
     trending_enabled: bool = False
 
     # Visualization Context
-    visualization: Optional[Any] = None
+    visualization: Optional["VisualizationService"] = None

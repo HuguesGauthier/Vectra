@@ -17,18 +17,10 @@ from typing import List
 from llama_index.core.schema import Document
 
 from app.core.interfaces.base_connector import BaseConnector
-from app.schemas.ingestion import (ConfluenceIngestionConfig,
-                                   FileIngestionConfig, FolderIngestionConfig,
-                                   SharePointIngestionConfig,
-                                   SqlIngestionConfig, WebIngestionConfig)
-from app.services.ingestion.connectors.confluence_connector import \
-    ConfluenceConnector
+from app.schemas.ingestion import FileIngestionConfig, FolderIngestionConfig, SqlIngestionConfig
 from app.services.ingestion.connectors.file_connector import FileConnector
 from app.services.ingestion.connectors.folder_connector import FolderConnector
-from app.services.ingestion.connectors.sharepoint_connector import \
-    SharePointConnector
 from app.services.ingestion.connectors.sql_connector import SqlConnector
-from app.services.ingestion.connectors.web_connector import WebConnector
 
 # Strategy Pattern: Config schema mapping
 CONFIG_SCHEMAS = {

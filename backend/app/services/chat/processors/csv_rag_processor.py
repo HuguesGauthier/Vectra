@@ -2,21 +2,20 @@ import asyncio
 import json
 import logging
 import time
-from typing import (Any, AsyncGenerator, Dict, List, NamedTuple, Optional,
-                    Tuple, cast)
+from typing import Any, AsyncGenerator, Dict, List, NamedTuple, Optional, Tuple, cast
 from uuid import UUID
 
 from llama_index.core import VectorStoreIndex
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 
 from app.repositories import DocumentRepository
-from app.services.chat.processors.base_chat_processor import (
-    BaseChatProcessor, ChatProcessorError)
+from app.services.chat.processors.base_chat_processor import BaseChatProcessor, ChatProcessorError
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter, LLMFactory
+from app.services.chat.utils import EventFormatter
+from app.factories.llm_factory import LLMFactory
+
 # CSV Components
-from app.core.rag.csv.ambiguity_guard import (AmbiguityDecision,
-                                                AmbiguityGuardAgent)
+from app.core.rag.csv.ambiguity_guard import AmbiguityDecision, AmbiguityGuardAgent
 from app.core.rag.csv.csv_response_synthesizer import CsvResponseSynthesizer
 from app.core.rag.csv.csv_retriever import CsvRetriever
 from app.core.rag.csv.facet_repository import FacetRepository

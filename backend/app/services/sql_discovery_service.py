@@ -20,7 +20,7 @@ from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
 from app.schemas.connector import ConnectorResponse
-from app.services.chat.vectra_vanna_service import VannaServiceFactory
+from app.services.chat.vanna_services import VannaServiceFactory
 from app.services.settings_service import SettingsService, get_settings_service
 from app.services.sql_engine_cache import SQLEngineCache, get_sql_engine_cache
 from app.services.vector_service import VectorService

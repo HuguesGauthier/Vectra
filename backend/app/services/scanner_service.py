@@ -282,7 +282,7 @@ class ScannerService:
                     "file_metadata": {
                         "file_name": os.path.basename(full_path),
                         "file_path": rel_path,
-                        "file_type": self._detect_mime_type(full_path),
+                        "file_type": IngestionUtils.detect_mime_type(full_path),
                         "reason": reason,
                     },
                 }
@@ -356,11 +356,6 @@ class ScannerService:
             await manager.emit_dashboard_update(event, data)
         except Exception as e:
             logger.debug(f"WS emit failed for {event}: {e}")
-
-    @staticmethod
-    def _detect_mime_type(file_path: str) -> str:
-        type_, _ = mimetypes.guess_type(file_path)
-        return type_ or "application/octet-stream"
 
 
 async def get_scanner_service(
