@@ -1,9 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
-from app.api.v1.endpoints.pricing import get_pricing_service
+from fastapi import FastAPI
+from app.api.v1.endpoints.pricing import get_pricing_service, router
 from app.core.exceptions import TechnicalError
 from app.schemas.pricing import PricingMapResponse
+from tests.utils import get_test_app
+
+app = get_test_app()
+app.include_router(router, prefix="/api/v1/pricing")
 
 
 @pytest.fixture

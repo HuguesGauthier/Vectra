@@ -22,21 +22,27 @@ from app.schemas.dashboard_stats import (
 
 @pytest.fixture
 def app():
-    from fastapi.responses import JSONResponse
-    from app.core.exceptions import VectraException
+    from tests.utils import get_test_app
 
-    app = FastAPI()
-
-    async def test_exception_handler(request, exc):
-        status_code = getattr(exc, "status_code", 500)
-        error_code = getattr(exc, "error_code", "INTERNAL_SERVER_ERROR")
-        return JSONResponse(status_code=status_code, content={"code": error_code, "message": str(exc)})
-
-    app.add_exception_handler(VectraException, test_exception_handler)
-    app.add_exception_handler(Exception, test_exception_handler)
-
+    app = get_test_app()
     app.include_router(router)
     return app
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_background_tasks():
+    import app.api.v1.endpoints.dashboard as dash_mod
+
+    yield
+    # Force stop background task
+    dash_mod._broadcast_running = False
+    if dash_mod._broadcast_task:
+        dash_mod._broadcast_task.cancel()
+        try:
+            await dash_mod._broadcast_task
+        except asyncio.CancelledError:
+            pass
+    dash_mod._broadcast_task = None
 
 
 def test_get_dashboard_stats(app):
@@ -151,7 +157,12 @@ async def test_stop_broadcast_task_timeout():
     import app.api.v1.endpoints.dashboard as dashboard_mod
 
     mock_task = asyncio.Future()
-    mock_task.cancel = MagicMock()
+
+    def cancel_side_effect():
+        if not mock_task.done():
+            mock_task.set_exception(asyncio.CancelledError())
+
+    mock_task.cancel = MagicMock(side_effect=cancel_side_effect)
     dashboard_mod._broadcast_task = mock_task
     dashboard_mod._broadcast_running = True
 

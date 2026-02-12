@@ -9,16 +9,17 @@ from fastapi.testclient import TestClient
 
 from app.schemas.files import FileStreamingInfo
 from app.services.file_service import FileService, get_file_service
-from app.main import global_exception_handler
+from app.core.exceptions import VectraException, EntityNotFound
+from app.api.v1.endpoints.audio import router
+from app.api.v1.endpoints.chat import get_optional_user
+
+
+from tests.utils import get_test_app
 
 # Setup FastAPI App for Testing
-app = FastAPI()
+app = get_test_app()
 
 app.include_router(router, prefix="/api/v1/audio")
-
-# Register global exception handler
-app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(VectraException, global_exception_handler)
 
 # Define Mocks
 mock_file_svc = AsyncMock(spec=FileService)
@@ -73,7 +74,7 @@ class TestAudio:
 
         response = client.get(f"/api/v1/audio/stream/{doc_id}")
         assert response.status_code == 404
-        assert response.json()["code"] == "NOT_FOUND"
+        assert response.json()["code"] == "entity_not_found"
         assert response.json()["message"] == "Not found"
 
     def test_stream_audio_invalid_uuid(self):

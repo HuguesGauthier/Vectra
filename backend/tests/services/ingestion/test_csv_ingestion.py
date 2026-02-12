@@ -8,6 +8,10 @@ import pytest
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
+import importlib
+import app.services.ingestion_service
+
+importlib.reload(app.services.ingestion_service)
 from app.services.ingestion_service import IngestionService
 
 
@@ -112,5 +116,3 @@ async def test_process_csv_data_success(ingestion_service, mock_connector_repo, 
 
         # Verify delegates to orchestrator
         mock_orch.ingest_csv_document.assert_called_once_with(doc_id)
-
-

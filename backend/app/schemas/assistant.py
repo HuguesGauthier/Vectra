@@ -18,7 +18,9 @@ from sqlmodel import SQLModel
 
 
 class AIModel(StrEnum):
-    GEMINI = "gemini"  # Legacy alias
+    GEMINI = "gemini"
+    GPT_4O = "gpt-4o"
+    GPT_4O_MINI = "gpt-4o-mini"
     OPENAI = "openai"
     MISTRAL = "mistral"
     OLLAMA = "ollama"
@@ -26,7 +28,7 @@ class AIModel(StrEnum):
 
 # --- Configuration Constants ---
 DEFAULT_INSTRUCTIONS = "You are a helpful assistant."
-DEFAULT_MODEL = AIModel.GEMINI
+DEFAULT_MODEL = AIModel.GPT_4O
 DEFAULT_AVATAR_COLOR = "primary"
 DEFAULT_AVATAR_TEXT_COLOR = "white"
 DEFAULT_TOP_K = 25

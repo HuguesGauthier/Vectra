@@ -18,16 +18,12 @@ from app.models.user import User
 from app.schemas.assistant import AssistantResponse, AIModel
 from app.services.assistant_service import AssistantService, get_assistant_service
 from app.core.exceptions import EntityNotFound, TechnicalError, FunctionalError, VectraException
-from app.main import global_exception_handler
 
-app = FastAPI()
+
+from tests.utils import get_test_app
+
+app = get_test_app()
 app.include_router(router, prefix="/api/v1/assistants")
-
-# Use real global exception handler
-app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(VectraException, global_exception_handler)
-app.add_exception_handler(StarletteHTTPException, global_exception_handler)
-app.add_exception_handler(RequestValidationError, global_exception_handler)
 
 # Setup Mocks
 mock_asst_svc = AsyncMock(spec=AssistantService)

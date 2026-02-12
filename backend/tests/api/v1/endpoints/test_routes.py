@@ -11,27 +11,14 @@ from app.core.database import get_db
 from app.core.exceptions import EntityNotFound, VectraException
 from app.core.security import get_current_admin, get_current_user
 from app.models.user import User
-from app.services.connector_service import (ConnectorService,
-                                            get_connector_service)
+from app.services.connector_service import ConnectorService, get_connector_service
 from app.services.system_service import SystemService, get_system_service
 
+from tests.utils import get_test_app
+
 # Setup App
-app = FastAPI()
+app = get_test_app()
 app.include_router(router, prefix="/api/v1")
-
-
-# Exception Handlers
-@app.exception_handler(VectraException)
-async def vectra_exception_handler(request: Request, exc: VectraException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"message": exc.message, "code": exc.error_code},
-    )
-
-
-@app.exception_handler(EntityNotFound)
-async def entity_not_found_handler(request: Request, exc: EntityNotFound):
-    return JSONResponse(status_code=404, content={"message": str(exc)})
 
 
 # Service Mocks
@@ -119,9 +106,7 @@ class TestRoutes:
     def test_open_file_security_check(self):
         """Test that open-file handle exceptions from service."""
         # System service raising EntityNotFound
-        mock_system_svc.open_file_by_document_id.side_effect = EntityNotFound(
-            "File not found"
-        )
+        mock_system_svc.open_file_by_document_id.side_effect = EntityNotFound("File not found")
 
         doc_id = str(uuid4())
         response = client.post("/api/v1/system/open-file", json={"document_id": doc_id})

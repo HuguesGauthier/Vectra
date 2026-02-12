@@ -16,8 +16,9 @@ from app.services.sql_discovery_service import get_sql_discovery_service
 from app.core.security import get_current_admin
 from app.models.user import User
 from fastapi import FastAPI
+from tests.utils import get_test_app
 
-app = FastAPI()
+app = get_test_app()
 app.include_router(router, prefix="/api/v1/connectors")
 
 mock_conn_svc = AsyncMock(spec=ConnectorService)
@@ -42,7 +43,7 @@ async def override_get_sql_discovery_service():
 
 
 def override_get_admin():
-    return User(id=uuid4(), email="admin@test.com", is_superuser=True)
+    return User(id=uuid4(), email="admin@test.com", is_superuser=True, hashed_password="placeholder")
 
 
 app.dependency_overrides[get_connector_service] = override_get_connector_service
@@ -78,45 +79,34 @@ class TestConnectorsExtra:
     def test_test_connection_missing_params(self):
         payload = {"connector_type": "sql"}
         response = client.post("/api/v1/connectors/test-connection", json=payload)
-        assert response.status_code == 200
-        assert response.json()["success"] is False
+        # Missing configuration triggers 422 Validation Error
+        assert response.status_code == 422
 
     def test_test_connection_not_implemented(self):
-        payload = {"connector_type": "unsupported", "configuration": {"foo": "bar"}}
+        from app.schemas.enums import ConnectorType
+
+        payload = {"connector_type": ConnectorType.LOCAL_FILE, "configuration": {"foo": "bar"}}
         response = client.post("/api/v1/connectors/test-connection", json=payload)
         assert response.status_code == 200
         assert "not implemented" in response.json()["message"]
 
     def test_update_connector(self):
+        from app.schemas.connector import ConnectorResponse
+        from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
+
         conn_id = uuid4()
         data = {"name": "Updated Name"}
-        mock_response = MagicMock()
-        mock_response.id = conn_id
-        mock_response.name = "Updated Name"
-        # Mocking all required fields for ConnectorResponse
-        fields = [
-            "description",
-            "connector_type",
-            "configuration",
-            "schedule_type",
-            "schedule_cron",
-            "created_at",
-            "updated_at",
-            "last_vectorized_at",
-            "total_docs_count",
-            "status",
-            "credential_id",
-            "last_error",
-        ]
-        for field in fields:
-            setattr(mock_response, field, None)
-        mock_response.connector_type = "local_file"
-        mock_response.configuration = {}
-        mock_response.schedule_type = "manual"
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.updated_at = "2024-01-01T00:00:00"
-        mock_response.total_docs_count = 0
-        mock_response.status = "idle"
+
+        mock_response = ConnectorResponse(
+            id=conn_id,
+            name="Updated Name",
+            connector_type=ConnectorType.LOCAL_FILE,
+            configuration={},
+            schedule_type=ScheduleType.MANUAL,
+            status=ConnectorStatus.IDLE,
+            total_docs_count=0,
+            is_enabled=True,
+        )
 
         mock_conn_svc.update_connector.return_value = mock_response
         response = client.put(f"/api/v1/connectors/{conn_id}", json=data)
@@ -124,34 +114,20 @@ class TestConnectorsExtra:
         assert response.json()["name"] == "Updated Name"
 
     def test_scan_connector_files(self):
+        from app.schemas.connector import ConnectorResponse
+        from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
+
         conn_id = uuid4()
-        mock_response = MagicMock()
-        mock_response.id = conn_id
-        fields = [
-            "name",
-            "description",
-            "connector_type",
-            "configuration",
-            "schedule_type",
-            "schedule_cron",
-            "created_at",
-            "updated_at",
-            "last_vectorized_at",
-            "total_docs_count",
-            "status",
-            "credential_id",
-            "last_error",
-        ]
-        for field in fields:
-            setattr(mock_response, field, None)
-        mock_response.name = "Test"
-        mock_response.connector_type = "local_folder"
-        mock_response.configuration = {}
-        mock_response.schedule_type = "manual"
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.updated_at = "2024-01-01T00:00:00"
-        mock_response.total_docs_count = 0
-        mock_response.status = "syncing"
+        mock_response = ConnectorResponse(
+            id=conn_id,
+            name="Test",
+            connector_type=ConnectorType.LOCAL_FOLDER,
+            configuration={},
+            schedule_type=ScheduleType.MANUAL,
+            status=ConnectorStatus.SYNCING,
+            total_docs_count=0,
+            is_enabled=True,
+        )
 
         mock_conn_svc.scan_connector.return_value = mock_response
         response = client.post(f"/api/v1/connectors/{conn_id}/scan-files")
@@ -159,34 +135,20 @@ class TestConnectorsExtra:
         mock_conn_svc.scan_connector.assert_called_once_with(conn_id)
 
     def test_stop_connector(self):
+        from app.schemas.connector import ConnectorResponse
+        from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
+
         conn_id = uuid4()
-        mock_response = MagicMock()
-        mock_response.id = conn_id
-        # Set required fields
-        for field in [
-            "name",
-            "description",
-            "connector_type",
-            "configuration",
-            "schedule_type",
-            "schedule_cron",
-            "created_at",
-            "updated_at",
-            "last_vectorized_at",
-            "total_docs_count",
-            "status",
-            "credential_id",
-            "last_error",
-        ]:
-            setattr(mock_response, field, None)
-        mock_response.name = "Test"
-        mock_response.connector_type = "local_folder"
-        mock_response.configuration = {}
-        mock_response.schedule_type = "manual"
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.updated_at = "2024-01-01T00:00:00"
-        mock_response.total_docs_count = 0
-        mock_response.status = "idle"
+        mock_response = ConnectorResponse(
+            id=conn_id,
+            name="Test",
+            connector_type=ConnectorType.LOCAL_FOLDER,
+            configuration={},
+            schedule_type=ScheduleType.MANUAL,
+            status=ConnectorStatus.IDLE,
+            total_docs_count=0,
+            is_enabled=True,
+        )
 
         mock_conn_svc.stop_connector.return_value = mock_response
         response = client.post(f"/api/v1/connectors/{conn_id}/stop")
@@ -199,18 +161,8 @@ class TestConnectorsExtra:
         doc_id = uuid4()
         payload = {"document_ids": [str(doc_id)]}
 
-        mock_connector = MagicMock()
-        mock_connector.connector_type = "vanna_sql"
-        mock_conn_svc.get_connector.return_value = mock_connector
-
-        mock_vanna_svc = MagicMock()
-        mock_vanna_factory.return_value = mock_vanna_svc
-
-        mock_doc = MagicMock()
-        mock_doc.id = doc_id
-        mock_doc.file_name = "test_view"
-        mock_doc.file_metadata = {"ddl": "CREATE VIEW ..."}
-        mock_doc_svc.document_repo.get_by_id.return_value = mock_doc
+        # Mock service return value
+        mock_conn_svc.train_vanna.return_value = {"success": True, "trained_count": 1}
 
         response = client.post(f"/api/v1/connectors/{conn_id}/train", json=payload)
         assert response.status_code == 200
@@ -218,43 +170,52 @@ class TestConnectorsExtra:
         assert response.json()["trained_count"] == 1
 
     def test_train_vanna_not_found(self):
+        from app.core.exceptions import EntityNotFound
+
         conn_id = uuid4()
-        mock_conn_svc.get_connector.return_value = None
-        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": ["some-id"]})
+        # Mock service to raise EntityNotFound
+        mock_conn_svc.train_vanna.side_effect = EntityNotFound("Connector not found")
+
+        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": [str(uuid4())]})
+        # Expect 404
+        assert response.status_code == 404
         assert response.json()["message"] == "Connector not found"
 
     def test_train_vanna_wrong_type(self):
+        from app.core.exceptions import FunctionalError
+
         conn_id = uuid4()
-        mock_connector = MagicMock()
-        mock_connector.connector_type = "local_file"
-        mock_conn_svc.get_connector.return_value = mock_connector
-        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": ["some-id"]})
+        # Mock service to raise FunctionalError
+        mock_conn_svc.train_vanna.side_effect = FunctionalError(
+            message="only available for vanna_sql", error_code="INVALID_CONNECTOR_TYPE"
+        )
+
+        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": [str(uuid4())]})
+        # Expect 400
+        assert response.status_code == 400
         assert "only available for vanna_sql" in response.json()["message"]
 
     def test_create_connector_document(self):
+        from app.schemas.documents import ConnectorDocumentResponse
+        from app.models.enums import DocStatus
+
         conn_id = uuid4()
         data = {"file_path": "test.txt", "file_name": "test.txt"}
-        mock_response = MagicMock()
-        mock_response.id = uuid4()
-        mock_response.connector_id = conn_id
-        mock_response.file_path = "test.txt"
-        mock_response.file_name = "test.txt"
-        mock_response.status = "pending"
-        # Add other required fields from ConnectorDocumentResponse/Base
-        mock_response.last_modified_at_source = None
-        mock_response.last_vectorized_at = None
-        mock_response.file_size = None
-        mock_response.error_message = None
-        mock_response.file_metadata = {}
-        mock_response.configuration = {}
-        mock_response.mime_type = None
-        mock_response.doc_token_count = 0
-        mock_response.vector_point_count = 0
-        mock_response.processing_duration_ms = 0.0
-        mock_response.chunks_total = 0
-        mock_response.chunks_processed = 0
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.updated_at = "2024-01-01T00:00:00"
+
+        mock_response = ConnectorDocumentResponse(
+            id=uuid4(),
+            connector_id=conn_id,
+            file_path="test.txt",
+            file_name="test.txt",
+            status=DocStatus.PENDING,
+            doc_token_count=0,
+            vector_point_count=0,
+            processing_duration_ms=0.0,
+            chunks_total=0,
+            chunks_processed=0,
+            created_at="2024-01-01T00:00:00",
+            updated_at="2024-01-01T00:00:00",
+        )
 
         mock_doc_svc.create_document.return_value = mock_response
         response = client.post(f"/api/v1/connectors/{conn_id}/documents", json=data)
@@ -269,29 +230,27 @@ class TestConnectorsExtra:
         mock_doc_svc.delete_document.assert_called_once_with(doc_id)
 
     def test_update_document(self):
+        from app.schemas.documents import ConnectorDocumentResponse
+        from app.models.enums import DocStatus
+
         conn_id = uuid4()
         doc_id = uuid4()
         data = {"file_name": "new_name.txt"}
-        mock_response = MagicMock()
-        mock_response.id = doc_id
-        mock_response.connector_id = conn_id
-        mock_response.file_path = "test.txt"
-        mock_response.file_name = "new_name.txt"
-        mock_response.status = "pending"
-        mock_response.last_modified_at_source = None
-        mock_response.last_vectorized_at = None
-        mock_response.file_size = None
-        mock_response.error_message = None
-        mock_response.file_metadata = {}
-        mock_response.configuration = {}
-        mock_response.mime_type = None
-        mock_response.doc_token_count = 0
-        mock_response.vector_point_count = 0
-        mock_response.processing_duration_ms = 0.0
-        mock_response.chunks_total = 0
-        mock_response.chunks_processed = 0
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.updated_at = "2024-01-01T00:00:00"
+
+        mock_response = ConnectorDocumentResponse(
+            id=doc_id,
+            connector_id=conn_id,
+            file_path="test.txt",
+            file_name="new_name.txt",
+            status=DocStatus.PENDING,
+            doc_token_count=0,
+            vector_point_count=0,
+            processing_duration_ms=0.0,
+            chunks_total=0,
+            chunks_processed=0,
+            created_at="2024-01-01T00:00:00",
+            updated_at="2024-01-01T00:00:00",
+        )
 
         mock_doc_svc.update_document.return_value = mock_response
         response = client.put(f"/api/v1/connectors/{conn_id}/documents/{doc_id}", json=data)

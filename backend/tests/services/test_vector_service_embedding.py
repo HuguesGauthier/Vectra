@@ -3,6 +3,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.exceptions import ExternalDependencyError
+import importlib
+import app.services.vector_service
+
+importlib.reload(app.services.vector_service)
 from app.services.vector_service import VectorService
 
 
@@ -38,6 +42,7 @@ async def test_get_query_engine_passes_embed_model():
 
     service = VectorService(settings_service=mock_settings)
     service.get_qdrant_client = MagicMock()
+    service.get_async_qdrant_client = MagicMock()
     service.get_collection_name = AsyncMock(return_value="test_collection")
     service.get_embedding_model = AsyncMock(return_value="mock_embed_model")
 

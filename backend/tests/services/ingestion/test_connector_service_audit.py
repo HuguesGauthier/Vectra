@@ -8,6 +8,10 @@ import pytest
 from app.models.connector import Connector
 from app.schemas.connector import ConnectorCreate, ConnectorUpdate
 from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
+import importlib
+import app.services.connector_service
+
+importlib.reload(app.services.connector_service)
 from app.services.connector_service import MANAGED_UPLOAD_DIR, ConnectorService
 
 # ... imports ...

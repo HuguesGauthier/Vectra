@@ -1,6 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+import importlib
+import app.services.ingestion_service
+
+importlib.reload(app.services.ingestion_service)
 from app.services.ingestion_service import IngestionService, IngestionStoppedError
 from app.models.enums import ConnectorStatus, DocStatus
 from app.core.exceptions import EntityNotFound, ConfigurationError

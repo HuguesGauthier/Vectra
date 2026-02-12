@@ -20,8 +20,8 @@ from uuid import UUID
 from app.models.usage_stat import UsageStat
 from app.repositories.topic_repository import TopicRepository
 from app.repositories.usage_repository import UsageRepository
-from app.services.chat.processors.base_chat_processor import (
-    BaseChatProcessor, ChatProcessorError)
+from app.services.chat.processors.base_chat_processor import BaseChatProcessor, ChatProcessorError
+
 # Framework / Core
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
@@ -178,6 +178,7 @@ class TrendingProcessor(BaseChatProcessor):
             logger.debug(f"UsageStat persisted for session {ctx.session_id}")
 
         except Exception as e:
+            print(f"DEBUG: Usage Persistence Error: {e}")
             logger.error(f"Usage Persistence Failed: {e}", exc_info=True)
             await ctx.db.rollback()
 

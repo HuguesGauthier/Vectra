@@ -3,11 +3,15 @@ import io
 import json
 from uuid import uuid4
 from fastapi.testclient import TestClient
-from app.main import app
-from app.api.v1.endpoints.users import get_current_user, get_current_admin, get_user_service
+from fastapi import FastAPI
+from app.api.v1.endpoints.users import get_current_user, get_current_admin, get_user_service, router
 from app.models.user import User
 from app.schemas.enums import UserRole
 from app.schemas.user import UserRead
+from tests.utils import get_test_app
+
+app = get_test_app()
+app.include_router(router, prefix="/api/v1/users")
 
 # Mock Data
 USER_ID = uuid4()
@@ -15,11 +19,23 @@ ADMIN_ID = uuid4()
 OTHER_USER_ID = uuid4()
 
 mock_user = User(
-    id=USER_ID, email="user@example.com", role=UserRole.USER, is_active=True, first_name="Regular", last_name="User"
+    id=USER_ID,
+    email="user@example.com",
+    role=UserRole.USER,
+    is_active=True,
+    first_name="Regular",
+    last_name="User",
+    hashed_password="placeholder",
 )
 
 mock_admin = User(
-    id=ADMIN_ID, email="admin@example.com", role=UserRole.ADMIN, is_active=True, first_name="Admin", last_name="User"
+    id=ADMIN_ID,
+    email="admin@example.com",
+    role=UserRole.ADMIN,
+    is_active=True,
+    first_name="Admin",
+    last_name="User",
+    hashed_password="placeholder",
 )
 
 

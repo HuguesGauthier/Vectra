@@ -21,6 +21,10 @@ sys.modules["pyodbc"] = MagicMock()
 sys.modules["vanna"] = vanna_mock
 sys.modules["vanna.base"] = vanna_base_mock
 
+import importlib
+import app.services.chat.vanna_services
+
+importlib.reload(app.services.chat.vanna_services)
 from app.services.chat.vanna_services import VectraCustomVanna
 
 
@@ -55,9 +59,13 @@ def mock_vector_service():
     # Mock query_points result
     hit = MagicMock()
     hit.payload = {"content": "CREATE TABLE users (id INT)"}
+    # Important: result must have 'points' attribute that is a LIST
     result = MagicMock()
     result.points = [hit]
     client.query_points.return_value = result
+
+    # Also mock it as an iterable just in case
+    client.query_points.return_value.__iter__.return_value = [hit]
 
     return service
 
@@ -97,9 +105,18 @@ def test_submit_prompt_list(vanna_service, mock_llm):
     assert messages[1].role == "user"
 
 
+@patch("app.services.chat.vanna_services.settings")
 @patch("pyodbc.connect")
-def test_run_sql(mock_connect, vanna_service):
+def test_run_sql(mock_connect, mock_settings, vanna_service):
+    # Configure mock settings
+    mock_settings.DB_HOST = "localhost"
+    mock_settings.DB_USER = "sa"
+    mock_settings.DB_PASSWORD = "password"
+    mock_settings.DB_NAME = "testdb"
+
     mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value = mock_cursor
     mock_connect.return_value = mock_conn
 
     # Mock pandas read_sql
@@ -110,9 +127,10 @@ def test_run_sql(mock_connect, vanna_service):
         mock_conn.close.assert_called_once()
 
 
-def test_submit_question_happy_path(vanna_service, mock_llm):
-    # Mock run_sql to return a dummy df
-    vanna_service.run_sql = MagicMock(return_value=pd.DataFrame({"id": [1]}))
+@patch("pandas.read_sql")
+def test_submit_question_happy_path(mock_read_sql, vanna_service, mock_llm):
+    # Mock pandas read_sql to return a dummy df
+    mock_read_sql.return_value = pd.DataFrame({"id": [1]})
 
     result = vanna_service.submit_question("Show users")
     assert "sql" in result

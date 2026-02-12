@@ -24,7 +24,7 @@ class TestSettingsBasics:
     def test_settings_loads_with_defaults(self):
         """Settings should load successfully with default values in development."""
         with patch.dict(os.environ, {"ENV": "development", "GEMINI_API_KEY": "dummy"}, clear=True):
-            settings = Settings()
+            settings = Settings(_env_file=None)
 
             assert settings.ENV == "development"
             import sys
@@ -50,7 +50,7 @@ class TestSettingsBasics:
             },
             clear=True,
         ):
-            settings = Settings()
+            settings = Settings(_env_file=None)
 
             assert settings.ENV == "test"
             assert settings.DATABASE_URL == "postgresql+asyncpg://custom:custom@testhost:5432/testdb"
@@ -226,7 +226,7 @@ class TestEnvironmentDetection:
     def test_development_environment(self):
         """Development environment should have relaxed validation."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            settings = Settings()
+            settings = Settings(_env_file=None)
 
             assert settings.ENV == "development"
             # Ephemeral secret generated in dev

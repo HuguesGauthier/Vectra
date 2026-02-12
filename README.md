@@ -1,4 +1,4 @@
-# 🧠 Vectra: The Agentic RAG Assistant
+# Vectra: The Agentic RAG Assistant
 
 <div align="center">
   
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Docker-Ready-blue" alt="Docker">
 </div>
 
-## 🚀 What is Vectra?
+## What is Vectra?
 
 Vectra is an **Agentic RAG Assistant** designed to democratize access to corporate data. It unifies structured (SQL) and unstructured (Docs) data into a single chat interface.
 
@@ -22,21 +22,21 @@ It relies on a powerful **Tri-Hybrid Architecture**:
 2.  **AI Analyst (Vanna.ai):** Generates SQL on-the-fly for ad-hoc exploration.
 3.  **Vector Search (RAG):** Retrieves answers from PDF procedures and internal wikis (via Qdrant).
 
-## ✨ Key Features
+## Key Features
 
-* **Smart Routing:** Automatically detects if the user needs a number (SQL) or a procedure (Vector).
-* **Deep Chat UI:** Streaming responses, chart rendering, and source citations.
-* **Agnostic:** Compatible with OpenAI, Gemini, and Azure OpenAI.
-* **Self-Hosted:** Full control over your data. Docker-first architecture.
+- **Smart Routing:** Automatically detects if the user needs a number (SQL) or a procedure (Vector).
+- **Deep Chat UI:** Streaming responses, chart rendering, and source citations.
+- **Agnostic:** Compatible with OpenAI, Gemini, and Azure OpenAI.
+- **Self-Hosted:** Full control over your data. Docker-first architecture.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-* **Backend:** FastAPI (Python)
-* **Frontend:** Vue 3 + Quasar + Deep Chat
-* **Vector Store:** Qdrant
-* **SQL Engine:** SQL Server / MySQL (via ODBC)
+- **Backend:** FastAPI (Python)
+- **Frontend:** Vue 3 + Quasar + Deep Chat
+- **Vector Store:** Qdrant
+- **SQL Engine:** SQL Server / MySQL (via ODBC)
 
-## ⚡ Quick Start (Docker)
+## Quick Start (Docker)
 
 Get Vectra running in 2 minutes:
 
@@ -52,6 +52,7 @@ cp .env.example .env
 # 3. Launch
 docker-compose up -d
 ```
+
 Access the UI at: http://localhost:9000
 
 📜 License

@@ -2,11 +2,15 @@ import pytest
 import io
 from uuid import uuid4
 from fastapi.testclient import TestClient
-from app.main import app
-from app.api.v1.endpoints.system import get_system_service, get_document_service
+from fastapi import FastAPI
+from app.api.v1.endpoints.system import get_system_service, get_document_service, router
 from app.core.security import get_current_user, get_current_admin
 from app.models.user import User
 from app.schemas.enums import UserRole
+from tests.utils import get_test_app
+
+app = get_test_app()
+app.include_router(router, prefix="/api/v1/system")
 
 # Mock Data
 USER_ID = uuid4()

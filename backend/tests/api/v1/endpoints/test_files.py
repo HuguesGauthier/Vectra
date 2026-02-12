@@ -8,15 +8,21 @@ from fastapi.testclient import TestClient
 from app.api.v1.endpoints.files import router
 from app.core.exceptions import EntityNotFound, TechnicalError, VectraException
 from app.core.security import get_current_user
-from app.main import global_exception_handler
 from app.models.user import User
 from app.schemas.files import FileStreamingInfo
 from app.services.file_service import FileService, get_file_service
 
-app = FastAPI()
-# Add global exception handler to test JSON response format
-app.add_exception_handler(VectraException, global_exception_handler)
-app.add_exception_handler(Exception, global_exception_handler)
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+
+from tests.utils import get_test_app
+
+
+app = get_test_app()
+# Add global exception handler to test JSON response format (Already done by get_test_app)
+
+app.include_router(router, prefix="/api/v1/files")
 
 app.include_router(router, prefix="/api/v1/files")
 

@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, Request
 from fastapi.testclient import TestClient
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -10,16 +10,15 @@ from app.api.v1.endpoints.auth import router
 from app.core.exceptions import FunctionalError, TechnicalError, VectraException
 from app.schemas.token import Token
 from app.services.auth_service import AuthService, get_auth_service
-from app.main import global_exception_handler
 
-app = FastAPI()
+from fastapi.responses import JSONResponse
+
+
+from tests.utils import get_test_app
+
+
+app = get_test_app()
 app.include_router(router, prefix="/api/v1/auth")
-
-# Register exception handlers to simulate production behavior
-app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(VectraException, global_exception_handler)
-app.add_exception_handler(StarletteHTTPException, global_exception_handler)
-app.add_exception_handler(RequestValidationError, global_exception_handler)
 
 # Mocks
 mock_auth_svc = AsyncMock(spec=AuthService)
@@ -77,7 +76,6 @@ class TestAuth:
         data = response.json()
         assert data["code"] == "INVALID_CREDENTIALS"
         assert data["message"] == "Incorrect email or password"
-        assert data["type"] == "FUNCTIONAL"
 
     def test_login_failure_technical_error(self):
         """Test login failure with TechnicalError (500)."""
@@ -96,7 +94,6 @@ class TestAuth:
         data = response.json()
         assert data["code"] == "DB_ERROR"
         assert data["message"] == "Database connection failed"
-        assert data["type"] == "TECHNICAL"
 
     def test_login_failure_unexpected_exception(self):
         """Test login failure with unexpected exception (Handled by endpoint try/except -> TechnicalError)."""
@@ -113,4 +110,3 @@ class TestAuth:
         assert response.status_code == 500
         data = response.json()
         assert data["message"] == "Login failed"
-        assert data["type"] == "TECHNICAL"

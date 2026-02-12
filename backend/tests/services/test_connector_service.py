@@ -2,6 +2,10 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 from datetime import datetime, timezone
+import importlib
+import app.services.connector_service
+
+importlib.reload(app.services.connector_service)
 from app.services.connector_service import ConnectorService
 from app.schemas.enums import ConnectorType
 from app.core.exceptions import TechnicalError

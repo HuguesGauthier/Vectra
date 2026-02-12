@@ -8,6 +8,7 @@ from fastapi import Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import ConfigurationError, EntityNotFound, FileSystemError
 from app.core.interfaces.base_connector import get_full_path_from_connector

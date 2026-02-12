@@ -12,7 +12,7 @@ from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.core.websocket import Websocket
+from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import FunctionalError, TechnicalError
 from app.models.connector import Connector
@@ -356,6 +356,10 @@ class ScannerService:
             await manager.emit_dashboard_update(event, data)
         except Exception as e:
             logger.debug(f"WS emit failed for {event}: {e}")
+
+    def _detect_mime_type(self, full_path: str) -> str:
+        """Helper to detect mime type via IngestionUtils."""
+        return IngestionUtils.detect_mime_type(full_path)
 
 
 async def get_scanner_service(

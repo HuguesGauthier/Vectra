@@ -21,7 +21,7 @@ from qdrant_client.http import models as qmodels
 from qdrant_client.http.models import PointStruct
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.websocket import Websocket
+from app.core.websocket import manager, Websocket
 from app.core.exceptions import TechnicalError
 from app.core.settings import settings
 from app.factories.ingestion_factory import IngestionFactory
@@ -36,6 +36,7 @@ from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
+print("DEBUG: ingestion_orchestrator.py loaded")
 
 
 class IngestionStoppedError(Exception):

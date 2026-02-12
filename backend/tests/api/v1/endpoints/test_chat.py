@@ -14,16 +14,17 @@ from app.services.assistant_service import AssistantService, get_assistant_servi
 from app.services.chat_service import ChatService, get_chat_service
 from app.core.database import get_db
 from app.core.exceptions import VectraException
-from app.main import global_exception_handler
+from app.core.exceptions import VectraException
 
-app = FastAPI()
+from fastapi import Request, FastAPI
+from fastapi.responses import JSONResponse
+
+
+from tests.utils import get_test_app
+
+
+app = get_test_app()
 app.include_router(router, prefix="/api/v1/chat")
-
-# Register exception handlers
-app.add_exception_handler(Exception, global_exception_handler)
-app.add_exception_handler(VectraException, global_exception_handler)
-app.add_exception_handler(StarletteHTTPException, global_exception_handler)
-app.add_exception_handler(RequestValidationError, global_exception_handler)
 
 # Mocks
 mock_chat_svc = AsyncMock(spec=ChatService)

@@ -10,7 +10,7 @@ from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.websocket import Websocket, get_websocket
+from app.core.websocket import manager, Websocket, get_websocket
 from app.core.database import SessionLocal, get_db
 from app.core.exceptions import EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector import Connector

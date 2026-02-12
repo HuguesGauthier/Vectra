@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.websocket import Websocket
+from app.core.websocket import manager, Websocket
 from app.core.database import get_db
 from app.core.time import SystemClock, TimeProvider
 from app.models.enums import ConnectorStatus, DocStatus

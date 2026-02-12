@@ -7,8 +7,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.assistant import (MAX_CONNECTORS, AIModel, AssistantBase,
-                                   AssistantCreate, AssistantUpdate)
+from app.schemas.assistant import MAX_CONNECTORS, AIModel, AssistantBase, AssistantCreate, AssistantUpdate
 
 
 def test_assistant_base_defaults():
@@ -21,7 +20,8 @@ def test_assistant_base_defaults():
 def test_assistant_validation_model():
     with pytest.raises(ValidationError) as exc:
         AssistantCreate(name="Fail", model="invalid-model")
-    assert "Input should be 'gpt-4o', 'gpt-4o-mini'" in str(exc.value)
+    assert "gpt-4o" in str(exc.value)
+    assert "gpt-4o-mini" in str(exc.value)
 
 
 def test_assistant_top_n_logic():

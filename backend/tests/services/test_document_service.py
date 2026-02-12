@@ -7,18 +7,21 @@ from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+import importlib
+import app.services.document_service
+
+importlib.reload(app.services.document_service)
+from app.services.document_service import DocumentService
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import (DuplicateError, EntityNotFound,
-                                 FunctionalError, InternalDataCorruption,
-                                 TechnicalError)
+from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
-from app.schemas.documents import (ConnectorDocumentCreate,
-                                   ConnectorDocumentUpdate)
+from app.schemas.documents import ConnectorDocumentCreate, ConnectorDocumentUpdate
 from app.services.document_service import DocumentService
 from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService

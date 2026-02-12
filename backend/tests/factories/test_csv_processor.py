@@ -32,7 +32,8 @@ class TestCsvProcessorSuccess:
             assert doc.success is True
             assert doc.metadata["row_count"] == 2
             assert doc.metadata["column_count"] == 3
-            assert doc.metadata["columns"] == ["name", "age", "city"]
+            assert "column_hash" in doc.metadata
+            assert "columns" not in doc.metadata  # P0 security: no leaks
             assert doc.metadata["truncated"] is False
             assert doc.metadata["encoding_used"] == "utf-8"
             assert "Alice" in doc.content
@@ -117,8 +118,9 @@ class TestCsvProcessorFailures:
         """Non-existent file should raise FileNotFoundError."""
         processor = CsvProcessor()
 
-        with pytest.raises(FileNotFoundError):
-            await processor.process("/nonexistent/file.csv")
+        results = await processor.process("/nonexistent/file.csv")
+        assert results[0].success is False
+        assert "not found" in results[0].error_message.lower()
 
     @pytest.mark.asyncio
     async def test_process_file_too_large_fails(self):
@@ -132,10 +134,9 @@ class TestCsvProcessorFailures:
 
         try:
             processor = CsvProcessor()
-
-            with pytest.raises(ValueError) as exc_info:
-                await processor.process(tmp_path)
-            assert "too large" in str(exc_info.value)
+            results = await processor.process(tmp_path)
+            assert results[0].success is False
+            assert "too large" in results[0].error_message.lower()
         finally:
             os.unlink(tmp_path)
 

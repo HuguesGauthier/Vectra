@@ -17,6 +17,10 @@ from app.models.connector import Connector
 from app.models.enums import ConnectorStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.schemas.connector import ConnectorCreate, ConnectorUpdate
+import importlib
+import app.services.connector_service
+
+importlib.reload(app.services.connector_service)
 from app.services.connector_service import ConnectorService
 from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService

@@ -6,8 +6,7 @@ import pytest
 
 from app.core.exceptions import TechnicalError
 from app.models.enums import ConnectorStatus, DocStatus
-from app.services.ingestion.ingestion_orchestrator import (IngestionOrchestrator,
-                                                 IngestionStoppedError)
+from app.services.ingestion.ingestion_orchestrator import IngestionOrchestrator, IngestionStoppedError
 
 
 @pytest.fixture
@@ -57,10 +56,15 @@ async def test_ingest_files_success(mock_dependencies):
     docs_map = {"test.pdf": doc_mock}
 
     # Mock Pipeline & TextSplitter
+    # nodes for pipeline.arun return
+    nodes = [MagicMock(get_content=lambda: "chunk"), MagicMock(get_content=lambda: "chunk")]
+    for n in nodes:
+        n.metadata = {"connector_document_id": str(doc_id)}
+
     pipeline = MagicMock()
+    pipeline.arun = AsyncMock(return_value=nodes)
     text_splitter = MagicMock()
     # Mock splitting -> returns list of nodes
-    nodes = [MagicMock(get_content=lambda: "chunk"), MagicMock(get_content=lambda: "chunk")]
     text_splitter.get_nodes_from_documents.return_value = nodes
 
     # Mock IngestionFactory processing
@@ -75,7 +79,7 @@ async def test_ingest_files_success(mock_dependencies):
         processor_mock.process.return_value = [success_doc]
 
         # Mock connection manager
-        with patch("app.services.ingestion.ingestion_orchestrator.manager") as mock_manager:
+        with patch("app.services.ingestion.ingestion_orchestrator.manager", new_callable=AsyncMock) as mock_manager:
             mock_manager.emit_document_update = AsyncMock()
             mock_manager.emit_document_progress = AsyncMock()
             mock_manager.emit_connector_progress = AsyncMock()
@@ -102,6 +106,7 @@ async def test_ingest_files_success(mock_dependencies):
                 doc_token_count=10,  # 5 chars * 2? No, len("chunk")=5. Setup calls get_content.
                 vector_point_count=2,
                 last_vectorized_at=ANY,
+                processing_duration_ms=ANY,
             )
 
 

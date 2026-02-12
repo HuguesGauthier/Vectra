@@ -8,6 +8,10 @@ import pytest
 from app.core.exceptions import TechnicalError
 from app.models.enums import ConnectorStatus, DocStatus
 from app.schemas.enums import ConnectorType, ScheduleType
+import importlib
+import app.services.scanner_service
+
+importlib.reload(app.services.scanner_service)
 from app.services.scanner_service import ScannerService
 
 

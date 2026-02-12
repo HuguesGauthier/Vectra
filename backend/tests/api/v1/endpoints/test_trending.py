@@ -1,9 +1,13 @@
 import pytest
 from uuid import uuid4
 from fastapi.testclient import TestClient
-from app.main import app
-from app.api.v1.endpoints.trending import get_trending_service
+from fastapi import FastAPI
+from app.api.v1.endpoints.trending import get_trending_service, router
 from app.models.topic_stat import TopicStat
+from tests.utils import get_test_app
+
+app = get_test_app()
+app.include_router(router, prefix="/api/v1/trends")
 
 # Mock Data
 ASSISTANT_ID = uuid4()
