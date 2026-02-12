@@ -17,6 +17,7 @@ from typing import List
 from llama_index.core.schema import Document
 
 from app.core.interfaces.base_connector import BaseConnector
+from app.models.enums import ConnectorType
 from app.schemas.ingestion import FileIngestionConfig, FolderIngestionConfig, SqlIngestionConfig
 from app.services.ingestion.connectors.file_connector import FileConnector
 from app.services.ingestion.connectors.folder_connector import FolderConnector
@@ -24,9 +25,9 @@ from app.services.ingestion.connectors.sql_connector import SqlConnector
 
 # Strategy Pattern: Config schema mapping
 CONFIG_SCHEMAS = {
-    "local_file": FileIngestionConfig,
-    "local_folder": FolderIngestionConfig,
-    "sql": SqlIngestionConfig,
+    ConnectorType.LOCAL_FILE: FileIngestionConfig,
+    ConnectorType.LOCAL_FOLDER: FolderIngestionConfig,
+    ConnectorType.SQL: SqlIngestionConfig,
 }
 
 
@@ -42,30 +43,28 @@ class ConnectorFactory:
     """
 
     @staticmethod
-    def get_connector(source_type: str) -> BaseConnector:
+    def get_connector(source_type: str | ConnectorType) -> BaseConnector:
         """
         Get connector instance by type.
 
         Args:
-            source_type: Type of connector ("local_file", "local_folder", "sql")
-
-        Returns:
-            BaseConnector instance
-
-        Raises:
-            ValueError: If source_type is unknown
+            source_type: Type of connector
         """
-        source_type = source_type.strip().lower()
+        # Normalize to enum if string
+        if isinstance(source_type, str):
+            try:
+                source_type = ConnectorType(source_type.strip().lower())
+            except ValueError:
+                raise ValueError(f"Unknown source type: {source_type}")
 
-        # Strict Enum values (User Validated)
-        if source_type == "local_file":
+        if source_type == ConnectorType.LOCAL_FILE:
             return FileConnector()
-        elif source_type == "local_folder":
+        elif source_type == ConnectorType.LOCAL_FOLDER:
             return FolderConnector()
-        elif source_type == "sql":
+        elif source_type == ConnectorType.SQL:
             return SqlConnector()
         else:
-            raise ValueError(f"Unknown source type: {source_type}")
+            raise ValueError(f"Unsupported connector implementation for type: {source_type}")
 
     @staticmethod
     async def load_documents(connector_model) -> List[Document]:
@@ -91,7 +90,11 @@ class ConnectorFactory:
             Exception: Any errors from connector.load_data()
         """
         # 1. Detect type
-        conn_type = str(connector_model.connector_type).strip().lower()
+        raw_type = str(connector_model.connector_type).strip().lower()
+        try:
+            conn_type = ConnectorType(raw_type)
+        except ValueError:
+            raise ValueError(f"Unsupported connector type: {raw_type}")
 
         # 2. Instantiate connector
         plugin = ConnectorFactory.get_connector(conn_type)
@@ -103,7 +106,7 @@ class ConnectorFactory:
         return await plugin.load_data(config)
 
     @staticmethod
-    def _build_config(conn_type: str, config_data: dict):
+    def _build_config(conn_type: ConnectorType, config_data: dict):
         """
         Build typed Pydantic config from raw dict.
 

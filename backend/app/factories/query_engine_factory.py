@@ -34,14 +34,13 @@ class UnifiedQueryEngineFactory:
         self.sql_service = sql_service
 
     async def is_configured(self, assistant: Any) -> bool:
-        # P0: Debugging "Router Error" - verify why SQL might be triggering
-        # For now, let's assume this delegates to the SQL discovery service
+        """Verify if SQL is configured for this assistant."""
         return await self.sql_service.is_configured(assistant)
 
     def _determine_vector_provider(self, assistant: Any) -> str:
         """Helper to determine correct embedding provider from linked connectors."""
         provider = "gemini"
-        logger.info(f"ROUTER_DEBUG | Inspecting Assistant {assistant.id} connectors...")
+        logger.debug(f"ROUTER_DEBUG | Inspecting Assistant {assistant.id} connectors...")
 
         if hasattr(assistant, "linked_connectors"):
             providers = set()
@@ -51,17 +50,28 @@ class UnifiedQueryEngineFactory:
                 if hasattr(conn, "configuration") and conn.configuration:
                     curr_provider = conn.configuration.get("ai_provider", "gemini")
 
-                logger.info(f"ROUTER_DEBUG | Connector {conn.id} ({conn.name}) | Provider: {curr_provider}")
+                logger.debug(f"ROUTER_DEBUG | Connector {conn.id} ({conn.name}) | Provider: {curr_provider}")
                 providers.add(curr_provider)
 
             if "openai" in providers:
-                logger.info("ROUTER_DEBUG | Found 'openai' in providers. Forcing OpenAI.")
                 return "openai"
             elif "local" in providers:
                 return "local"
 
-        logger.info(f"ROUTER_DEBUG | Defaulting to {provider}")
         return provider
+
+    def _is_sql_connector(self, connector_type: Any) -> bool:
+        """Robustly detect if a connector type is SQL-based."""
+        ctype = str(connector_type).lower().strip() if connector_type else ""
+        sql_types = [
+            ConnectorType.SQL.value,
+            ConnectorType.VANNA_SQL.value,
+            "sql",
+            "vanna_sql",
+            "mssql",
+            "postgres",
+        ]
+        return ctype in sql_types
 
     async def create_engine(self, assistant: Any, language: str = "en", **kwargs) -> BaseQueryEngine:
         """
@@ -71,24 +81,13 @@ class UnifiedQueryEngineFactory:
         - Docs Only -> Vector Engine (No Router)
         - Hybrid -> Router Query Engine
         """
-        start_time = time.time()
-
         # 1. Analyze Resources
         has_sql = await self.sql_service.is_configured(assistant)
-
         has_docs = False
+
         if assistant.linked_connectors:
             for conn in assistant.linked_connectors:
-                ctype = str(conn.connector_type).lower().strip() if conn.connector_type else ""
-                # If it's NOT a SQL connector, we assume it's a document source (file, web, etc.)
-                if ctype not in [
-                    ConnectorType.SQL.value,
-                    ConnectorType.VANNA_SQL.value,
-                    "sql",
-                    "vanna_sql",
-                    "mssql",
-                    "postgres",
-                ]:
+                if not self._is_sql_connector(conn.connector_type):
                     has_docs = True
                     break
 
@@ -100,32 +99,23 @@ class UnifiedQueryEngineFactory:
             sql_engine = await self.sql_service.get_engine(assistant)
             if sql_engine:
                 return sql_engine
-            logger.warning("ROUTER_LOGIC | SQL config valid but engine failed. Fallback to Vector (empty).")
+            logger.warning("ROUTER_LOGIC | SQL config valid but engine failed. Fallback to Hybrid check.")
 
-        # 3. Initialize Shared Components (LLM, Settings) if needed for Vector/Router
-        # Determine Embedding Provider
+        # 3. Initialize Shared Components
         provider = self._determine_vector_provider(assistant)
 
-        # Prepare Filters (ACL)
-        from llama_index.core.vector_stores import FilterOperator, MetadataFilter, MetadataFilters
-
+        # Prepare ACL Filters
         filters = None
         if assistant.linked_connectors:
-            # Filter out SQL connectors from vector search if we want to be strict,
-            # but usually vector store only contains docs anyway.
-            # We just add ACL for ALL linked connectors to be safe.
             connector_filters = [
                 MetadataFilter(key="connector_id", value=str(conn.id), operator=FilterOperator.EQ)
                 for conn in assistant.linked_connectors
+                if not self._is_sql_connector(conn.connector_type)
             ]
-            filters = MetadataFilters(filters=connector_filters, condition="or")
+            if connector_filters:
+                filters = MetadataFilters(filters=connector_filters, condition="or")
 
-        # 4. Configure Vector Engine (Base for Docs-only and Router)
-        # Inject Language & Instructions
-        from llama_index.core import PromptTemplate
-
-        from app.core.prompts import AGENTIC_RESPONSE_PROMPT, AGENTIC_RESPONSE_PROMPT_FR
-
+        # 4. Configure Prompt & LLM
         if language and "fr" in language.lower():
             selected_prompt = AGENTIC_RESPONSE_PROMPT_FR
         else:
@@ -135,14 +125,16 @@ class UnifiedQueryEngineFactory:
         if hasattr(assistant, "instructions") and assistant.instructions:
             selected_prompt = f"{assistant.instructions}\n\n{selected_prompt}"
 
+        # Initialize Services
         settings_service = SettingsService(self.sql_service.db)
         await settings_service.load_cache()
 
+        # Create LLM using existing factory logic (DRY)
         llm = await ChatEngineFactory.create_from_assistant(assistant, settings_service)
 
         vector_kwargs = kwargs.copy()
         vector_kwargs["text_qa_template"] = PromptTemplate(selected_prompt)
-        vector_kwargs["llm"] = llm  # Pass the LLM to vector engine
+        vector_kwargs["llm"] = llm
 
         vector_engine = await self.vector_service.get_query_engine(provider=provider, filters=filters, **vector_kwargs)
 
@@ -155,7 +147,7 @@ class UnifiedQueryEngineFactory:
         if has_sql and has_docs:
             logger.info("ROUTER_LOGIC | Mode: HYBRID (Active Router)")
 
-            # Define Tools
+            # Vector Tool
             vector_tool = QueryEngineTool(
                 query_engine=vector_engine,
                 metadata=ToolMetadata(
@@ -164,48 +156,28 @@ class UnifiedQueryEngineFactory:
                 ),
             )
 
+            # SQL Tool
             sql_engine = await self.sql_service.get_engine(assistant)
             sql_tool = QueryEngineTool(
-                query_engine=sql_engine or vector_engine,  # Fallback
+                query_engine=sql_engine or vector_engine,  # Fallback to vector if SQL fails
                 metadata=ToolMetadata(
                     name="transit_sql_db",
-                    description="Use this tool for looking up specific records, IDs, verses, and quantitative data from the database.",
+                    description="Use this tool for looking up specific records, IDs, and quantitative data from the database.",
                 ),
             )
 
-            # Initialize Router LLM
-            # Settings service already loaded above
-
-            # Router Model Selection - Use assistant's configured provider
+            # Create Router LLM using Factory (P1 - DRY)
             router_provider = assistant.model_provider or "gemini"
-            router_model = await settings_service.get_value(f"{router_provider}_chat_model")
-            router_api_key = None
-
-            if router_provider == "gemini":
-                router_api_key = await settings_service.get_value("gemini_api_key")
-            elif router_provider == "openai":
-                router_api_key = await settings_service.get_value("openai_api_key")
-            elif router_provider == "mistral":
-                router_api_key = await settings_service.get_value("mistral_api_key")
-            elif router_provider == "ollama":
-                # For Ollama, we repurpose api_key to hold the Base URL if needed
-                router_api_key = await settings_service.get_value("ollama_base_url")
-
-            if not router_model:
-                from app.core.exceptions import ConfigurationError
-
-                raise ConfigurationError(f"Router model not configured for provider {router_provider}")
-
-            llm = LLMFactory.create_llm(router_provider, router_model, router_api_key)
+            router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
 
             return RouterQueryEngine(
-                selector=LLMSingleSelector.from_defaults(llm=llm),
+                selector=LLMSingleSelector.from_defaults(llm=router_llm),
                 query_engine_tools=[vector_tool, sql_tool],
                 verbose=True,
             )
 
         # Fallback (Should not be reached usually, defaults to Doc search)
-        logger.warning("ROUTER_LOGIC | Fallback to Vector Engine (No clear resources detected)")
+        logger.warning("ROUTER_LOGIC | Fallback to Vector Engine")
         return vector_engine
 
 

@@ -83,7 +83,50 @@ async def test_create_engine_sql_only(factory, mock_vector_service, mock_sql_ser
 
 
 @pytest.mark.asyncio
-async def test_create_engine_hybrid(factory, mock_vector_service, mock_sql_service, mock_assistant):
+async def test_create_engine_hybrid_with_sql_failure(factory, mock_vector_service, mock_sql_service, mock_assistant):
+    """Hybrid mode: if SQL engine fails, tool should fallback to vector engine."""
+    # Setup
+    mock_sql_service.is_configured.return_value = True
+    mock_sql_service.get_engine.return_value = None  # Simulate failure
+
+    conn_doc = MagicMock()
+    conn_doc.id = uuid4()
+    conn_doc.connector_type = ConnectorType.LOCAL_FOLDER
+
+    conn_sql = MagicMock()
+    conn_sql.id = uuid4()
+    conn_sql.connector_type = ConnectorType.SQL
+
+    mock_assistant.linked_connectors = [conn_doc, conn_sql]
+
+    with (
+        patch("app.factories.query_engine_factory.SettingsService") as mock_settings_cls,
+        patch(
+            "app.factories.query_engine_factory.ChatEngineFactory.create_from_assistant", new_callable=AsyncMock
+        ) as mock_chat_assistant,
+        patch(
+            "app.factories.query_engine_factory.ChatEngineFactory.create_from_provider", new_callable=AsyncMock
+        ) as mock_chat_provider,
+        patch("app.factories.query_engine_factory.RouterQueryEngine") as mock_router_cls,
+    ):
+        mock_settings = mock_settings_cls.return_value
+        mock_settings.load_cache = AsyncMock()
+
+        # Execute
+        await factory.create_engine(mock_assistant)
+
+        # Verify
+        mock_router_cls.assert_called_once()
+        args, kwargs = mock_router_cls.call_args
+        tools = kwargs["query_engine_tools"]
+
+        # SQL tool should still be present but using vector_engine as fallback
+        sql_tool = next(t for t in tools if t.metadata.name == "transit_sql_db")
+        assert sql_tool.query_engine == mock_vector_service.get_query_engine.return_value
+
+
+@pytest.mark.asyncio
+async def test_create_engine_hybrid_success(factory, mock_vector_service, mock_sql_service, mock_assistant):
     # Setup
     mock_sql_service.is_configured.return_value = True
 
@@ -101,14 +144,14 @@ async def test_create_engine_hybrid(factory, mock_vector_service, mock_sql_servi
         patch("app.factories.query_engine_factory.SettingsService") as mock_settings_cls,
         patch(
             "app.factories.query_engine_factory.ChatEngineFactory.create_from_assistant", new_callable=AsyncMock
-        ) as mock_chat_factory,
+        ) as mock_chat_assistant,
+        patch(
+            "app.factories.query_engine_factory.ChatEngineFactory.create_from_provider", new_callable=AsyncMock
+        ) as mock_chat_provider,
         patch("app.factories.query_engine_factory.RouterQueryEngine") as mock_router_cls,
-        patch("app.factories.query_engine_factory.LLMFactory.create_llm") as mock_llm_factory,
     ):
-
         mock_settings = mock_settings_cls.return_value
         mock_settings.load_cache = AsyncMock()
-        mock_settings.get_value = AsyncMock(return_value="fake-model")
 
         # Execute
         await factory.create_engine(mock_assistant)
@@ -117,3 +160,6 @@ async def test_create_engine_hybrid(factory, mock_vector_service, mock_sql_servi
         mock_vector_service.get_query_engine.assert_called_once()
         mock_sql_service.get_engine.assert_called_once()
         mock_router_cls.assert_called_once()
+
+        # Verify Router LLM was created via ChatEngineFactory
+        mock_chat_provider.assert_called_once_with(mock_assistant.model_provider, mock_settings)

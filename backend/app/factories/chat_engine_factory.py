@@ -1,5 +1,5 @@
 import logging
-from typing import Any
+from typing import Any, Tuple
 
 from app.models.assistant import Assistant
 from app.factories.llm_factory import LLMFactory
@@ -18,35 +18,11 @@ class ChatEngineFactory:
     async def create_from_assistant(assistant: Assistant, settings_service: SettingsService, **kwargs) -> Any:
         """
         Creates a configured LLM instance for the given assistant.
-
-        Args:
-            assistant: The assistant model containing provider info
-            settings_service: Service to retrieve global settings (API keys, model versions)
-            **kwargs: Additional arguments to pass to LLMFactory (e.g. temperature, output_class)
-
-        Returns:
-            Configured LLM instance
         """
-        # 1. Determine Provider from Assistant
         provider = assistant.model_provider
-
-        # 2. Fetch specific configuration from Global Settings
-        # Assistant.model enum currently determines the provider,
-        # but the specific model version is stored in settings.
-        model_key = f"{provider}_chat_model"
-        api_key_key = f"{provider}_api_key"
-
-        model_name = await settings_service.get_value(model_key)
-        api_key = await settings_service.get_value(api_key_key)
-
-        if not model_name:
-            logger.warning(f"No model configured for provider {provider} (key={model_key}). Using default.")
-            # Fallback handling could be added here if needed,
-            # currently LLMFactory might handle or fail on empty model depending on implementation
+        model_name, api_key = await ChatEngineFactory._get_config(provider, settings_service)
 
         logger.debug(f"[ChatEngineFactory] Creating engine: provider={provider}, model={model_name}")
-
-        # 3. Create LLM via Utilities
         return LLMFactory.create_llm(provider, model_name, api_key, **kwargs)
 
     @staticmethod
@@ -55,6 +31,16 @@ class ChatEngineFactory:
         Creates a configured LLM instance for a specific provider.
         Useful for services (like Vanna) that don't have an Assistant object but know the provider.
         """
+        model_name, api_key = await ChatEngineFactory._get_config(provider, settings_service)
+
+        logger.debug(f"[ChatEngineFactory] Creating engine from provider: provider={provider}, model={model_name}")
+        return LLMFactory.create_llm(provider, model_name, api_key, **kwargs)
+
+    @staticmethod
+    async def _get_config(provider: str, settings_service: SettingsService) -> Tuple[str, str]:
+        """
+        Helper to fetch specific configuration from Global Settings.
+        """
         model_key = f"{provider}_chat_model"
         api_key_key = f"{provider}_api_key"
 
@@ -62,8 +48,6 @@ class ChatEngineFactory:
         api_key = await settings_service.get_value(api_key_key)
 
         if not model_name:
-            logger.warning(f"No model configured for provider {provider} (key={model_key}). Using default.")
+            logger.warning(f"No model configured for provider {provider} (key={model_key}).")
 
-        logger.debug(f"[ChatEngineFactory] Creating engine from provider: provider={provider}, model={model_name}")
-
-        return LLMFactory.create_llm(provider, model_name, api_key, **kwargs)
+        return model_name, api_key
