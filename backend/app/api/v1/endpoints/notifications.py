@@ -5,14 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.connection_manager import manager as ws_manager
+from app.core.websocket import Websocket, get_websocket
 from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_current_admin, get_current_user
 from app.models.user import User
-from app.schemas.notification import (NotificationBase, NotificationCreate,
-                                      NotificationResponse)
-from app.services.notification_service import (NotificationService,
-                                               get_notification_service)
+from app.schemas.notification import NotificationBase, NotificationCreate, NotificationResponse
+from app.services.notification_service import NotificationService, get_notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +30,9 @@ class NotificationCreateRequest(NotificationBase):
 
 @router.get("/stream")
 async def stream_notifications(
-    request: Request, current_user: Annotated[User, Depends(get_current_user)]
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    manager: Websocket = Depends(get_websocket),
 ) -> StreamingResponse:
     """
     SSE Stream for real-time notifications.
@@ -43,6 +43,7 @@ async def stream_notifications(
     Args:
         request: The FastAPI request object.
         current_user: The currently authenticated user.
+        manager: The websocket manager instance.
 
     Returns:
         StreamingResponse: A response delivering SSE events.
@@ -56,7 +57,7 @@ async def stream_notifications(
             str: Formatted SSE data strings.
         """
         # "The Architect Way": Use the safe generator that guarantees cleanup and capped queues
-        async for message in ws_manager.stream_events():
+        async for message in manager.stream_events():
             if await request.is_disconnected():
                 break
             yield f"data: {message}\n\n"

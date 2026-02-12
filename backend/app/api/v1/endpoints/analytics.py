@@ -156,7 +156,7 @@ async def broadcast_analytics_loop(interval_seconds: int = 10) -> None:
 
     logger.info("Starting advanced analytics broadcast loop (interval: %ds)", interval_seconds)
 
-    from app.core.connection_manager import manager
+    from app.core.websocket import manager
 
     while _broadcast_running:
         try:

@@ -13,19 +13,15 @@ from sqlalchemy import select as select_func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.database import get_db
-from app.core.exceptions import (DuplicateError, EntityNotFound,
-                                 FunctionalError, InternalDataCorruption,
-                                 TechnicalError)
+from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.connector import ConnectorResponse
-from app.schemas.documents import (ConnectorDocumentCreate,
-                                   ConnectorDocumentResponse,
-                                   ConnectorDocumentUpdate)
+from app.schemas.documents import ConnectorDocumentCreate, ConnectorDocumentResponse, ConnectorDocumentUpdate
 from app.services.ingestion.utils import IngestionUtils
 from app.services.settings_service import SettingsService, get_settings_service
 from app.services.vector_service import VectorService, get_vector_service
@@ -131,16 +127,12 @@ class DocumentService:
                 provider = connector.configuration.get("ai_provider") if connector.configuration else None
                 collection = await self.vector_service.get_collection_name(provider)
                 asyncio.create_task(
-                    self._safe_delete_vectors(document_id, collection),
-                    name=f"vector-cleanup-{document_id}"
+                    self._safe_delete_vectors(document_id, collection), name=f"vector-cleanup-{document_id}"
                 )
 
                 c_type = str(connector.connector_type).strip().lower()
                 if c_type in ["file", "folder"] and doc.file_path:
-                    asyncio.create_task(
-                        self._safe_delete_file(doc.file_path),
-                        name=f"file-cleanup-{document_id}"
-                    )
+                    asyncio.create_task(self._safe_delete_file(doc.file_path), name=f"file-cleanup-{document_id}")
 
             # 3. Database Removals
             connector_id = doc.connector_id
@@ -185,10 +177,7 @@ class DocumentService:
             # 4. ACL Sync (Background)
             if "configuration" in update_data and "connector_document_acl" in update_data["configuration"]:
                 acl = update_data["configuration"]["connector_document_acl"]
-                asyncio.create_task(
-                    self._safe_update_acl(document_id, acl),
-                    name=f"acl-update-{document_id}"
-                )
+                asyncio.create_task(self._safe_update_acl(document_id, acl), name=f"acl-update-{document_id}")
 
             # 5. Broadcast
             resp = ConnectorDocumentResponse.model_validate(updated_doc)

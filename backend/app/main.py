@@ -25,7 +25,7 @@ from alembic import command
 from alembic.config import Config
 from app.api.v1.router import router as api_router
 from app.api.v1.ws import router as ws_router
-from app.core.connection_manager import manager
+from app.core.websocket import get_websocket
 from app.core.database import SessionLocal
 from app.core.exceptions import VectraException
 from app.core.init_db import init_db

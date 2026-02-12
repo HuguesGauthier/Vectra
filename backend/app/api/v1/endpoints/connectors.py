@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket, get_websocket
 from app.core.security import get_current_admin
 from app.models.enums import DocStatus
 from app.models.user import User
@@ -152,6 +152,7 @@ async def sync_connector(
     connector_id: UUID,
     service: Annotated[ConnectorService, Depends(get_connector_service)],
     current_user: Annotated[User, Depends(get_current_admin)],
+    manager: Websocket = Depends(get_websocket),
     force: bool = False,
 ) -> ConnectorResponse:
     """

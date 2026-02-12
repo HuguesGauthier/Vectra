@@ -8,7 +8,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.database import SessionLocal
 from app.core.exceptions import TechnicalError
 from app.core.security import get_password_hash
-from app.core.settings import settings
+from app.core.settings import get_settings
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ async def init_db() -> None:
     func_name = "init_db"
 
     try:
+        settings = get_settings()
         async with SessionLocal() as session:
             # Check for existing admin user
             statement = select(User).where(User.email == settings.FIRST_SUPERUSER)

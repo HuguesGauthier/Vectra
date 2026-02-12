@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.database import get_db
 from app.models.assistant import AssistantConnectorLink
 from app.models.connector import Connector

@@ -21,7 +21,7 @@ from qdrant_client.http import models as qmodels
 from qdrant_client.http.models import PointStruct
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.exceptions import TechnicalError
 from app.core.settings import settings
 from app.factories.ingestion_factory import IngestionFactory

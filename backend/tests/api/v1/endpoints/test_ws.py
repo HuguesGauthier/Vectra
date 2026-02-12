@@ -5,11 +5,11 @@ from fastapi import FastAPI, WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from app.api.v1.ws import router
-from app.core.connection_manager import ConnectionManager, get_connection_manager
+from app.core.websocket import Websocket, get_websocket
 from app.core.settings import settings
 
 # Mock Manager
-mock_manager = MagicMock(spec=ConnectionManager)
+mock_manager = MagicMock(spec=Websocket)
 
 
 async def mock_connect(websocket):
@@ -39,7 +39,7 @@ async def override_get_manager():
     return mock_manager
 
 
-app.dependency_overrides[get_connection_manager] = override_get_manager
+app.dependency_overrides[get_websocket] = lambda: mock_manager
 
 client = TestClient(app)
 

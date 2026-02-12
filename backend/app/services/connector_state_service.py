@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.database import get_db
 from app.core.time import SystemClock, TimeProvider
 from app.models.enums import ConnectorStatus, DocStatus
@@ -75,7 +75,7 @@ class ConnectorStateService:
                 "last_error": None,
             },
         )
-        
+
         if not updated:
             logger.error(f"⚠️ Failed to finalize connector {connector_id}: not found in DB")
             return

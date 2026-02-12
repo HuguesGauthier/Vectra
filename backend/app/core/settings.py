@@ -58,9 +58,6 @@ class Settings(BaseSettings):
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
     GEMINI_TRANSCRIPTION_MODEL: str = "gemini-1.5-flash-latest"
     GEMINI_CHAT_MODEL: str = "gemini-1.5-flash-latest"
-    MISTRAL_CHAT_MODEL: str = "mistral-large-latest"
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_CHAT_MODEL: str = "mistral"
 
     # Observability
     ENABLE_PHOENIX_TRACING: bool = False  # Set to True via env to enable Arize Phoenix
@@ -156,6 +153,15 @@ class Settings(BaseSettings):
         # 5. DEBUG Mode Check
         if is_prod and self.DEBUG:
             raise ValueError("DEBUG must be False in production.")
+
+        # 6. DATABASE_URL Check (Production only)
+        # Prevent accidental use of the default local dev DB in production
+        # We check for both localhost and 127.0.0.1 (Windows fixer might have run)
+        if is_prod and any(h in self.DATABASE_URL for h in ["localhost:5432/vectra", "127.0.0.1:5432/vectra"]):
+            raise ValueError(
+                "Default local DATABASE_URL detected in production environment. "
+                "Please set a valid DATABASE_URL in your environment variables."
+            )
 
         return self
 

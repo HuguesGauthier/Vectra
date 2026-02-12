@@ -16,7 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import delete
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.database import SessionLocal
 from app.models.error_log import ErrorLog
 from app.repositories.chat_history_repository import ChatPostgresRepository

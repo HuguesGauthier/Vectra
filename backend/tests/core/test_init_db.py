@@ -26,26 +26,32 @@ class TestInitDb:
         mock_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("app.core.init_db.SessionLocal", return_value=mock_cm):
-            with patch("app.core.init_db.run_in_threadpool", new_callable=AsyncMock) as mock_run_pool:
-                mock_run_pool.return_value = "hashed_secret"
+            # Patch get_settings to return a mock with expected attributes
+            mock_settings = MagicMock()
+            mock_settings.FIRST_SUPERUSER = "admin@test.ai"
+            mock_settings.FIRST_SUPERUSER_PASSWORD = "password"
 
-                await init_db()
+            with patch("app.core.init_db.get_settings", return_value=mock_settings):
+                with patch("app.core.init_db.run_in_threadpool", new_callable=AsyncMock) as mock_run_pool:
+                    mock_run_pool.return_value = "hashed_secret"
 
-                # Verify execute called (check existing)
-                mock_session.execute.assert_awaited()
+                    await init_db()
 
-                # Verify hashing called via threadpool
-                mock_run_pool.assert_awaited()
+                    # Verify execute called (check existing)
+                    mock_session.execute.assert_awaited()
 
-                # Verify add and commit
-                mock_session.add.assert_called_once()
-                args, _ = mock_session.add.call_args
-                added_user = args[0]
-                assert isinstance(added_user, User)
-                assert added_user.role == "admin"
-                assert added_user.hashed_password == "hashed_secret"
+                    # Verify hashing called via threadpool
+                    mock_run_pool.assert_awaited()
 
-                mock_session.commit.assert_awaited_once()
+                    # Verify add and commit
+                    mock_session.add.assert_called_once()
+                    args, _ = mock_session.add.call_args
+                    added_user = args[0]
+                    assert isinstance(added_user, User)
+                    assert added_user.role == "admin"
+                    assert added_user.hashed_password == "hashed_secret"
+
+                    mock_session.commit.assert_awaited_once()
 
     async def test_init_db_skips_creation_if_exists(self):
         """Should not create admin if already exists."""
@@ -62,14 +68,18 @@ class TestInitDb:
         mock_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("app.core.init_db.SessionLocal", return_value=mock_cm):
-            # We don't need to patch run_in_threadpool because it shouldn't be called
-            with patch("app.core.init_db.run_in_threadpool", new_callable=AsyncMock) as mock_run_pool:
-                await init_db()
+            mock_settings = MagicMock()
+            mock_settings.FIRST_SUPERUSER = "admin@test.ai"
 
-                mock_session.execute.assert_awaited()
-                mock_run_pool.assert_not_awaited()
-                mock_session.add.assert_not_called()
-                mock_session.commit.assert_not_awaited()
+            with patch("app.core.init_db.get_settings", return_value=mock_settings):
+                # We don't need to patch run_in_threadpool because it shouldn't be called
+                with patch("app.core.init_db.run_in_threadpool", new_callable=AsyncMock) as mock_run_pool:
+                    await init_db()
+
+                    mock_session.execute.assert_awaited()
+                    mock_run_pool.assert_not_awaited()
+                    mock_session.add.assert_not_called()
+                    mock_session.commit.assert_not_awaited()
 
     async def test_init_db_handles_db_error(self):
         """Should raise TechnicalError on DB failure."""
@@ -78,7 +88,15 @@ class TestInitDb:
         mock_cm.__aexit__ = AsyncMock(return_value=None)
 
         with patch("app.core.init_db.SessionLocal", return_value=mock_cm):
+            with patch("app.core.init_db.get_settings", return_value=MagicMock()):
+                with pytest.raises(TechnicalError) as exc_info:
+                    await init_db()
+
+                assert "Failed to initialize database" in str(exc_info.value)
+
+    async def test_init_db_handles_generic_error(self):
+        """Should raise TechnicalError on unexpected failure."""
+        with patch("app.core.init_db.get_settings", side_effect=Exception("Major failure")):
             with pytest.raises(TechnicalError) as exc_info:
                 await init_db()
-
-            assert "Failed to initialize database" in str(exc_info.value)
+            assert "Unexpected error during database initialization" in str(exc_info.value)

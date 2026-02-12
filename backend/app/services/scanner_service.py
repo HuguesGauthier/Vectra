@@ -12,7 +12,7 @@ from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.core.connection_manager import manager
+from app.core.websocket import Websocket
 from app.core.database import get_db
 from app.core.exceptions import FunctionalError, TechnicalError
 from app.models.connector import Connector

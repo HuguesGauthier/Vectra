@@ -57,7 +57,7 @@ async def broadcast_dashboard_stats_loop(interval_seconds: int = 5) -> None:
     logger.info("Starting dashboard stats broadcast loop (interval: %ds)", interval_seconds)
 
     # Import here to avoid circular dependency
-    from app.core.connection_manager import manager
+    from app.core.websocket import manager
     from app.core.database import SessionLocal
 
     while _broadcast_running:

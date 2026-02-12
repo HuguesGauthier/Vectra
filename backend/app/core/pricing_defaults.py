@@ -1,9 +1,13 @@
 from typing import Dict, Final
 
 """
-Default pricing configuration.
-Prices are in USD per 1,000 tokens (estimated).
-NOTE: These are defaults. Real-time pricing may vary by region or tier.
+Default pricing configuration for token usage estimation.
+Prices are in USD per 1,000 tokens (approximate).
+
+NOTE: LLM pricing usually distinguishes between Input and Output tokens.
+The generative prices below represent estimated blended costs or input-only costs
+used for rough budgetary tracking in the UI. For local models (Ollama/Local),
+cost is 0.0.
 """
 
 # --- Embeddings (Cost to Vectorize) ---
@@ -19,11 +23,8 @@ EMBEDDING_PRICES: Final[Dict[str, float]] = {
 }
 
 # --- Generative (LLM Inference) ---
-# Note: Usually separates Input/Output cost.
-# These look like blended or input-only estimates.
 GENERATIVE_PRICES: Final[Dict[str, float]] = {
     # Gemini
-
     "gemini-2.0-flash": 0.00001875,
     "gemini-1.5-flash": 0.00001875,
     "gemini-1.5-pro": 0.00125,
@@ -33,6 +34,14 @@ GENERATIVE_PRICES: Final[Dict[str, float]] = {
     "gpt-4": 0.03,
     "gpt-4-turbo": 0.01,
     "gpt-3.5-turbo": 0.0005,
+    # Mistral (Approximate per 1k input)
+    "mistral-large-latest": 0.002,
+    "mistral-medium-latest": 0.0027,
+    "mistral-small-latest": 0.0007,
+    "open-mixtral-8x7b": 0.0007,
+    # Local / Open Source
+    "ollama": 0.0,
+    "local": 0.0,
 }
 
 # --- Combined Access ---
@@ -40,6 +49,6 @@ GENERATIVE_PRICES: Final[Dict[str, float]] = {
 MODEL_PRICES: Final[Dict[str, float]] = {
     **EMBEDDING_PRICES,
     **GENERATIVE_PRICES,
-    # Fallback / Local
+    # Fallback
     "default": 0.00010,
 }

@@ -11,11 +11,9 @@ import secrets
 from enum import StrEnum
 from typing import Annotated, Any, Optional
 
-from fastapi import (APIRouter, Depends, Query, WebSocket, WebSocketDisconnect,
-                     status)
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
-from app.core.connection_manager import (ConnectionManager,
-                                         get_connection_manager)
+from app.core.websocket import Websocket, get_websocket
 from app.core.settings import settings
 
 router = APIRouter()
@@ -38,7 +36,7 @@ class ClientType(StrEnum):
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    manager: Annotated[ConnectionManager, Depends(get_connection_manager)],
+    manager: Websocket = Depends(get_websocket),
     client_type: ClientType = Query(ClientType.CLIENT),
     token: Optional[str] = Query(default=None),
 ) -> None:

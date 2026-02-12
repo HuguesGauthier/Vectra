@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Any, AsyncGenerator, Dict, List, Optional, Set
 from uuid import UUID, uuid4
 
@@ -9,7 +10,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 logger = logging.getLogger(__name__)
 
 
-class ConnectionManager:
+class Websocket:
     """
     Singleton class to manage WebSocket connections and broadcasting.
     Handles communication between Server <-> Frontend and Worker <-> Server.
@@ -20,19 +21,23 @@ class ConnectionManager:
     - Caps message queues to prevent OOM from slow consumers.
     """
 
-    _instance: Optional["ConnectionManager"] = None
+    _instance: Optional["Websocket"] = None
 
-    # Internal state
+    # Class-level defaults (to be shadowed by instance attrs in __new__)
     active_connections: Set[WebSocket] = set()
     active_listeners: Set[asyncio.Queue] = set()
     _worker_connection: Optional[WebSocket] = None
     upstream_connection: Any = None
+    _last_sse_log_time: float = 0.0
 
-    def __new__(cls) -> "ConnectionManager":
+    def __new__(cls) -> "Websocket":
         if cls._instance is None:
-            cls._instance = super(ConnectionManager, cls).__new__(cls)
+            cls._instance = super(Websocket, cls).__new__(cls)
             cls._instance.active_connections = set()
             cls._instance.active_listeners = set()
+            cls._instance._worker_connection = None
+            cls._instance.upstream_connection = None
+            cls._instance._last_sse_log_time = 0.0
         return cls._instance
 
     # --- Client Connection Management ---
@@ -112,9 +117,8 @@ class ConnectionManager:
         await self.emit_worker_status(True)
 
     def unregister_worker(self) -> None:
-        if self._worker_connection:
-            self._worker_connection = None
-            logger.info("Worker unregistered.")
+        self._worker_connection = None
+        logger.info("Worker unregistered.")
 
     async def handle_worker_disconnect(self) -> None:
         self.unregister_worker()
@@ -148,43 +152,51 @@ class ConnectionManager:
         tasks = []
         dead_connections = []
 
+        # 2. WebSocket Clients
         if self.active_connections:
+            # P0: Secure the broadcast against failing connections
+            tasks = []
+            ws_list = list(self.active_connections)
 
-            async def safe_send(ws: WebSocket):
-                try:
-                    await asyncio.wait_for(ws.send_text(message_str), timeout=2.0)
-                    return None  # Success
-                except Exception as e:
-                    logger.debug(f"Safe send failed for ID: {getattr(ws, 'conn_id', '?')} | Error: {e}")
-                    # Return ws to identify which one failed
-                    return ws
-
-            tasks = [safe_send(ws) for ws in self.active_connections]
+            for ws in ws_list:
+                tasks.append(asyncio.wait_for(ws.send_text(message_str), timeout=2.0))
 
             if tasks:
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-                for res in results:
-                    if res is not None:  # safe_send returns None on success, ws on failure
-                        dead_connections.append(res)
+                for i, res in enumerate(results):
+                    if isinstance(res, Exception):
+                        ws = ws_list[i]
+                        logger.warning(f"Failed to send to WebSocket [ID: {getattr(ws, 'conn_id', '?')}]: {res}")
+                        dead_connections.append(ws)
 
         if dead_connections:
             # Cleanup dead connections
             for ws in dead_connections:
-                logger.info(f"Removing dead connection [ID: {getattr(ws, 'conn_id', '?')}]")
-                await self.disconnect(ws)
+                logger.debug(f"Removing dead connection [ID: {getattr(ws, 'conn_id', '?')}]")
+                try:
+                    await self.disconnect(ws)
+                except Exception:
+                    pass
 
         # 3. SSE Listeners
+        # P1: Rate-limit this log to once per minute to avoid flooding (Pragmatic Architect)
+        now = time.time()
+        if now - self._last_sse_log_time > 60:
+            logger.debug(f"ROUTER_SSE | Broadcasting to {len(self.active_listeners)} listeners")
+            self._last_sse_log_time = now
         # Use simple iteration, queues are non-blocking usually unless full
         dead_queues = []
         for queue in self.active_listeners:
             try:
                 # put_nowait raises QueueFull if full
                 queue.put_nowait(message_str)
+                logger.debug("ROUTER_SSE | Message put in queue successfully")
             except asyncio.QueueFull:
                 logger.warning("Listener queue full, dropping message (slow consumer)")
                 # Optional: dead_queues.append(queue) if we want to kick slow consumers
                 pass
-            except Exception:
+            except Exception as e:
+                logger.error(f"ROUTER_SSE | Error putting message in queue: {e}")
                 dead_queues.append(queue)
 
         for q in dead_queues:
@@ -224,9 +236,6 @@ class ConnectionManager:
 
     async def emit_document_deleted(self, document_id: str, connector_id: str) -> None:
         await self.broadcast({"type": "DOC_DELETED", "id": str(document_id), "connector_id": str(connector_id)})
-
-    async def emit_document_updated(self, doc_data: Dict[str, Any]) -> None:
-        await self.broadcast({"type": "DOC_UPDATED", "data": doc_data})
 
     async def emit_document_update(
         self,
@@ -286,8 +295,8 @@ class ConnectionManager:
         await self.broadcast({"type": "ADVANCED_ANALYTICS_STATS", "data": stats})
 
 
-manager = ConnectionManager()
+manager = Websocket()
 
 
-async def get_connection_manager() -> ConnectionManager:
+async def get_websocket() -> Websocket:
     return manager

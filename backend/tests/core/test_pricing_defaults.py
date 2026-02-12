@@ -1,7 +1,6 @@
 import pytest
 
-from app.core.pricing_defaults import (EMBEDDING_PRICES, GENERATIVE_PRICES,
-                                       MODEL_PRICES)
+from app.core.pricing_defaults import EMBEDDING_PRICES, GENERATIVE_PRICES, MODEL_PRICES
 
 
 class TestPricingDefaults:
@@ -25,10 +24,22 @@ class TestPricingDefaults:
 
     def test_specific_model_pricing(self):
         """Verify key models have pricing defined."""
-        required_models = ["models/text-embedding-004", "gemini-1.5-flash", "gpt-4o"]
+        required_models = [
+            "models/text-embedding-004",
+            "gemini-1.5-flash",
+            "gpt-4o",
+            "mistral-large-latest",
+            "ollama",
+        ]
         for model in required_models:
             assert model in MODEL_PRICES
-            assert MODEL_PRICES[model] > 0
+            assert MODEL_PRICES[model] >= 0
+
+    def test_pricing_values_sanity(self):
+        """Ensure no negative prices or absurdly high values."""
+        for model, price in MODEL_PRICES.items():
+            assert price >= 0, f"Price for {model} cannot be negative"
+            assert price < 1.0, f"Price for {model} seems too high (> 1.0 USD per 1k tokens)"
 
     def test_default_fallback(self):
         """Default key should exist."""
