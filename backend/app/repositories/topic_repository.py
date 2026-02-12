@@ -11,7 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import TechnicalError
-from app.models.topic_stat import TopicStat, TopicStatCreate, TopicStatUpdate
+from app.models.topic_stat import TopicStat
+from app.schemas.topic_stat import TopicStatCreate, TopicStatUpdate
 from app.repositories.base_repository import DEFAULT_LIMIT, MAX_LIMIT
 from app.repositories.sql_repository import SQLRepository
 

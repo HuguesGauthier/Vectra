@@ -44,3 +44,26 @@ class UserRole(StrEnum):
 
     ADMIN = "admin"
     USER = "user"
+
+
+class ConnectorType(StrEnum):
+    LOCAL_FILE = "local_file"
+    LOCAL_FOLDER = "local_folder"
+    SQL = "sql"
+    VANNA_SQL = "vanna_sql"
+
+
+class ScheduleType(StrEnum):
+    MANUAL = "manual"
+    CRON = "cron"
+
+
+class SettingGroup(StrEnum):
+    """Allowed setting groups."""
+
+    GENERAL = "general"
+    AI = "ai"
+    SYSTEM = "system"
+    AUTH = "auth"
+    STORAGE = "storage"
+    NOTIFICATION = "notification"

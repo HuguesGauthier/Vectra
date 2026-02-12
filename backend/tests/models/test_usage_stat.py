@@ -2,13 +2,11 @@
 Tests for UsageStat model.
 """
 
-from uuid import uuid4
-
 import pytest
+from uuid import uuid4
 from pydantic import ValidationError
 
-from app.models.usage_stat import (ALLOWED_FEEDBACK_SCORES, ALLOWED_SENTIMENTS,
-                                   UsageStat, UsageStatCreate, UsageStatUpdate)
+from app.models.usage_stat import UsageStat
 
 
 class TestUsageStatModel:
@@ -16,8 +14,9 @@ class TestUsageStatModel:
 
     def test_valid_usage_stat_creation(self):
         """Valid usage stat should be created."""
+        assistant_id = uuid4()
         usage = UsageStat(
-            assistant_id=uuid4(),
+            assistant_id=assistant_id,
             session_id="sess_123",
             model="gpt-4",
             total_duration=1.5,
@@ -28,6 +27,7 @@ class TestUsageStatModel:
         assert usage.total_duration == 1.5
         assert usage.input_tokens == 100
         assert usage.output_tokens == 50
+        assert usage.assistant_id == assistant_id
 
     def test_default_values(self):
         """Default values should be set correctly."""
@@ -55,42 +55,10 @@ class TestUsageStatModel:
         usage = UsageStat(assistant_id=uuid4(), session_id="test", model="gpt-4", step_duration_breakdown=breakdown)
         assert usage.step_duration_breakdown == breakdown
 
+    def test_validation_on_assignment(self):
+        """Validation should trigger on attribute assignment (Robustness P1)."""
+        usage = UsageStat(assistant_id=uuid4(), session_id="test", model="gpt-4", total_duration=1.0)
 
-class TestUsageStatCreate:
-    """Test UsageStatCreate schema."""
-
-    def test_create_with_all_fields(self):
-        """UsageStatCreate with all fields should work."""
-        create = UsageStatCreate(
-            assistant_id=uuid4(),
-            session_id="sess_456",
-            user_id=uuid4(),
-            model="gpt-4",
-            total_duration=2.0,
-            ttft=0.3,
-            input_tokens=200,
-            output_tokens=150,
-            feedback_score=1,
-            sentiment="positive",
-        )
-
-        assert create.total_duration == 2.0
-        assert create.feedback_score == 1
-
-    def test_create_minimal(self):
-        """UsageStatCreate with minimal fields should work."""
-        create = UsageStatCreate(assistant_id=uuid4(), session_id="test", model="gpt-4")
-
-        assert create.total_duration == 0.0
-        assert create.input_tokens == 0
-
-
-class TestUsageStatUpdate:
-    """Test UsageStatUpdate schema."""
-
-    def test_update_feedback(self):
-        """Update can modify feedback."""
-        update = UsageStatUpdate(feedback_score=-1, sentiment="negative")
-
-        assert update.feedback_score == -1
-        assert update.sentiment == "negative"
+        # Should raise ValidationError due to ge=0.0 constraint
+        with pytest.raises(ValidationError):
+            usage.total_duration = -1.0

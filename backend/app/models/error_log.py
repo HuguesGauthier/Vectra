@@ -57,6 +57,7 @@ class ErrorLog(SQLModel, table=True):
     """
 
     __tablename__ = "error_logs"
+    model_config = {"validate_assignment": True}  # Pydantic V2
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
@@ -77,6 +78,8 @@ class ErrorLog(SQLModel, table=True):
 
     error_message: str = Field(nullable=False, max_length=MAX_ERROR_MESSAGE_LENGTH)
 
+    # Use max_length for Pydantic validation on input, though Text column supports unlimited.
+    # Enforcing app constraint here is still good practice.
     stack_trace: str = Field(sa_column=Column(Text, nullable=False), max_length=MAX_STACK_TRACE_LENGTH)
 
     user_id: Optional[UUID] = Field(default=None, nullable=True, index=True)  # Index for user-specific queries
@@ -87,21 +90,33 @@ class ErrorLog(SQLModel, table=True):
         Index("ix_error_logs_timestamp_status", "timestamp", "status_code"),
     )
 
+    @field_validator("method")
+    @classmethod
+    def validate_method_length(cls, v: str) -> str:
+        if len(v) > MAX_METHOD_LENGTH:
+            raise ValueError(f"Method too long (max {MAX_METHOD_LENGTH})")
+        return v
 
-class ErrorLogResponse(SQLModel):
-    """
-    Schema for error log response.
+    @field_validator("path", mode="before")
+    @classmethod
+    def validate_path_length(cls, v: str) -> str:
+        if isinstance(v, str) and len(v) > MAX_PATH_LENGTH:
+            # Truncate instead of raising error to avoid losing the log
+            return v[:MAX_PATH_LENGTH]
+        return v
 
-    ARCHITECT NOTE: Read-Only Schema
-    Used for API responses. Excludes sensitive fields for security.
-    Stack traces excluded by default - include only for admin users.
-    """
+    @field_validator("error_message", mode="before")
+    @classmethod
+    def validate_error_message_length(cls, v: str) -> str:
+        if isinstance(v, str) and len(v) > MAX_ERROR_MESSAGE_LENGTH:
+            # Truncate
+            return v[:MAX_ERROR_MESSAGE_LENGTH]
+        return v
 
-    id: UUID
-    timestamp: Optional[datetime] = None
-    status_code: int
-    method: str
-    path: str
-    error_message: str
-    # Note: stack_trace excluded from default response for security
-    # Note: user_id excluded for privacy
+    @field_validator("stack_trace", mode="before")
+    @classmethod
+    def validate_stack_trace_length(cls, v: str) -> str:
+        if isinstance(v, str) and len(v) > MAX_STACK_TRACE_LENGTH:
+            # Truncate
+            return v[:MAX_STACK_TRACE_LENGTH]
+        return v

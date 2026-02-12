@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, DateTime, Enum, Index, func
 from sqlmodel import Field, SQLModel
 
-from app.schemas.enums import NotificationType
+from app.models.enums import NotificationType
 from app.schemas.notification import NotificationBase
 
 

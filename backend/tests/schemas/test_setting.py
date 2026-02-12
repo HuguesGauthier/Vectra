@@ -51,30 +51,29 @@ class TestSettingBase:
 
 
 class TestGroupValidation:
-    """Test group validation (business logic)."""
+    """Test group validation."""
 
     def test_all_allowed_groups_valid(self):
         """Test that all allowed groups are accepted."""
-        for group in ALLOWED_SETTING_GROUPS:
+        from app.models.enums import SettingGroup
+
+        for group in SettingGroup:
             setting = SettingBase(key="test", value="value", group=group)
             assert setting.group == group
 
     def test_invalid_group_rejected(self):
-        """Test that invalid groups are rejected."""
-        with pytest.raises(ValidationError) as exc_info:
-            SettingBase(key="test", value="value", group="invalid_group")
-
-        errors = exc_info.value.errors()
-        assert any("Invalid group" in str(error) for error in errors)
+        """Test that invalid groups are rejected (Pydantic Enum validation)."""
+        with pytest.raises(ValidationError):
+            SettingBase(key="test", value="value", group="invalid_group")  # type: ignore
 
     def test_group_validation_error_message(self):
-        """Test that validation error includes allowed groups."""
+        """Test that validation error contains relevant info."""
         with pytest.raises(ValidationError) as exc_info:
-            SettingBase(key="test", value="value", group="hacker_group")
+            SettingBase(key="test", value="value", group="hacker_group")  # type: ignore
 
-        error_message = str(exc_info.value)
-        assert "Invalid group" in error_message
-        assert "hacker_group" in error_message
+        error_msg = str(exc_info.value).lower()
+        # Pydantic V2 enum error contains 'input should be' or mentions the enum
+        assert "should be" in error_msg or "settinggroup" in error_msg
 
 
 class TestDoSProtection:
@@ -181,10 +180,10 @@ class TestSettingUpdate:
     def test_update_group_invalid(self):
         """Test that invalid groups are rejected in updates."""
         with pytest.raises(ValidationError) as exc_info:
-            SettingUpdate(key="test", group="invalid_group")
+            SettingUpdate(key="test", group="invalid_group")  # type: ignore
 
-        error_message = str(exc_info.value)
-        assert "Invalid group" in error_message
+        error_msg = str(exc_info.value).lower()
+        assert "should be" in error_msg or "settinggroup" in error_msg
 
     def test_update_group_none_valid(self):
         """Test that None group is valid (no update)."""

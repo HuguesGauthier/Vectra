@@ -1,3 +1,8 @@
+import sys
+from unittest.mock import MagicMock
+
+sys.modules["pyodbc"] = MagicMock()
+
 import asyncio
 import os
 import sys
@@ -7,8 +12,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import (DuplicateError, EntityNotFound,
-                                 FunctionalError, InternalDataCorruption)
+from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption
 from app.models.connector import Connector
 from app.models.enums import ConnectorStatus
 from app.repositories.connector_repository import ConnectorRepository
@@ -82,6 +86,8 @@ def mock_blocking_io(func, *args):
         return True
     if func == os.path.isdir:
         return True
+    if func == os.path.isfile:
+        return True
     if func == os.remove:
         return None
     return None
@@ -137,14 +143,14 @@ async def test_update_connector_nominal(connector_service, mock_connector_repo, 
         id=cid,
         name="Test Conn",
         connector_type="local_file",
-        configuration={"path": "/old", "connector_acl": ["User"]},
+        configuration={"path": "temp_uploads/old.txt", "connector_acl": ["User"]},
         status=ConnectorStatus.IDLE,
     )
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
     mock_connector_repo.update = AsyncMock(return_value=c)
 
-    update = ConnectorUpdate(configuration={"path": "/new", "connector_acl": ["Admin"]})
+    update = ConnectorUpdate(configuration={"path": "temp_uploads/new.txt", "connector_acl": ["Admin"]})
 
     with (
         patch("asyncio.to_thread", side_effect=mock_blocking_io),
@@ -189,11 +195,7 @@ async def test_delete_connector_security_guard(connector_service, mock_connector
     """Worst Case: Deletion attempt on non-managed path should skip file deletion."""
     connector_id = uuid4()
     # Path OUTSIDE MANAGED_UPLOAD_DIR
-    fake_connector = Connector(
-        id=connector_id,
-        connector_type="local_file",
-        configuration={"path": "/etc/passwd"}
-    )
+    fake_connector = Connector(id=connector_id, connector_type="local_file", configuration={"path": "/etc/passwd"})
     mock_connector_repo.get_by_id = AsyncMock(return_value=fake_connector)
     mock_connector_repo.delete_with_relations = AsyncMock()
 
@@ -218,7 +220,7 @@ async def test_update_critical_config_stops_connector(connector_service, mock_co
         name="Update Test",
         connector_type="local_folder",
         configuration=old_config,
-        status=ConnectorStatus.SYNCING # Running
+        status=ConnectorStatus.SYNCING,  # Running
     )
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=db_connector)
@@ -243,7 +245,11 @@ async def test_manual_scan_connector(connector_service, mock_connector_repo, moc
     c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
-    mock_scanner_service.scan_folder = AsyncMock()
+    mock_scanner_service.scan_folder = AsyncMock(return_value={"added": 0, "updated": 0})
+
+    # Mock sync logging to avoid DB errors
+    connector_service.sync_log_repo.create_log = AsyncMock(return_value=MagicMock(id=uuid4()))
+    connector_service.sync_log_repo.update_log = AsyncMock()
 
     await connector_service.scan_connector(cid)
     mock_scanner_service.scan_folder.assert_awaited()
@@ -258,8 +264,83 @@ async def test_safe_wrappers(connector_service):
         assert mock_io.call_count == 2
 
     # ACL Update
-    with patch(
-        "app.services.ingestion_service.IngestionService.update_connector_acl", new_callable=AsyncMock
-    ) as mock_acl:
+    with patch("app.repositories.vector_repository.VectorRepository.update_acl", new_callable=AsyncMock) as mock_acl:
         await connector_service._safe_update_acl(uuid4(), [], {"ai_provider": "gemini"})
         mock_acl.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_manual_scan_creates_logs(connector_service, mock_connector_repo, mock_scanner_service):
+    """Test manual scan creates sync logs."""
+    cid = uuid4()
+    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
+
+    # Mock Logs
+    log_mock = MagicMock()
+    log_mock.id = uuid4()
+    connector_service.sync_log_repo.create_log = AsyncMock(return_value=log_mock)
+    connector_service.sync_log_repo.update_log = AsyncMock()
+
+    mock_connector_repo.get_by_id = AsyncMock(return_value=c)
+    mock_scanner_service.scan_folder = AsyncMock(return_value={"added": 5, "updated": 2})
+
+    await connector_service.scan_connector(cid)
+
+    # Verify
+    connector_service.sync_log_repo.create_log.assert_called_once_with(cid)
+    mock_scanner_service.scan_folder.assert_awaited()
+    connector_service.sync_log_repo.update_log.assert_called_once_with(
+        log_mock.id, status="success", documents_synced=7
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_scan_logs_failure(connector_service, mock_connector_repo, mock_scanner_service):
+    """Test manual scan logs exceptions."""
+    cid = uuid4()
+    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
+
+    log_mock = MagicMock()
+    log_mock.id = uuid4()
+    connector_service.sync_log_repo.create_log = AsyncMock(return_value=log_mock)
+    connector_service.sync_log_repo.update_log = AsyncMock()
+
+    mock_connector_repo.get_by_id = AsyncMock(return_value=c)
+    mock_scanner_service.scan_folder = AsyncMock(side_effect=Exception("Disk Full"))
+
+    with pytest.raises(Exception):
+        await connector_service.scan_connector(cid)
+
+    connector_service.sync_log_repo.update_log.assert_called_with(
+        log_mock.id, status="failure", error_message="Disk Full"
+    )
+
+
+@pytest.mark.asyncio
+async def test_background_scan_creates_logs(connector_service):
+    """Test background scan wrapper creates logs."""
+    cid = uuid4()
+    config = {"path": "/data", "recursive": False}
+
+    # Mock local session/components within wrapper
+    mock_db = AsyncMock()
+    mock_scanner = AsyncMock()
+    mock_repo = AsyncMock()
+
+    # Mock Log Object
+    log_mock = MagicMock()
+    log_mock.id = uuid4()
+    mock_repo.create_log = AsyncMock(return_value=log_mock)
+    mock_repo.update_log = AsyncMock()
+
+    with (
+        patch("app.services.connector_service.SessionLocal", return_value=mock_db),
+        patch("app.services.connector_service.ScannerService", return_value=mock_scanner),
+        patch("app.services.connector_service.ConnectorSyncLogRepository", return_value=mock_repo),
+    ):
+        mock_scanner.scan_folder = AsyncMock(return_value={"added": 10, "updated": 0})
+
+        await connector_service._safe_background_scan(cid, config)
+
+        mock_repo.create_log.assert_called_once_with(cid)
+        mock_repo.update_log.assert_called_with(log_mock.id, status="success", documents_synced=10)

@@ -14,7 +14,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import TechnicalError
-from app.models.usage_stat import UsageStat, UsageStatCreate, UsageStatUpdate
+from app.models.usage_stat import UsageStat
+from app.schemas.usage_stat import UsageStatCreate, UsageStatUpdate
 from app.repositories.sql_repository import SQLRepository
 
 logger = logging.getLogger(__name__)

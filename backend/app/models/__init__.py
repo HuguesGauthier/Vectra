@@ -1,5 +1,5 @@
 from .assistant import Assistant
-from .base import Base
+
 from .chat_history import ChatHistory
 from .connector import Connector
 from .connector_document import ConnectorDocument

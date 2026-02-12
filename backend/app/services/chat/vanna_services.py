@@ -5,7 +5,11 @@ import re
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-import pyodbc
+
+try:
+    import pyodbc
+except ImportError:
+    pyodbc = None
 from llama_index.core.llms import ChatMessage, MessageRole
 from qdrant_client.http import models as qmodels
 from vanna.base import VannaBase

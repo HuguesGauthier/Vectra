@@ -6,13 +6,11 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import (Boolean, Column, DateTime, Enum, Float, ForeignKey,
-                        Integer, Text, func, text)
+from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
-from app.schemas.assistant import (DEFAULT_TOP_K, DEFAULT_TOP_N, AIModel,
-                                   AssistantBase)
+from app.schemas.assistant import DEFAULT_INSTRUCTIONS, DEFAULT_TOP_K, DEFAULT_TOP_N, AIModel, AssistantBase
 
 if TYPE_CHECKING:
     from .connector import Connector
@@ -66,10 +64,14 @@ class Assistant(AssistantBase, table=True):
     )
 
     # Re-applying sa_column because they were removed from AssistantBase for decoupling
-    instructions: str = Field(sa_column=Column(Text, nullable=False))
-    use_reranker: bool = Field(sa_column=Column(Boolean, server_default=text("false"), nullable=False))
-    top_k_retrieval: int = Field(sa_column=Column(Integer, server_default=text(str(DEFAULT_TOP_K)), nullable=False))
-    top_n_rerank: int = Field(sa_column=Column(Integer, server_default=text(str(DEFAULT_TOP_N)), nullable=False))
+    instructions: str = Field(default=DEFAULT_INSTRUCTIONS, sa_column=Column(Text, nullable=False))
+    use_reranker: bool = Field(default=False, sa_column=Column(Boolean, server_default=text("false"), nullable=False))
+    top_k_retrieval: int = Field(
+        default=DEFAULT_TOP_K, sa_column=Column(Integer, server_default=text(str(DEFAULT_TOP_K)), nullable=False)
+    )
+    top_n_rerank: int = Field(
+        default=DEFAULT_TOP_N, sa_column=Column(Integer, server_default=text(str(DEFAULT_TOP_N)), nullable=False)
+    )
     similarity_cutoff: float = Field(default=0.25, sa_column=Column(Float, server_default=text("0.25"), nullable=False))
     retrieval_similarity_cutoff: float = Field(
         default=0.5, sa_column=Column(Float, server_default=text("0.5"), nullable=False)
@@ -83,7 +85,9 @@ class Assistant(AssistantBase, table=True):
         default=0.90, sa_column=Column(Float, server_default=text("0.90"), nullable=False)
     )
     cache_ttl_seconds: int = Field(default=3600, sa_column=Column(Integer, server_default=text("3600"), nullable=False))
-    user_authentication: bool = Field(sa_column=Column(Boolean, server_default=text("false"), nullable=False))
+    user_authentication: bool = Field(
+        default=False, sa_column=Column(Boolean, server_default=text("false"), nullable=False)
+    )
     # The configuration is now a Pydantic model in the schema,
     # but we store it as JSONB in PG. SQLModel handles this conversion.
     configuration: dict = Field(default_factory=dict, sa_column=Column(JSONB))

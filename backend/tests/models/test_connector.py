@@ -1,99 +1,80 @@
 """
-Tests for Connector model validation.
+Unit tests for backend/app/models/connector.py
+
+Tests cover:
+- Happy path: Valid Connector creation
+- Defaults: Verifying default values (status, schedule_type)
+- JSON Field: Verifying configuration dict persistence
 """
 
-from uuid import uuid4
+from uuid import UUID
 
-import pytest
-from pydantic import ValidationError
-
-from app.schemas.connector import (ALLOWED_CONNECTOR_TYPES,
-                                   ALLOWED_SCHEDULE_TYPES, ConnectorBase,
-                                   ConnectorCreate, ConnectorUpdate)
+from app.models.connector import Connector
+from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
 
 
-class TestConnectorValidation:
-    """Test validation rules."""
+class TestConnector:
+    """Test suite for Connector model."""
 
-    def test_valid_connector_creation(self):
-        """Valid connector should pass validation."""
-        connector = ConnectorCreate(
-            name="Test Connector", description="Test description", connector_type="local_file", schedule_type="manual"
+    # ========== HAPPY PATH ==========
+
+    def test_create_valid_connector(self):
+        """Test creating a valid Connector instance."""
+        connector = Connector(
+            name="My PDF Connector",
+            connector_type=ConnectorType.LOCAL_FILE,
+            configuration={"path": "/tmp/doc.pdf"},
+            schedule_type=ScheduleType.MANUAL,
         )
-        assert connector.name == "Test Connector"
-        assert connector.connector_type == "local_file"
 
-    def test_invalid_connector_type_fails(self):
-        """Invalid connector_type should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(name="Test", connector_type="invalid_type_xxx")
-        assert "connector_type" in str(exc_info.value)
+        assert connector.name == "My PDF Connector"
+        assert connector.connector_type == ConnectorType.LOCAL_FILE
+        assert connector.configuration == {"path": "/tmp/doc.pdf"}
+        assert connector.schedule_type == ScheduleType.MANUAL
+        assert connector.status == ConnectorStatus.IDLE  # Default
+        assert isinstance(connector.id, UUID)
+        assert connector.chunk_size == 300  # Default
+        assert connector.chunk_overlap == 30  # Default
 
-    def test_invalid_schedule_type_fails(self):
-        """Invalid schedule_type should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(name="Test", connector_type="local_file", schedule_type="invalid_schedule")
-        assert "schedule_type" in str(exc_info.value)
-
-    def test_invalid_cron_expression_fails(self):
-        """Invalid cron expression should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(name="Test", connector_type="local_file", schedule_cron="invalid cron")  # Only 2 fields
-        assert "cron" in str(exc_info.value).lower()
-
-    def test_valid_cron_expression(self):
-        """Valid cron expression should pass."""
-        connector = ConnectorCreate(
-            name="Test", connector_type="local_file", schedule_cron="0 0 * * *"  # Daily at midnight
+    def test_create_connector_with_defaults(self):
+        """Test creating Connector with minimal fields (relying on defaults)."""
+        connector = Connector(
+            name="Minimal Connector",
+            connector_type=ConnectorType.SQL,
         )
-        assert connector.schedule_cron == "0 0 * * *"
 
-    def test_cron_with_suspicious_chars_fails(self):
-        """Cron with suspicious characters should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(
-                name="Test", connector_type="local_file", schedule_cron="0 0 * * *; rm -rf /"  # Injection attempt
-            )
-        # Validation catches field count first (7 fields instead of 5-6)
-        assert "cron" in str(exc_info.value).lower()
+        assert connector.name == "Minimal Connector"
+        assert connector.connector_type == ConnectorType.SQL
+        assert connector.configuration == {}  # Default factory
+        assert connector.schedule_type == ScheduleType.MANUAL  # Default
+        assert connector.status == ConnectorStatus.IDLE
 
-    def test_empty_name_fails(self):
-        """Empty name should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(name="", connector_type="local_file")
-        assert "name" in str(exc_info.value).lower()
+    # ========== DATA INTEGRITY ==========
 
-    def test_very_large_configuration_fails(self):
-        """Configuration exceeding size limit should fail."""
-        huge_config = {f"key_{i}": "x" * 1000 for i in range(200)}  # >100KB
+    def test_json_configuration_field(self):
+        """Test configuration field accepts complex dictionary (JSON)."""
+        config = {"url": "https://example.com", "recursive": True, "headers": {"User-Agent": "Bot"}, "max_depth": 5}
 
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorCreate(name="Test", connector_type="local_file", configuration=huge_config)
-        assert "too large" in str(exc_info.value)
+        connector = Connector(
+            name="Web Crawler", connector_type=ConnectorType.SQL, configuration=config  # Just using a type
+        )
 
-    def test_all_connector_types_valid(self):
-        """All allowed connector types should be valid."""
-        for conn_type in ALLOWED_CONNECTOR_TYPES:
-            connector = ConnectorCreate(name=f"Test {conn_type}", connector_type=conn_type)
-            assert connector.connector_type == conn_type
+        assert connector.configuration == config
+        assert connector.configuration["max_depth"] == 5
 
+    def test_chunking_config(self):
+        """Test overriding chunking configuration."""
+        connector = Connector(
+            name="Special Chunking", connector_type=ConnectorType.LOCAL_FILE, chunk_size=1000, chunk_overlap=100
+        )
 
-class TestConnectorUpdate:
-    """Test update schema."""
+        assert connector.chunk_size == 1000
+        assert connector.chunk_overlap == 100
 
-    def test_partial_update_valid(self):
-        """Partial updates should be valid."""
-        update = ConnectorUpdate(name="Updated Name")
-        assert update.name == "Updated Name"
-        assert update.connector_type is None
+    def test_analytics_counters(self):
+        """Test analytics counters default to 0."""
+        connector = Connector(name="Analytics Test", connector_type=ConnectorType.LOCAL_FILE)
 
-    def test_update_with_invalid_type_fails(self):
-        """Update with invalid connector_type should fail."""
-        with pytest.raises(ValidationError) as exc_info:
-            ConnectorUpdate(connector_type="invalid_type")
-        assert "connector_type" in str(exc_info.value)
-
-    def test_update_with_valid_cron(self):
-        """Update with valid cron should work."""
-        update = ConnectorUpdate(schedule_cron="*/5 * * * *")  # Every 5 minutes
-        assert update.schedule_cron == "*/5 * * * *"
+        assert connector.total_docs_count == 0
+        assert connector.indexed_docs_count == 0
+        assert connector.failed_docs_count == 0

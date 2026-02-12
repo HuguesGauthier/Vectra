@@ -11,20 +11,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.connection_manager import manager
 from app.core.database import SessionLocal, get_db
-from app.core.exceptions import (EntityNotFound, FunctionalError,
-                                 InternalDataCorruption, TechnicalError)
+from app.core.exceptions import EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector import Connector
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.vector_repository import VectorRepository
-from app.schemas.connector import (ConnectorCreate, ConnectorResponse,
-                                   ConnectorUpdate)
+from app.schemas.connector import ConnectorCreate, ConnectorResponse, ConnectorUpdate
 from app.schemas.enums import ConnectorStatus, ConnectorType
 from app.services.ingestion_service import IngestionService
 from app.services.scanner_service import ScannerService
 from app.services.settings_service import SettingsService, get_settings_service
-from app.services.sql_discovery_service import (SQLDiscoveryService,
-                                                get_sql_discovery_service)
+from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
+from app.repositories.connector_sync_log_repository import ConnectorSyncLogRepository
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +55,13 @@ class ConnectorService:
         sql_discovery_service: Optional[SQLDiscoveryService] = None,
     ):
         self.connector_repo = connector_repo
+        self.sync_log_repo = ConnectorSyncLogRepository(connector_repo.db)  # Use same session
         self.scanner_service = scanner_service
         self.db = connector_repo.db
         self.settings_service = settings_service or SettingsService(self.db)
         self.vector_service = vector_service or VectorService(self.settings_service)
         self.sql_discovery_service = sql_discovery_service or SQLDiscoveryService(self.db, self.settings_service)
-        
+
         # 🟠 P1: Prevent GC of fire-and-forget tasks (Instance-level)
         self._background_tasks: Set[asyncio.Task] = set()
 
@@ -388,30 +387,43 @@ class ConnectorService:
                 )
 
             # Branching Logic
-            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]:
-                # SQL Scan (including Vanna SQL)
-                logger.info("SCAN ROUTE | SQL PATH SELECTED")
-                await self.sql_discovery_service.scan_and_persist_views(connector.id)
+            sync_log = await self.sync_log_repo.create_log(connector.id)
+            stats = {"added": 0, "updated": 0, "deleted": 0}
 
-            elif connector.connector_type == ConnectorType.LOCAL_FILE:
-                # File Scan
-                logger.info("SCAN ROUTE | FILE PATH SELECTED")
-                path = connector.configuration.get("path")
-                if not path:
-                    raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
-                await self.scanner_service.scan_folder(connector.id, path, recursive=False)
+            try:
+                if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]:
+                    # SQL Scan (including Vanna SQL)
+                    logger.info("SCAN ROUTE | SQL PATH SELECTED")
+                    stats = await self.sql_discovery_service.scan_and_persist_views(connector.id)
 
-            elif connector.connector_type == ConnectorType.LOCAL_FOLDER:
-                # Folder Scan
-                logger.info("SCAN ROUTE | FOLDER PATH SELECTED")
-                path = connector.configuration.get("path")
-                if not path:
-                    raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
-                recursive = connector.configuration.get("recursive", False)
-                await self.scanner_service.scan_folder(connector.id, path, recursive=recursive)
+                elif connector.connector_type == ConnectorType.LOCAL_FILE:
+                    # File Scan
+                    logger.info("SCAN ROUTE | FILE PATH SELECTED")
+                    path = connector.configuration.get("path")
+                    if not path:
+                        raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
+                    stats = await self.scanner_service.scan_folder(connector.id, path, recursive=False)
 
-            else:
-                raise FunctionalError("Invalid config: unknown connector type", error_code="INVALID_CONFIG")
+                elif connector.connector_type == ConnectorType.LOCAL_FOLDER:
+                    # Folder Scan
+                    logger.info("SCAN ROUTE | FOLDER PATH SELECTED")
+                    path = connector.configuration.get("path")
+                    if not path:
+                        raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
+                    recursive = connector.configuration.get("recursive", False)
+                    stats = await self.scanner_service.scan_folder(connector.id, path, recursive=recursive)
+
+                else:
+                    raise FunctionalError("Invalid config: unknown connector type", error_code="INVALID_CONFIG")
+
+                # Log Success
+                total_docs = stats.get("added", 0) + stats.get("updated", 0)
+                await self.sync_log_repo.update_log(sync_log.id, status="success", documents_synced=total_docs)
+
+            except Exception as e:
+                # Log Failure
+                await self.sync_log_repo.update_log(sync_log.id, status="failure", error_message=str(e))
+                raise
 
             # Fetch fresh record after scan side-effects
             fresh = await self.connector_repo.get_by_id(connector_id)
@@ -520,8 +532,24 @@ class ConnectorService:
                     return
 
                 scanner = ScannerService(db)
-                await scanner.scan_folder(connector_id, path, recursive=recursive)
-                logger.info(f"BACKGROUND SCAN SUCCESS | Connector: {connector_id}")
+
+                # Log Sync Start (Background)
+                repo = ConnectorSyncLogRepository(db)
+                sync_log = await repo.create_log(connector_id)
+
+                try:
+                    stats = await scanner.scan_folder(connector_id, path, recursive=recursive)
+                    logger.info(f"BACKGROUND SCAN SUCCESS | Connector: {connector_id}")
+
+                    # Log Sync Success
+                    total = stats.get("added", 0) + stats.get("updated", 0)
+                    await repo.update_log(sync_log.id, status="success", documents_synced=total)
+
+                except Exception as e:
+                    # Log Sync Failure
+                    logger.error(f"BACKGROUND SCAN INNER ERROR | {e}")
+                    await repo.update_log(sync_log.id, status="failure", error_message=str(e))
+                    raise
         except Exception as e:
             logger.error(f"BACKGROUND SCAN FAIL | Connector: {connector_id} | Error: {e}")
 
