@@ -145,3 +145,16 @@ class ConnectorResponse(ConnectorBase):
     last_sync_end_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class ConnectorTestConnection(SQLModel):
+    """Schema for Connection Testing."""
+
+    connector_type: ConnectorType
+    configuration: Dict[str, Any]
+
+
+class ConnectorVannaTrain(SQLModel):
+    """Schema for Vanna Training payload."""
+
+    document_ids: List[UUID]

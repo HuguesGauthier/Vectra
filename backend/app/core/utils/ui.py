@@ -4,14 +4,12 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# --- Standards: WCAG Luminance Coefficients ---
-# Rec. 709 coefficients for relative luminance
+# WCAG Standards: Relative luminance coefficients (Rec. 709)
 LUMINANCE_R = 0.2126
 LUMINANCE_G = 0.7152
 LUMINANCE_B = 0.0722
 CONTRAST_THRESHOLD = 0.5  # Mid-point (normalized 0-1)
 
-# Regex for Hex Color validation
 HEX_REGEX = re.compile(r"^#?([a-f0-9]{3}|[a-f0-9]{6})$", re.IGNORECASE)
 RGB_REGEX = re.compile(r"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$", re.IGNORECASE)
 
@@ -19,12 +17,9 @@ RGB_REGEX = re.compile(r"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)
 def calculate_contrast_text_color(bg_color: Optional[str]) -> str:
     """
     Determines optimized text color (black/white) for contrast based on background.
-
-    ARCHITECT NOTE: WCAG Standards
-    Uses relative luminance to ensure accessibility.
     Supports Hex (#FFF, #FFFFFF) and RGB (rgb(255,255,255)) formats.
     """
-    if not bg_color:
+    if not bg_color or not isinstance(bg_color, str):
         return "white"
 
     color = bg_color.strip().lower()
@@ -45,19 +40,19 @@ def calculate_contrast_text_color(bg_color: Optional[str]) -> str:
             if rgb_match:
                 r, g, b = map(int, rgb_match.groups())
             else:
-                raise ValueError(f"Invalid RGB format: {color}")
+                logger.warning(f"Invalid RGB format: '{color}'. Defaulting to white.")
+                return "white"
 
         else:
-            # P2: Log unknown formats instead of silent failure
-            logger.warning(f"Unsupported color format '{color}'. Defaulting to white contrast.")
+            logger.debug(f"Unsupported color format '{color}'. Defaulting to white.")
             return "white"
 
         # 3. Relative Luminance Calculation (0.0 to 1.0)
-        # We normalize to 0-255 range for simplicity in this specific context
+        # Normalized to 0-1 range based on Rec. 709
         brightness = (r * LUMINANCE_R + g * LUMINANCE_G + b * LUMINANCE_B) / 255
 
         return "black" if brightness > CONTRAST_THRESHOLD else "white"
 
     except Exception as e:
-        logger.error(f"Error parsing color contrast for '{bg_color}': {e}")
+        logger.error(f"Unexpected error calculating contrast for '{bg_color}': {e}")
         return "white"

@@ -170,6 +170,63 @@ class SettingsService:
             logger.error(f"Failed to update setting {key}: {e}", exc_info=True)
             raise TechnicalError(f"Database error updating setting: {key}")
 
+    async def update_settings_batch(self, updates: List[Dict[str, Any]]) -> List[Setting]:
+        """
+        Batch update settings in a single transaction.
+        Updates internal cache after successful commit.
+        """
+        if self.db is None or self.repository is None:
+            raise TechnicalError("Database session required for batch update.")
+
+        updated_settings = []
+        try:
+            for upd_data in updates:
+                key = upd_data["key"]
+                value = upd_data.get("value")
+                group = upd_data.get("group", "general")
+                is_secret = upd_data.get("is_secret", False)
+
+                # Fetch current
+                setting = await self.repository.get_by_key(key)
+
+                if not setting:
+                    # Create new
+                    setting = await self.repository.create(
+                        {"key": key, "value": value, "group": group, "is_secret": is_secret}
+                    )
+                else:
+                    # Protection against overwriting with masked placeholder
+                    if is_secret and value == "********":
+                        updated_settings.append(setting)
+                        continue
+
+                    # Update ORM object
+                    if value is not None:
+                        setting.value = value
+                    if "group" in upd_data:
+                        setting.group = upd_data["group"]
+                    if "is_secret" in upd_data:
+                        setting.is_secret = upd_data["is_secret"]
+
+                    self.db.add(setting)
+
+                updated_settings.append(setting)
+
+            await self.db.commit()
+
+            # Refresh and Update Cache
+            async with self.__class__._cache_lock:
+                for s in updated_settings:
+                    await self.db.refresh(s)
+                    self.__class__._cache[s.key] = s.value
+
+            return updated_settings
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Batch update failed: {e}", exc_info=True)
+            raise TechnicalError(f"Failed to update settings batch: {e}")
+
     async def seed_defaults(self) -> None:
         """
         Seeds missing default settings using optimized batching.

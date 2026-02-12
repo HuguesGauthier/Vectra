@@ -16,37 +16,18 @@ from app.api.v1.endpoints.assistants import router
 from app.core.security import get_current_admin, get_current_user_optional
 from app.models.user import User
 from app.schemas.assistant import AssistantResponse, AIModel
-from app.services.assistant_service import (AssistantService,
-                                            get_assistant_service)
+from app.services.assistant_service import AssistantService, get_assistant_service
 from app.core.exceptions import EntityNotFound, TechnicalError, FunctionalError, VectraException
-
-# Mock global exception handler similar to app/main.py
-async def mock_global_exception_handler(
-    request: Request,
-    exc: Union[Exception, VectraException, StarletteHTTPException, RequestValidationError],
-) -> JSONResponse:
-    status_code = 500
-    message = str(exc)
-    error_code = "INTERNAL_SERVER_ERROR"
-    
-    if isinstance(exc, VectraException):
-        status_code = exc.status_code
-        message = exc.message
-        error_code = exc.error_code
-    elif isinstance(exc, StarletteHTTPException):
-        status_code = exc.status_code
-        message = exc.detail
-    
-    return JSONResponse(
-        status_code=status_code,
-        content={"message": message, "code": error_code}
-    )
+from app.main import global_exception_handler
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v1/assistants")
-app.add_exception_handler(Exception, mock_global_exception_handler)
-app.add_exception_handler(VectraException, mock_global_exception_handler)
-app.add_exception_handler(StarletteHTTPException, mock_global_exception_handler)
+
+# Use real global exception handler
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(VectraException, global_exception_handler)
+app.add_exception_handler(StarletteHTTPException, global_exception_handler)
+app.add_exception_handler(RequestValidationError, global_exception_handler)
 
 # Setup Mocks
 mock_asst_svc = AsyncMock(spec=AssistantService)
@@ -131,7 +112,7 @@ class TestAssistants:
             user_authentication=False,
             created_at=datetime.now(),
             updated_at=datetime.now(),
-            linked_connectors=[]
+            linked_connectors=[],
         )
 
         mock_asst_svc.get_assistant.return_value = asst_mock
@@ -190,7 +171,7 @@ class TestAssistants:
             user_authentication=False,
             created_at=datetime.now(),
             updated_at=datetime.now(),
-            linked_connectors=[]
+            linked_connectors=[],
         )
 
         mock_asst_svc.create_assistant.return_value = mock_resp
@@ -213,7 +194,7 @@ class TestAssistants:
         """Test update assistant."""
         asst_id = uuid4()
         data = {"name": "Updated Bot"}
-        
+
         mock_resp = AssistantResponse(
             id=asst_id,
             name="Updated Bot",
@@ -225,7 +206,7 @@ class TestAssistants:
             user_authentication=False,
             created_at=datetime.now(),
             updated_at=datetime.now(),
-            linked_connectors=[]
+            linked_connectors=[],
         )
         mock_asst_svc.update_assistant.return_value = mock_resp
 
@@ -267,7 +248,7 @@ class TestAssistants:
         asst_id = uuid4()
         file_content = b"fake image content"
         file = io.BytesIO(file_content)
-        
+
         mock_resp = AssistantResponse(
             id=asst_id,
             name="Bot",
@@ -283,8 +264,7 @@ class TestAssistants:
         mock_asst_svc.upload_avatar.return_value = mock_resp
 
         response = client.post(
-            f"/api/v1/assistants/{asst_id}/avatar",
-            files={"file": ("avatar.png", file, "image/png")}
+            f"/api/v1/assistants/{asst_id}/avatar", files={"file": ("avatar.png", file, "image/png")}
         )
 
         assert response.status_code == 200
@@ -400,7 +380,7 @@ class TestAssistants:
 
         assert response.status_code == 200
         assert response.json()["deleted_count"] == 5
-        
+
     def test_clear_cache_error(self):
         """Test clear cache error."""
         asst_id = uuid4()

@@ -7,7 +7,7 @@ Connectors are used to ingest data from various sources (SQL, files, etc.).
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 
@@ -17,7 +17,13 @@ from app.core.websocket import Websocket, get_websocket
 from app.core.security import get_current_admin
 from app.models.enums import DocStatus
 from app.models.user import User
-from app.schemas.connector import ConnectorCreate, ConnectorResponse, ConnectorUpdate
+from app.schemas.connector import (
+    ConnectorCreate,
+    ConnectorResponse,
+    ConnectorUpdate,
+    ConnectorTestConnection,
+    ConnectorVannaTrain,
+)
 from app.schemas.documents import ConnectorDocumentCreate, ConnectorDocumentResponse, ConnectorDocumentUpdate
 from app.services.connector_service import ConnectorService, get_connector_service
 from app.services.document_service import DocumentService, get_document_service
@@ -31,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/test-connection")
 async def test_connection(
-    payload: Dict[str, Any],
+    payload: ConnectorTestConnection,
     service: Annotated[ConnectorService, Depends(get_connector_service)],
     sql_discovery_service: Annotated[Any, Depends(get_sql_discovery_service)],
     current_user: Annotated[User, Depends(get_current_admin)],
@@ -40,7 +46,7 @@ async def test_connection(
     Test a connector connection (primarily for SQL).
 
     Args:
-        payload: Dictionary containing connector_type and configuration.
+        payload: Connection test data.
         service: The connector service instance.
         sql_discovery_service: The SQL discovery service instance.
         current_user: The currently authenticated admin user.
@@ -48,11 +54,8 @@ async def test_connection(
     Returns:
         Dict[str, Any]: A success status and message.
     """
-    connector_type = payload.get("connector_type")
-    configuration = payload.get("configuration")
-
-    if not connector_type or not configuration:
-        return {"success": False, "message": "Missing connector_type or configuration"}
+    connector_type = payload.connector_type
+    configuration = payload.configuration
 
     if connector_type in ["sql", "vanna_sql"]:
         try:
@@ -216,7 +219,7 @@ async def stop_connector(
 @router.post("/{connector_id}/train")
 async def train_vanna_connector(
     connector_id: UUID,
-    payload: Dict[str, Any],
+    payload: ConnectorVannaTrain,
     service: Annotated[ConnectorService, Depends(get_connector_service)],
     document_service: Annotated[DocumentService, Depends(get_document_service)],
     current_user: Annotated[User, Depends(get_current_admin)],
@@ -226,7 +229,7 @@ async def train_vanna_connector(
 
     Args:
         connector_id: The ID of the connector.
-        payload: Dictionary containing `document_ids` list.
+        payload: Training payload containing `document_ids`.
         service: The connector service instance.
         document_service: The document service instance.
         current_user: The currently authenticated admin user.
@@ -234,73 +237,7 @@ async def train_vanna_connector(
     Returns:
         Dict[str, Any]: A summary of the training results.
     """
-    document_ids = payload.get("document_ids", [])
-    if not document_ids:
-        return {"success": False, "message": "document_ids array is required"}
-
-    # Load connector
-    connector = await service.get_connector(connector_id)
-    if not connector:
-        return {"success": False, "message": "Connector not found"}
-
-    if connector.connector_type != "vanna_sql":
-        return {"success": False, "message": "Training is only available for vanna_sql connectors"}
-
-    try:
-        # Initialize Vanna service (Async Factory)
-        # P1: Local import to avoid missing dependency issues in some environments
-        from app.services.chat.vanna_services import VannaServiceFactory
-
-        vanna_svc = await VannaServiceFactory(service.settings_service)
-
-        trained_count = 0
-        failed_count = 0
-
-        # Train each document
-        for doc_id in document_ids:
-            try:
-                # Get document from repo via service
-                target_uuid = UUID(doc_id) if isinstance(doc_id, str) else doc_id
-                document = await document_service.document_repo.get_by_id(target_uuid)
-                if not document:
-                    logger.warning("Document %s not found, skipping", doc_id)
-                    failed_count += 1
-                    continue
-
-                # Get DDL from file_metadata
-                ddl_content = (document.file_metadata or {}).get("ddl")
-                if not ddl_content:
-                    logger.warning("Document %s has no DDL content, skipping", doc_id)
-                    failed_count += 1
-                    continue
-
-                # Train Vanna with document's DDL content
-                await asyncio.to_thread(vanna_svc.train, ddl=ddl_content)
-
-                # Mark as trained in metadata
-                meta = document.file_metadata or {}
-                meta["trained"] = True
-                meta["trained_at"] = datetime.utcnow().isoformat()
-
-                # Update document
-                await document_service.update_document(document.id, {"file_metadata": meta})
-
-                trained_count += 1
-                logger.info("Trained Vanna on document: %s", document.file_name)
-
-            except Exception as doc_error:
-                logger.error("Failed to train document %s: %s", doc_id, doc_error)
-                failed_count += 1
-
-        return {
-            "success": True,
-            "message": f"Training completed. {trained_count} documents trained, {failed_count} failed.",
-            "trained_count": trained_count,
-            "failed_count": failed_count,
-        }
-    except Exception as e:
-        logger.error("Training failed: %s", e, exc_info=True)
-        return {"success": False, "message": f"Training failed: {str(e)}"}
+    return await service.train_vanna(connector_id, payload.document_ids, document_service)
 
 
 # --- Documents ---

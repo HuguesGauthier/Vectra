@@ -1,9 +1,10 @@
 import logging
-from typing import Annotated, AsyncGenerator, Dict, List
+from typing import Annotated, AsyncGenerator, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.core.websocket import Websocket, get_websocket
 from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
@@ -17,15 +18,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# Request Schema for this endpoint
+class MessageResponse(BaseModel):
+    """Generic message response."""
+
+    message: str
+    success: bool = True
+
+
 class NotificationCreateRequest(NotificationBase):
     """
     Schema for creating a notification through the API.
-
-    Inherits from NotificationBase.
     """
 
-    pass
+    target_user_id: Optional[UUID] = Field(
+        default=None, description="The UUID of the user to notify (defaults to self if not provided)"
+    )
 
 
 @router.get("/stream")
@@ -99,20 +106,14 @@ async def create_notification(
     """
     Create a notification (Admin only).
 
-    Args:
-        notification_in: The notification data.
-        service: The notification service instance.
-        current_user: The currently authenticated admin user.
-
-    Returns:
-        NotificationResponse: The created notification.
-
-    Raises:
-        TechnicalError: If there's an error creating the notification.
+    If target_user_id is provided, the notification will be created for that user.
+    Otherwise, it will be created for the admin currently authenticated.
     """
     try:
-        # P0: Inject user_id from token, don't trust client
-        notification = NotificationCreate(**notification_in.model_dump(), user_id=current_user.id)
+        # P0: Allow admin to notify others
+        target_id = notification_in.target_user_id or current_user.id
+
+        notification = NotificationCreate(**notification_in.model_dump(exclude={"target_user_id"}), user_id=target_id)
         return await service.create_notification(notification)
     except Exception as e:
         logger.error(f"❌ FAIL | create_notification | Error: {str(e)}", exc_info=True)
@@ -123,34 +124,19 @@ async def create_notification(
 
 @router.put("/{notification_id}/read", response_model=NotificationResponse)
 async def mark_notification_read(
-    notification_id: str,
+    notification_id: UUID,
     service: Annotated[NotificationService, Depends(get_notification_service)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> NotificationResponse:
     """
     Mark a specific notification as read.
-
-    Args:
-        notification_id: The UUID of the notification to mark as read.
-        service: The notification service instance.
-        current_user: The currently authenticated user.
-
-    Returns:
-        NotificationResponse: The updated notification.
-
-    Raises:
-        FunctionalError: If the notification_id is not a valid UUID.
-        EntityNotFound: If the notification is not found.
-        TechnicalError: If there's an error updating the notification.
     """
     try:
-        uuid_id = UUID(notification_id)
-        notification = await service.mark_notification_as_read(user_id=current_user.id, notification_id=uuid_id)
+        notification = await service.mark_notification_as_read(user_id=current_user.id, notification_id=notification_id)
         if not notification:
+            # Should technically be handled by service raising EntityNotFound
             raise EntityNotFound("Notification not found")
         return notification
-    except ValueError:
-        raise FunctionalError("Invalid UUID format", error_code="invalid_uuid", status_code=400)
     except EntityNotFound:
         raise
     except Exception as e:
@@ -161,55 +147,35 @@ async def mark_notification_read(
         raise TechnicalError(f"Failed to mark notification as read: {e}")
 
 
-@router.put("/read", response_model=Dict[str, str])
+@router.put("/read", response_model=MessageResponse)
 async def mark_all_notifications_read(
     service: Annotated[NotificationService, Depends(get_notification_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> Dict[str, str]:
+) -> MessageResponse:
     """
     Mark all notifications as read for the current user.
-
-    Args:
-        service: The notification service instance.
-        current_user: The currently authenticated user.
-
-    Returns:
-        Dict[str, str]: A dictionary with a success message.
-
-    Raises:
-        TechnicalError: If there's an error updating notifications.
     """
     try:
         # Pass user context and confirmation
         await service.mark_all_as_read(user_id=current_user.id, user_confirmation=True)
-        return {"message": "All notifications marked as read"}
+        return MessageResponse(message="All notifications marked as read")
     except Exception as e:
         logger.error(f"❌ FAIL | mark_all_notifications_read | Error: {str(e)}", exc_info=True)
         raise TechnicalError(f"Failed to mark all notifications as read: {e}")
 
 
-@router.delete("/", response_model=Dict[str, str])
+@router.delete("/", response_model=MessageResponse)
 async def clear_all_notifications(
     service: Annotated[NotificationService, Depends(get_notification_service)],
     current_user: Annotated[User, Depends(get_current_admin)],
-) -> Dict[str, str]:
+) -> MessageResponse:
     """
     Clear all notifications (Admin only).
-
-    Args:
-        service: The notification service instance.
-        current_user: The currently authenticated admin user.
-
-    Returns:
-        Dict[str, str]: A dictionary with a success message.
-
-    Raises:
-        TechnicalError: If there's an error clearing notifications.
     """
     try:
         # Pass user context and confirmation
         await service.clear_all_notifications(user_id=current_user.id, user_confirmation=True)
-        return {"message": "All notifications cleared"}
+        return MessageResponse(message="All notifications cleared")
     except Exception as e:
         logger.error(f"❌ FAIL | clear_all_notifications | Error: {str(e)}", exc_info=True)
         raise TechnicalError(f"Failed to clear all notifications: {e}")

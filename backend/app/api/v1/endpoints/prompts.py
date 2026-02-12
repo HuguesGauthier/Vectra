@@ -25,7 +25,7 @@ class OptimizeRequest(BaseModel):
         connector_ids: List of connector IDs to provide context for optimization.
     """
 
-    instruction: str = Field(..., description="The user instruction to optimize")
+    instruction: str = Field(..., min_length=1, max_length=5000, description="The user instruction to optimize")
     connector_ids: List[str] = Field(
         default_factory=list, description="List of connector IDs to provide context for optimization"
     )

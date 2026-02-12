@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Optional, Set
 from uuid import UUID
 
@@ -434,6 +435,68 @@ class ConnectorService:
                 raise
             logger.error(f"Manual scan failed: {e}", exc_info=True)
             raise TechnicalError("Scan failed", error_code="SCAN_ERROR")
+
+    async def train_vanna(
+        self,
+        connector_id: UUID,
+        document_ids: List[UUID],
+        document_service: Any,
+    ) -> Dict[str, Any]:
+        """
+        Train Vanna AI on specific documents for vanna_sql connector.
+        Refactored from API endpoint (P1).
+        """
+        connector = await self.get_connector(connector_id)
+        if not connector:
+            return {"success": False, "message": "Connector not found"}
+
+        if connector.connector_type != ConnectorType.VANNA_SQL:
+            return {"success": False, "message": "Training is only available for vanna_sql connectors"}
+
+        # Local import to avoid circular dependency and missing dependency issues
+        from app.services.chat.vanna_services import VannaServiceFactory
+
+        vanna_svc = await VannaServiceFactory(self.settings_service)
+
+        trained_count = 0
+        failed_count = 0
+
+        for doc_id in document_ids:
+            try:
+                document = await document_service.document_repo.get_by_id(doc_id)
+                if not document:
+                    logger.warning(f"Document {doc_id} not found, skipping")
+                    failed_count += 1
+                    continue
+
+                ddl_content = (document.file_metadata or {}).get("ddl")
+                if not ddl_content:
+                    logger.warning(f"Document {doc_id} has no DDL content, skipping")
+                    failed_count += 1
+                    continue
+
+                # Train Vanna - blocking call moved to thread
+                await asyncio.to_thread(vanna_svc.train, ddl=ddl_content)
+
+                # Mark as trained
+                meta = document.file_metadata or {}
+                meta["trained"] = True
+                meta["trained_at"] = datetime.now(timezone.utc).isoformat()
+
+                await document_service.update_document(document.id, {"file_metadata": meta})
+                trained_count += 1
+                logger.info(f"Trained Vanna on document: {document.file_name}")
+
+            except Exception as doc_error:
+                logger.error(f"Failed to train document {doc_id}: {doc_error}")
+                failed_count += 1
+
+        return {
+            "success": True,
+            "message": f"Training completed. {trained_count} documents trained, {failed_count} failed.",
+            "trained_count": trained_count,
+            "failed_count": failed_count,
+        }
 
     # --- Helpers ---
     @staticmethod

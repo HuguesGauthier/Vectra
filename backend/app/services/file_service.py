@@ -2,11 +2,13 @@ import asyncio
 import logging
 import mimetypes
 import os
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.user import User
 
 from app.core.database import get_db
 from app.core.exceptions import EntityNotFound, TechnicalError
@@ -36,16 +38,22 @@ class FileService:
         mime_type, _ = mimetypes.guess_type(file_path)
         return mime_type or "application/octet-stream"
 
-    async def get_file_for_streaming(self, document_id: UUID) -> FileStreamingInfo:
+    async def get_file_for_streaming(self, document_id: UUID, current_user: Optional[User] = None) -> FileStreamingInfo:
         """
         Retrieves file path, media type, and filename for headers.
         Fixes P2: Returns a structured Pydantic model instead of an anonymous Tuple.
+        Includes optional current_user for future ACL enforcement.
         """
         try:
             document = await self.document_repo.get_by_id(document_id)
 
             if not document:
                 raise EntityNotFound(f"Document {document_id} not found")
+
+            # 🛡️ SECURITY: Placeholder for granular ACLs
+            # For now, we trust authenticated users, but we can restrict to admins here if needed.
+            # if current_user and current_user.role != UserRole.ADMIN:
+            #     raise PermissionDenied("User does not have access to this document")
 
             # 🟠 P1: Cleaned up inline imports to top-level
             connector_repo = ConnectorRepository(self.document_repo.db)

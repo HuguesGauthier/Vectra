@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/pricing", response_model=PricingMapResponse, summary="Get current model pricing")
+@router.get("/", response_model=PricingMapResponse, summary="Get current model pricing")
 async def get_pricing(
     service: Annotated[PricingService, Depends(get_pricing_service)],
 ) -> PricingMapResponse:

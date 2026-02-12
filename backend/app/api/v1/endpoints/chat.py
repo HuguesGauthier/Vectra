@@ -1,5 +1,5 @@
 import logging
-import traceback
+import logging
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,8 +11,7 @@ from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.chat import ChatRequest
-from app.services.assistant_service import (AssistantService,
-                                            get_assistant_service)
+from app.services.assistant_service import AssistantService, get_assistant_service
 from app.services.chat_service import ChatService, get_chat_service
 
 # Initialize logger
@@ -36,7 +35,10 @@ async def get_optional_user(request: Request, db: Annotated[AsyncSession, Depend
     """
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+        parts = auth_header.split(" ")
+        if len(parts) != 2:
+            return None
+        token = parts[1]
         try:
             return await get_current_user(token=token, db=db)
         except Exception:
@@ -188,8 +190,9 @@ async def get_chat_history(
         return {"messages": formatted_messages}
     except Exception as e:
         logger.error(f"Failed to retrieve history for session {session_id}: {e}", exc_info=True)
-        # Don't fail hard - return empty history on error
-        return {"messages": []}
+        if isinstance(e, (TechnicalError, FunctionalError)):
+            raise
+        raise TechnicalError(f"Failed to retrieve history: {e}")
 
 
 def _format_source(source: Dict[str, Any]) -> Dict[str, Any]:
@@ -281,88 +284,5 @@ def _format_visualization(viz: Dict[str, Any]) -> Dict[str, Any]:
     return viz
 
 
-@router.post("/debug-stream")
-async def debug_stream(
-    request: ChatRequest,
-    chat_service: Annotated[ChatService, Depends(get_chat_service)],
-    assistant_service: Annotated[AssistantService, Depends(get_assistant_service)],
-    user: Annotated[Optional[User], Depends(get_optional_user)],
-) -> Dict[str, Any]:
-    """
-    Debug version that returns full exceptions.
-
-    Args:
-        request: The chat request payload.
-        chat_service: The chat service instance.
-        assistant_service: The assistant service instance.
-        user: The optional authenticated user.
-
-    Returns:
-        A dictionary containing debug information or the first event.
-    """
-    try:
-        assistant_uuid = request.assistant_id
-        assistant = await assistant_service.get_assistant_model(assistant_uuid)
-        if not assistant:
-            return {"error": "Assistant not found"}
-
-        user_id = str(user.id) if user else None
-
-        # Try to get first event
-        async for event in chat_service.stream_chat(
-            request.message,
-            assistant,
-            request.session_id,
-            language=request.language,
-            history=request.history,
-            user_id=user_id,
-        ):
-            return {"success": True, "first_event": event[:200]}
-    except Exception as e:
-        return {
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc(),
-        }
-    return {"error": "No events yielded"}
-
-
-@router.get("/ping")
-async def ping() -> Dict[str, str]:
-    """
-    Minimal test endpoint with zero dependencies.
-
-    Returns:
-        A dictionary with status and message.
-    """
-    return {"status": "ok", "message": "Backend is alive"}
-
-
-@router.get("/test-db")
-async def test_db(db: Annotated[AsyncSession, Depends(get_db)]) -> Dict[str, str]:
-    """
-    Test if DB injection works.
-
-    Args:
-        db: The database session.
-
-    Returns:
-        A dictionary with status and db info.
-    """
-    return {"status": "ok", "db": "connected"}
-
-
-@router.get("/test-assistant-service")
-async def test_assistant_svc(
-    assistant_service: Annotated[AssistantService, Depends(get_assistant_service)],
-) -> Dict[str, str]:
-    """
-    Test if AssistantService injection works.
-
-    Args:
-        assistant_service: The assistant service instance.
-
-    Returns:
-        A dictionary with status and service info.
-    """
-    return {"status": "ok", "service": "injected"}
+# 🔵 P1: Removed Debug/Test Endpoints (debug_stream, ping, test-db, test-assistant-service)
+# Code Cleanliness and Security Hygiene.

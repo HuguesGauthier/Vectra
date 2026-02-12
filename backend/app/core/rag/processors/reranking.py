@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from typing import Any, AsyncGenerator, Dict, List
 
 import cohere
@@ -83,11 +82,15 @@ class RerankingProcessor(BaseProcessor):
             top_n_rerank = getattr(ctx.assistant, "top_n_rerank", 5)
 
             # 2. Cohere API Call
-            documents_to_rank = [{"text": self._extract_text(n.node)} for n in ctx.retrieved_nodes]
+            # P1: Use nodes_to_rank instead of ctx.retrieved_nodes to be consistent with MAX_CANDIDATES
+            documents_to_rank = [{"text": self._extract_text(n.node)} for n in nodes_to_rank]
             logger.info(f"[RERANK] Sending {len(documents_to_rank)} docs to Cohere for reranking")
 
             # Store original scores for analytics
-            original_scores = [n.score for n in ctx.retrieved_nodes]
+            original_scores = [n.score for n in nodes_to_rank]
+
+            # Initialize reranked_nodes for logging safety
+            reranked_nodes = []
 
             # Call Cohere with Timeout
             try:

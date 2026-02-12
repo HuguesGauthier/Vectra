@@ -101,5 +101,21 @@ def get_full_path_from_connector(connector, doc_file_path: str) -> str:
     if conn_type in {"file", "local_file"}:
         return base_path
 
-    # For folder connectors, join base path with relative file path
-    return os.path.join(base_path, doc_file_path)
+    # Security (P0): Prevent path traversal
+    # Ensure relative path doesn't escape base_path
+    resolved_base = os.path.abspath(base_path)
+
+    # Strip leading separators and normalize
+    safe_rel_path = doc_file_path.lstrip("/\\")
+    full_path = os.path.abspath(os.path.join(resolved_base, safe_rel_path))
+
+    if not full_path.startswith(resolved_base):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            f"🚨 [SECURITY] Path traversal attempt blocked: {doc_file_path} (Context: {resolved_base})"
+        )
+        # Fallback to joining only the filename to the base path for safety
+        return os.path.join(resolved_base, os.path.basename(doc_file_path))
+
+    return full_path

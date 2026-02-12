@@ -27,56 +27,47 @@ _broadcast_running: bool = False
 async def get_dashboard_stats(db: Annotated[AsyncSession, Depends(get_db)]) -> DashboardStats:
     """
     Get current dashboard statistics (REST endpoint).
-
-    This provides a synchronous way to fetch stats without WebSocket.
-
-    Args:
-        db: Database session.
-
-    Returns:
-        DashboardStats: The current dashboard statistics.
     """
-    service = DashboardStatsService(db)
-    stats = await service.get_all_stats()
-    return stats
+    try:
+        service = DashboardStatsService(db)
+        return await service.get_all_stats()
+    except Exception as e:
+        logger.error(f"❌ FAIL | get_dashboard_stats | Error: {str(e)}", exc_info=True)
+        # Exception handler in main.py will convert to standard JSON response
+        raise
 
 
 async def broadcast_dashboard_stats_loop(interval_seconds: int = 5) -> None:
     """
     Background task that periodically broadcasts dashboard stats via WebSocket.
-
-    Args:
-        interval_seconds: Broadcast interval in seconds (default: 5).
-
-    Returns:
-        None
     """
     global _broadcast_running
     _broadcast_running = True
 
-    logger.info("Starting dashboard stats broadcast loop (interval: %ds)", interval_seconds)
+    logger.info("📈 START | dashboard_stats_broadcast | Interval: %ds", interval_seconds)
 
-    # Import here to avoid circular dependency
+    # Late imports for clean dependency tree
     from app.core.websocket import manager
     from app.core.database import SessionLocal
 
-    while _broadcast_running:
-        try:
-            # Create a new database session for this iteration
-            async with SessionLocal() as db:
-                service = DashboardStatsService(db)
-                stats = await service.get_all_stats()
+    try:
+        while _broadcast_running:
+            try:
+                # Create a fresh session per iteration to avoid pool/state issues
+                async with SessionLocal() as db:
+                    service = DashboardStatsService(db)
+                    stats = await service.get_all_stats()
+                    await manager.emit_dashboard_stats(stats.model_dump(mode="json"))
 
-                # Broadcast via WebSocket
-                await manager.emit_dashboard_stats(stats.model_dump(mode="json"))
+            except Exception as e:
+                logger.error(f"⚠️ WARN | dashboard_stats_broadcast | Iteration Error: {e}")
 
-        except Exception as e:
-            logger.error("Error in dashboard stats broadcast: %s", e, exc_info=True)
-
-        # Wait for next interval
-        await asyncio.sleep(interval_seconds)
-
-    logger.info("Dashboard stats broadcast loop stopped")
+            # Responsive sleep: allows faster shutdown if flag changes
+            # Wait in small increments or simply wait once if flag is enough
+            await asyncio.sleep(interval_seconds)
+    finally:
+        _broadcast_running = False
+        logger.info("📉 STOP | dashboard_stats_broadcast | Loop ended")
 
 
 async def start_broadcast_task(interval_seconds: int = 5) -> None:
@@ -118,10 +109,14 @@ async def stop_broadcast_task() -> None:
     try:
         if _broadcast_task:
             await asyncio.wait_for(_broadcast_task, timeout=10.0)
-    except (asyncio.TimeoutError, asyncio.CancelledError):
+    except (asyncio.TimeoutError, asyncio.CancelledError, Exception) as e:
         if _broadcast_task:
-            logger.warning("Dashboard broadcast task did not stop gracefully, cancelling")
+            logger.warning(f"Dashboard broadcast task did not stop gracefully ({e}), cancelling")
             _broadcast_task.cancel()
+            try:
+                await _broadcast_task
+            except asyncio.CancelledError:
+                pass
 
     _broadcast_task = None
     logger.info("Dashboard broadcast task stopped")

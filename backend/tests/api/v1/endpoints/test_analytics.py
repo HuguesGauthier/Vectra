@@ -1,13 +1,17 @@
 import asyncio
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import UUID
 
 import pytest
-from fastapi import status
+from fastapi import FastAPI, status, Request
+from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.api.v1.endpoints import analytics as analytics_router
+from app.core.exceptions import VectraException, EntityNotFound
+from app.core.security import get_current_admin
+from app.models.user import User
 from app.schemas.advanced_analytics import (
     AdvancedAnalyticsResponse,
     AssistantCost,
@@ -21,8 +25,27 @@ from app.schemas.advanced_analytics import (
 )
 from app.services.analytics_service import AnalyticsService
 
-# Create a TestClient instance
-client = TestClient(app)
+
+# Setup Mock Global Exception Handler for isolation
+async def mock_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"message": "Internal Server Error"},
+    )
+
+
+# Create a clean app instance for testing
+@pytest.fixture
+def app():
+    app = FastAPI()
+    app.include_router(analytics_router.router, prefix="/api/v1/analytics")
+    app.add_exception_handler(Exception, mock_exception_handler)
+    return app
+
+
+@pytest.fixture
+def client(app):
+    return TestClient(app)
 
 
 # Mock the get_analytics_service dependency
@@ -33,10 +56,14 @@ def mock_analytics_service():
 
 
 @pytest.fixture(autouse=True)
-def override_get_analytics_service(mock_analytics_service):
+def override_get_analytics_service(app, mock_analytics_service):
     from app.services.analytics_service import get_analytics_service
 
     app.dependency_overrides[get_analytics_service] = lambda: mock_analytics_service
+    # By default, override admin auth to allow access (Happy Path)
+    app.dependency_overrides[get_current_admin] = lambda: User(
+        id=UUID("00000000-0000-0000-0000-000000000000"), email="admin@test.com", is_superuser=True
+    )
     yield
     app.dependency_overrides = {}
 
@@ -48,8 +75,8 @@ def fixed_datetime():
 
 
 @pytest.mark.asyncio
-@patch("app.schemas.advanced_analytics.datetime")  # Corrected patch target
-async def test_get_advanced_analytics_defaults(mock_datetime, mock_analytics_service, fixed_datetime):
+@patch("app.schemas.advanced_analytics.datetime")
+async def test_get_advanced_analytics_defaults(mock_datetime, mock_analytics_service, fixed_datetime, client):
     mock_datetime.utcnow.return_value = fixed_datetime
     mock_datetime.now.return_value = fixed_datetime
 
@@ -81,7 +108,7 @@ async def test_get_advanced_analytics_defaults(mock_datetime, mock_analytics_ser
         generated_at=fixed_datetime,
         connector_sync_rates=[
             ConnectorSyncRate(
-                connector_id="conn1",
+                connector_id=UUID("00000000-0000-0000-0000-000000000001"),
                 connector_name="Con1",
                 success_rate=90.0,
                 total_syncs=100,
@@ -109,8 +136,29 @@ async def test_get_advanced_analytics_defaults(mock_datetime, mock_analytics_ser
 
 
 @pytest.mark.asyncio
-@patch("app.schemas.advanced_analytics.datetime")  # Corrected patch target
-async def test_get_advanced_analytics_with_params(mock_datetime, mock_analytics_service, fixed_datetime):
+async def test_get_advanced_analytics_unauthorized(client, app, mock_analytics_service):
+    """Test access without admin privileges."""
+    # Override dependency to simulate non-admin or unauthenticated
+    app.dependency_overrides[get_current_admin] = lambda: None
+
+    # Better approach: Remove override and don't provide headers
+    del app.dependency_overrides[get_current_admin]
+
+    # Cleaner way for 401: explicitely override with a function that raises HTTPException
+    from fastapi import HTTPException
+
+    def raise_401():
+        raise HTTPException(status_code=401)
+
+    app.dependency_overrides[get_current_admin] = raise_401
+
+    response = client.get("/api/v1/analytics/advanced")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+@patch("app.schemas.advanced_analytics.datetime")
+async def test_get_advanced_analytics_with_params(mock_datetime, mock_analytics_service, fixed_datetime, client):
     mock_datetime.utcnow.return_value = fixed_datetime
     mock_datetime.now.return_value = fixed_datetime
 
@@ -141,7 +189,7 @@ async def test_get_advanced_analytics_with_params(mock_datetime, mock_analytics_
         generated_at=fixed_datetime,
         connector_sync_rates=[
             ConnectorSyncRate(
-                connector_id="conn2",
+                connector_id=UUID("00000000-0000-0000-0000-000000000002"),
                 connector_name="Con2",
                 success_rate=80.0,
                 total_syncs=50,
@@ -155,7 +203,7 @@ async def test_get_advanced_analytics_with_params(mock_datetime, mock_analytics_
     mock_analytics_service.get_all_advanced_analytics.return_value = expected_response
 
     response = client.get(
-        f"/api/v1/analytics/advanced?assistant_id={assistant_id}&ttft_hours=48&step_days=14&cache_hours=48&cost_hours=48&trending_limit=20"
+        f"/api/v1/analytics/advanced?assistant_id={str(assistant_id)}&ttft_hours=48&step_days=14&cache_hours=48&cost_hours=48&trending_limit=20"
     )
 
     assert response.status_code == status.HTTP_200_OK
@@ -171,7 +219,7 @@ async def test_get_advanced_analytics_with_params(mock_datetime, mock_analytics_
 
 
 @pytest.mark.asyncio
-async def test_get_ttft_percentiles_defaults(mock_analytics_service):
+async def test_get_ttft_percentiles_defaults(mock_analytics_service, client):
     expected_ttft = TTFTPercentiles(p50=10.0, p95=20.0, p99=30.0, period_hours=24)
     mock_analytics_service.get_ttft_percentiles.return_value = expected_ttft
 
@@ -183,7 +231,7 @@ async def test_get_ttft_percentiles_defaults(mock_analytics_service):
 
 
 @pytest.mark.asyncio
-async def test_get_ttft_percentiles_no_result(mock_analytics_service):
+async def test_get_ttft_percentiles_no_result(mock_analytics_service, client):
     mock_analytics_service.get_ttft_percentiles.return_value = None
 
     response = client.get("/api/v1/analytics/ttft?hours=12")
@@ -194,7 +242,7 @@ async def test_get_ttft_percentiles_no_result(mock_analytics_service):
 
 
 @pytest.mark.asyncio
-async def test_get_trending_topics_defaults(mock_analytics_service, fixed_datetime):
+async def test_get_trending_topics_defaults(mock_analytics_service, fixed_datetime, client):
     expected_topics = [
         TrendingTopic(
             topic="Topic A", canonical_text="topic a", frequency=10, variation_count=1, last_asked=fixed_datetime
@@ -213,7 +261,7 @@ async def test_get_trending_topics_defaults(mock_analytics_service, fixed_dateti
 
 
 @pytest.mark.asyncio
-async def test_get_trending_topics_with_params(mock_analytics_service, fixed_datetime):
+async def test_get_trending_topics_with_params(mock_analytics_service, fixed_datetime, client):
     assistant_id = UUID("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12")
     expected_topics = [
         TrendingTopic(
@@ -230,7 +278,7 @@ async def test_get_trending_topics_with_params(mock_analytics_service, fixed_dat
 
 
 @pytest.mark.asyncio
-async def test_get_assistant_costs_defaults(mock_analytics_service):
+async def test_get_assistant_costs_defaults(mock_analytics_service, client):
     expected_costs = [
         AssistantCost(
             assistant_id="a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
@@ -259,7 +307,7 @@ async def test_get_assistant_costs_defaults(mock_analytics_service):
 
 
 @pytest.mark.asyncio
-async def test_get_assistant_costs_with_hours(mock_analytics_service):
+async def test_get_assistant_costs_with_hours(mock_analytics_service, client):
     expected_costs = [
         AssistantCost(
             assistant_id="a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
@@ -280,7 +328,7 @@ async def test_get_assistant_costs_with_hours(mock_analytics_service):
 
 
 @pytest.mark.asyncio
-async def test_get_document_freshness(mock_analytics_service):
+async def test_get_document_freshness(mock_analytics_service, client):
     expected_freshness = [
         DocumentFreshness(freshness_category="Fresh (<30d)", doc_count=10, percentage=0.5),
         DocumentFreshness(freshness_category="Aging (30-90d)", doc_count=5, percentage=0.25),
@@ -395,7 +443,7 @@ async def test_stop_broadcast_task_general_exception(mock_logger, mock_wait_for)
 @patch("app.api.v1.endpoints.analytics.SettingsService")
 @patch("app.api.v1.endpoints.analytics.AnalyticsService")
 @patch("app.api.v1.endpoints.analytics.logger")
-@patch("app.core.connection_manager.manager", new_callable=AsyncMock)
+@patch("app.core.websocket.manager", new_callable=AsyncMock)
 @patch("app.schemas.advanced_analytics.datetime")
 async def test_broadcast_analytics_loop(
     mock_datetime,
@@ -411,11 +459,30 @@ async def test_broadcast_analytics_loop(
 
     # Configure mocks
     mock_analytics_instance = mock_analytics_service_class.return_value = AsyncMock(spec=AnalyticsService)
+
+    # Mock the session context manager
+    mock_session = AsyncMock()
+
+    class SimulationContextManager:
+        async def __aenter__(self):
+            return mock_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    # The factory is a callable that returns the context manager
+    # We use a lambda to return the context manager instance
+    mock_get_session_factory_param.return_value = lambda: SimulationContextManager()
+
     mock_sleep.side_effect = [None, Exception("Stop loop")]
 
     analytics._broadcast_running = True
     with pytest.raises(Exception, match="Stop loop"):
         await analytics.broadcast_analytics_loop(interval_seconds=1)
+
+    # Verify Session Usage
+    # We check mock_settings_service_class init to prove session was passed
+    mock_settings_service_class.assert_called_with(db=mock_session)
 
     assert mock_analytics_instance.get_all_advanced_analytics.called
     assert mock_manager.emit_advanced_analytics_stats.called
@@ -426,7 +493,7 @@ async def test_broadcast_analytics_loop(
 @patch("app.api.v1.endpoints.analytics.SettingsService")
 @patch("app.api.v1.endpoints.analytics.AnalyticsService")
 @patch("app.api.v1.endpoints.analytics.logger")
-@patch("app.core.connection_manager.manager", new_callable=AsyncMock)
+@patch("app.core.websocket.manager", new_callable=AsyncMock)
 @patch("app.schemas.advanced_analytics.datetime")
 async def test_broadcast_analytics_loop_exception_handling(
     mock_datetime,
@@ -443,6 +510,20 @@ async def test_broadcast_analytics_loop_exception_handling(
     # Configure mocks
     mock_analytics_instance = mock_analytics_service_class.return_value = AsyncMock(spec=AnalyticsService)
     mock_analytics_instance.get_all_advanced_analytics.side_effect = Exception("Service error")
+
+    # Mock the session context manager
+    mock_session = AsyncMock()
+
+    class SimulationContextManager:
+        async def __aenter__(self):
+            return mock_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            pass
+
+    # The factory is a callable that returns the context manager
+    mock_get_session_factory_param.return_value = lambda: SimulationContextManager()
+
     mock_sleep.side_effect = [None, Exception("Stop loop")]
 
     analytics._broadcast_running = True

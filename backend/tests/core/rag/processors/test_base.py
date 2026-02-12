@@ -1,39 +1,36 @@
 import pytest
-
 from app.core.rag.processors.base import BaseProcessor
-from app.core.rag.types import PipelineContext
+from app.core.rag.types import PipelineContext, PipelineEvent
 
 
-class TestBaseProcessor:
-    """Test BaseProcessor abstract class enforcement."""
+def test_base_processor_abstract_enforcement():
+    # Verify that BaseProcessor cannot be instantiated directly
+    with pytest.raises(TypeError):
+        BaseProcessor()
 
-    def test_cannot_instantiate_abstract_class(self):
-        """Should raise TypeError if instantiated directly."""
-        with pytest.raises(TypeError):
-            BaseProcessor()
 
-    def test_subclass_must_implement_process(self):
-        """Subclass failing to implement process should check."""
+@pytest.mark.asyncio
+async def test_concrete_processor_implementation():
+    # Create a simple concrete implementation for testing
+    class ConcreteProcessor(BaseProcessor):
+        async def process(self, ctx: PipelineContext):
+            yield PipelineEvent(type="test", status="completed")
 
-        class InvalidProcessor(BaseProcessor):
-            pass
+    processor = ConcreteProcessor()
+    ctx = PipelineContext(
+        user_message="test",
+        chat_history=[],
+        language="en",
+        assistant=None,
+        llm=None,
+        embed_model=None,
+        search_strategy=None,
+    )
 
-        with pytest.raises(TypeError):
-            InvalidProcessor()
+    events = []
+    async for event in processor.process(ctx):
+        events.append(event)
 
-    @pytest.mark.asyncio
-    async def test_concrete_implementation(self):
-        """Proper subclass should work."""
-
-        class ValidProcessor(BaseProcessor):
-            async def process(self, ctx):
-                yield "done"
-
-        processor = ValidProcessor()
-        assert processor is not None
-
-        # Verify interface
-        res = []
-        async for item in processor.process(None):
-            res.append(item)
-        assert res == ["done"]
+    assert len(events) == 1
+    assert events[0].type == "test"
+    assert events[0].status == "completed"

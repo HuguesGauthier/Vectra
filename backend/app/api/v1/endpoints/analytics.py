@@ -10,13 +10,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from app.core.database import get_session_factory
+from app.core.security import get_current_admin
+from app.models.user import User
 from app.schemas.advanced_analytics import (
     AdvancedAnalyticsResponse,
     AssistantCost,
     DocumentFreshness,
     TrendingTopic,
     TTFTPercentiles,
-    StepBreakdown,  # Added StepBreakdown import
+    StepBreakdown,
 )
 from app.services.analytics_service import AnalyticsService, get_analytics_service
 from app.services.settings_service import SettingsService
@@ -32,6 +34,7 @@ _broadcast_running: bool = False
 @router.get("/advanced", response_model=AdvancedAnalyticsResponse)
 async def get_advanced_analytics(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
     assistant_id: Optional[UUID] = Query(None, description="Filter by assistant ID"),
     ttft_hours: int = Query(24, ge=1, le=168, description="TTFT analysis period in hours"),
     step_days: int = Query(7, ge=1, le=90, description="Step breakdown period in days"),
@@ -44,6 +47,7 @@ async def get_advanced_analytics(
 
     Args:
         service: The analytics service instance.
+        current_user: The authenticated admin user.
         assistant_id: Optional filter by assistant ID.
         ttft_hours: TTFT analysis period in hours.
         step_days: Step breakdown period in days.
@@ -69,6 +73,7 @@ async def get_advanced_analytics(
 @router.get("/ttft", response_model=TTFTPercentiles)
 async def get_ttft_percentiles(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
     hours: int = Query(24, ge=1, le=168, description="Analysis period in hours"),
 ) -> TTFTPercentiles:
     """
@@ -76,6 +81,7 @@ async def get_ttft_percentiles(
 
     Args:
         service: The analytics service instance.
+        current_user: The authenticated admin user.
         hours: Analysis period in hours.
 
     Returns:
@@ -92,6 +98,7 @@ async def get_ttft_percentiles(
 @router.get("/trending", response_model=List[TrendingTopic])
 async def get_trending_topics(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
     assistant_id: Optional[UUID] = Query(None, description="Filter by assistant ID"),
     limit: int = Query(10, ge=1, le=50, description="Number of topics to return"),
 ) -> List[TrendingTopic]:
@@ -100,6 +107,7 @@ async def get_trending_topics(
 
     Args:
         service: The analytics service instance.
+        current_user: The authenticated admin user.
         assistant_id: Optional filter by assistant ID.
         limit: Number of topics to return.
 
@@ -112,6 +120,7 @@ async def get_trending_topics(
 @router.get("/costs", response_model=List[AssistantCost])
 async def get_assistant_costs(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
     hours: int = Query(24, ge=1, le=168, description="Analysis period in hours"),
 ) -> List[AssistantCost]:
     """
@@ -119,6 +128,7 @@ async def get_assistant_costs(
 
     Args:
         service: The analytics service instance.
+        current_user: The authenticated admin user.
         hours: Analysis period in hours.
 
     Returns:
@@ -130,12 +140,14 @@ async def get_assistant_costs(
 @router.get("/freshness", response_model=List[DocumentFreshness])
 async def get_document_freshness(
     service: Annotated[AnalyticsService, Depends(get_analytics_service)],
+    current_user: Annotated[User, Depends(get_current_admin)],
 ) -> List[DocumentFreshness]:
     """
     Get knowledge base document freshness distribution.
 
     Args:
         service: The analytics service instance.
+        current_user: The authenticated admin user.
 
     Returns:
         list[DocumentFreshness]: A list representing document freshness distribution.
@@ -161,14 +173,20 @@ async def broadcast_analytics_loop(interval_seconds: int = 10) -> None:
     while _broadcast_running:
         try:
             factory = get_session_factory()
-            settings_service = SettingsService(db=None)
-            service: AnalyticsService = AnalyticsService(session_factory=factory, settings_service=settings_service)
 
-            stats: AdvancedAnalyticsResponse = await service.get_all_advanced_analytics(
-                ttft_hours=24, step_days=7, cache_hours=24, cost_hours=24, trending_limit=10
-            )
+            # P1 Fix: Use a dedicated session for SettingsService to ensure stability
+            async with factory() as session:
+                settings_service = SettingsService(db=session)
+                # Ensure defaults are seeded/loaded if needed
+                # await settings_service.load_cache() # Optional optimization
 
-            await manager.emit_advanced_analytics_stats(stats.model_dump(mode="json"))
+                service: AnalyticsService = AnalyticsService(session_factory=factory, settings_service=settings_service)
+
+                stats: AdvancedAnalyticsResponse = await service.get_all_advanced_analytics(
+                    ttft_hours=24, step_days=7, cache_hours=24, cost_hours=24, trending_limit=10
+                )
+
+                await manager.emit_advanced_analytics_stats(stats.model_dump(mode="json"))
 
         except Exception as e:
             logger.error("Error in analytics broadcast: %s", e, exc_info=True)

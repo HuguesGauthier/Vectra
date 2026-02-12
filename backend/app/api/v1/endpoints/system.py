@@ -13,6 +13,22 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+# --- Response Models ---
+
+
+class MessageResponse(BaseModel):
+    """Generic message response."""
+
+    message: str
+    success: bool = True
+
+
+class FilePathResponse(BaseModel):
+    """File path response."""
+
+    path: str
+
+
 class OpenFileRequest(BaseModel):
     """
     Request model for opening a file.
@@ -24,12 +40,12 @@ class OpenFileRequest(BaseModel):
     document_id: str
 
 
-@router.post("/open-file")
+@router.post("/open-file", response_model=MessageResponse)
 async def open_file_external(
     request: OpenFileRequest,
     service: Annotated[SystemService, Depends(get_system_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> dict[str, Any]:
+) -> MessageResponse:
     """
     Open a file using the system's default application based on document ID.
 
@@ -58,12 +74,12 @@ async def open_file_external(
         raise e
 
 
-@router.post("/upload")
+@router.post("/upload", response_model=FilePathResponse)
 async def upload_file(
     service: Annotated[DocumentService, Depends(get_document_service)],
     current_admin: Annotated[User, Depends(get_current_admin)],
     file: UploadFile = File(...),
-) -> dict[str, Any]:
+) -> FilePathResponse:
     """
     Upload a file to the temporary area.
 
@@ -100,12 +116,12 @@ class DeleteTempFileRequest(BaseModel):
     path: str
 
 
-@router.delete("/temp-file")
+@router.delete("/temp-file", response_model=MessageResponse)
 async def delete_temp_file(
     request: DeleteTempFileRequest,
     service: Annotated[DocumentService, Depends(get_document_service)],
     current_admin: Annotated[User, Depends(get_current_admin)],
-) -> dict[str, Any]:
+) -> MessageResponse:
     """
     Delete a temporary uploaded file.
 

@@ -5,8 +5,9 @@ Implements combo strategy: single LLM call extracts Title + Summary + Questions
 to enrich document chunks with semantic metadata for improved retrieval.
 """
 
+import asyncio
 import logging
-from typing import List, Optional, Sequence
+from typing import Any, List, Optional, Sequence
 
 from llama_index.core.program import LLMTextCompletionProgram
 from llama_index.core.schema import BaseNode, TransformComponent
@@ -78,10 +79,10 @@ class ComboMetadataExtractor(TransformComponent):
     single LLM call for efficiency.
     """
 
-    llm: object = Field(description="The LLM to use for extraction")
+    llm: Any = Field(description="The LLM to use for extraction")
     extraction_model: str = Field(default="gemini-flash", description="Model identifier for logging")
     language: str = Field(default="fr", description="Language for extraction prompts (fr/en)")
-    extraction_program: Optional[object] = Field(default=None, description="Compiled LLM program")
+    extraction_program: Optional[Any] = Field(default=None, description="Compiled LLM program")
 
     class Config:
         arbitrary_types_allowed = True
@@ -140,49 +141,47 @@ class ComboMetadataExtractor(TransformComponent):
     async def acall(self, nodes: Sequence[BaseNode], **kwargs) -> Sequence[BaseNode]:
         """
         [Async] Transform nodes by enriching with extracted metadata.
+        Parallelized with Semaphore to respect rate limits.
         """
-        enriched_nodes = []
+        # P1: Parallelize using Semaphore to avoid sequential bottleneck
+        # Max 5 parallel extractions to respect LLM rate limits without being too slow
+        semaphore = asyncio.Semaphore(5)
 
-        for i, node in enumerate(nodes):
-            try:
-                # Extract text content
-                text_content = node.get_content()
+        async def _extract_single(i: int, node: BaseNode) -> BaseNode:
+            async with semaphore:
+                try:
+                    text_content = node.get_content()
 
-                # Skip very short chunks (less than 50 chars)
-                if len(text_content) < 50:
-                    logger.debug(f"Skipping metadata extraction for short chunk {i} ({len(text_content)} chars)")
-                    enriched_nodes.append(node)
-                    continue
+                    if len(text_content) < 50:
+                        logger.debug(f"Skipping metadata extraction for short chunk {i} ({len(text_content)} chars)")
+                        return node
 
-                # Truncate very long chunks for LLM context (max 2000 chars for extraction)
-                text_for_extraction = text_content[:2000]
+                    text_for_extraction = text_content[:2000]
 
-                # Call LLM program ASYNC
-                # This fixes the "asyncio.run() cannot be called from a running event loop" error
-                extracted_metadata = await self.extraction_program.acall(text_chunk=text_for_extraction)
+                    # LLM Call
+                    extracted_metadata = await self.extraction_program.acall(text_chunk=text_for_extraction)
 
-                # Enrich node metadata
-                if node.metadata is None:
-                    node.metadata = {}
+                    if node.metadata is None:
+                        node.metadata = {}
 
-                node.metadata["extracted_title"] = extracted_metadata.title
-                node.metadata["extracted_summary"] = extracted_metadata.summary
-                node.metadata["extracted_questions"] = extracted_metadata.questions
+                    node.metadata["extracted_title"] = extracted_metadata.title
+                    node.metadata["extracted_summary"] = extracted_metadata.summary
+                    node.metadata["extracted_questions"] = extracted_metadata.questions
 
-                logger.debug(f"✅ Extracted metadata for chunk {i}: " f"title='{extracted_metadata.title[:30]}...'")
+                    logger.debug(f"✅ Extracted metadata for chunk {i}: title='{extracted_metadata.title[:30]}...'")
+                    return node
 
-                enriched_nodes.append(node)
+                except Exception as e:
+                    logger.warning(f"⚠️ Metadata extraction failed for chunk {i}: {str(e)}")
+                    return node
 
-            except Exception as e:
-                # Graceful fallback: if extraction fails, continue without metadata
-                logger.warning(
-                    f"⚠️ Metadata extraction failed for chunk {i}: {str(e)}. " "Continuing with original node."
-                )
-                enriched_nodes.append(node)
+        # Execute in parallel
+        tasks = [_extract_single(i, node) for i, node in enumerate(nodes)]
+        enriched_nodes = await asyncio.gather(*tasks)
 
+        enriched_count = sum(1 for n in enriched_nodes if "extracted_title" in (n.metadata or {}))
         logger.info(
-            f"🎯 Metadata extraction complete: {len(enriched_nodes)} chunks processed "
-            f"({sum(1 for n in enriched_nodes if 'extracted_title' in (n.metadata or {})) } enriched)"
+            f"🎯 Metadata extraction complete: {len(enriched_nodes)} chunks processed ({enriched_count} enriched)"
         )
 
         return enriched_nodes

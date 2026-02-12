@@ -1,82 +1,122 @@
-from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
-
 import pytest
-from fastapi import FastAPI
+import io
+import json
+from uuid import uuid4
 from fastapi.testclient import TestClient
-
-from app.api.v1.endpoints.users import router
-from app.core.security import get_current_admin, get_current_user
+from app.main import app
+from app.api.v1.endpoints.users import get_current_user, get_current_admin, get_user_service
 from app.models.user import User
-from app.services.user_service import UserService, get_user_service
+from app.schemas.enums import UserRole
+from app.schemas.user import UserRead
 
-# Mock Service Instance
-mock_user_svc = AsyncMock(spec=UserService)
+# Mock Data
+USER_ID = uuid4()
+ADMIN_ID = uuid4()
+OTHER_USER_ID = uuid4()
 
-# Setup App
-app = FastAPI()
-app.include_router(router, prefix="/api/v1/users")
+mock_user = User(
+    id=USER_ID, email="user@example.com", role=UserRole.USER, is_active=True, first_name="Regular", last_name="User"
+)
 
-
-async def override_get_user_service():
-    return mock_user_svc
-
-
-def override_get_admin():
-    return User(id=uuid4(), email="admin@test.com", is_superuser=True, role="admin", is_active=True)
-
-
-def override_get_user():
-    return User(id=uuid4(), email="user@test.com", is_superuser=False, role="user", is_active=True)
+mock_admin = User(
+    id=ADMIN_ID, email="admin@example.com", role=UserRole.ADMIN, is_active=True, first_name="Admin", last_name="User"
+)
 
 
-app.dependency_overrides[get_user_service] = override_get_user_service
-app.dependency_overrides[get_current_admin] = override_get_admin
-app.dependency_overrides[get_current_user] = override_get_user
-
-client = TestClient(app)
+# Dependency Overrides
+async def override_get_current_user():
+    return mock_user
 
 
-class TestUsers:
-    def setup_method(self):
-        mock_user_svc.reset_mock()
-        app.dependency_overrides[get_current_admin] = override_get_admin
+async def override_get_current_admin():
+    return mock_admin
 
-    def test_read_users_admin(self):
-        """Test reading users allows admin."""
-        mock_user_svc.get_multi.return_value = []
-        response = client.get("/api/v1/users/")
-        assert response.status_code == 200
-        assert response.json() == []
-        mock_user_svc.get_multi.assert_called_once()
 
-    def test_read_users_unauthorized(self):
-        """Test reading users rejects non-admin."""
+@pytest.fixture
+def client():
+    # Reset overrides for each test to be safe
+    app.dependency_overrides = {}
+    return TestClient(app)
 
-        # Override to throw exception (simulating auth failure in Depends)
-        def override_fail():
-            raise Exception("Not Admin")
 
-        # We override the direct dependency used by the endpoint
-        app.dependency_overrides[get_current_admin] = override_fail
+def test_read_user_me(client):
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    response = client.get("/api/v1/users/me")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == mock_user.email
+    assert data["id"] == str(USER_ID)
 
-        try:
-            client.get("/api/v1/users/")
-        except Exception as e:
-            assert "Not Admin" in str(e)
 
-    def test_create_user(self):
-        """Test create user delegates to service."""
-        new_user = {"email": "new@test.com", "password": "password", "role": "user"}
-        mock_user_svc.create.return_value = User(id=uuid4(), email=new_user["email"], role="user")
+def test_read_users_as_admin(client):
+    app.dependency_overrides[get_current_admin] = override_get_current_admin
 
-        response = client.post("/api/v1/users/", json=new_user)
-        assert response.status_code == 200
-        assert response.json()["email"] == new_user["email"]
-        mock_user_svc.create.assert_called_once()
+    # We also need to mock the service to avoid DB calls
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.get_multi.return_value = [mock_user, mock_admin]
+    app.dependency_overrides[get_user_service] = lambda: mock_service
 
-    def test_read_me(self):
-        """Test read /me returns current user."""
-        response = client.get("/api/v1/users/me")
-        assert response.status_code == 200
-        assert response.json()["email"] == "user@test.com"
+    response = client.get("/api/v1/users/")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["email"] == mock_user.email
+
+
+def test_upload_avatar_own_profile(client):
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.upload_avatar.return_value = mock_user
+    app.dependency_overrides[get_user_service] = lambda: mock_service
+
+    avatar_content = b"fake image content"
+    files = {"file": ("avatar.png", io.BytesIO(avatar_content), "image/png")}
+
+    response = client.post(f"/api/v1/users/{USER_ID}/avatar", files=files)
+    assert response.status_code == 200
+    mock_service.upload_avatar.assert_called_once()
+
+
+def test_upload_avatar_other_profile_denied(client):
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    # Attempting to upload avatar for ANOTHER user when I'm just a regular user
+    response = client.post(f"/api/v1/users/{OTHER_USER_ID}/avatar", files={"file": ("a.png", b"c", "image/png")})
+    assert response.status_code == 403
+    assert response.json()["message"] == "Not authorized"
+
+
+def test_upload_avatar_as_admin_for_other(client):
+    # Mock current_user as ADMIN
+    app.dependency_overrides[get_current_user] = override_get_current_admin
+
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.upload_avatar.return_value = mock_user
+    app.dependency_overrides[get_user_service] = lambda: mock_service
+
+    response = client.post(f"/api/v1/users/{USER_ID}/avatar", files={"file": ("a.png", b"c", "image/png")})
+    assert response.status_code == 200
+    mock_service.upload_avatar.assert_called_once()
+
+
+def test_get_avatar_not_found(client):
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.get_avatar_path.return_value = None
+    app.dependency_overrides[get_user_service] = lambda: mock_service
+
+    response = client.get(f"/api/v1/users/{USER_ID}/avatar")
+    assert response.status_code == 404
+    assert response.json()["message"] == "Avatar not found"
+
+
+def test_delete_user_as_admin(client):
+    app.dependency_overrides[get_current_admin] = override_get_current_admin
+
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.delete.return_value = mock_user
+    app.dependency_overrides[get_user_service] = lambda: mock_service
+
+    response = client.delete(f"/api/v1/users/{USER_ID}")
+    assert response.status_code == 200
+    mock_service.delete.assert_called_once_with(USER_ID)

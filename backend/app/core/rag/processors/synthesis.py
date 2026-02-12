@@ -1,7 +1,9 @@
+import json
 import logging
 from typing import AsyncGenerator
 
 from llama_index.core import PromptTemplate
+from llama_index.core.llms import ChatMessage, MessageRole
 
 from app.core.prompts import RAG_ANSWER_PROMPT
 from app.core.rag.processors.base import BaseProcessor
@@ -12,10 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 class SynthesisProcessor(BaseProcessor):
+    """
+    Processor responsible for synthesizing a final response from retrieved context nodes.
+    Handles context cleaning, prompt formatting, and LLM streaming.
+    """
+
     async def process(self, ctx: PipelineContext) -> AsyncGenerator[PipelineEvent, None]:
         yield PipelineEvent(type="step", step_type="synthesis", status="running")
-
-        import json
 
         cleaned_contexts = []
         for n in ctx.retrieved_nodes:
@@ -36,13 +41,11 @@ class SynthesisProcessor(BaseProcessor):
                             inner = json.loads(content_str)
                             final_text = inner.get("text", inner.get("content", raw_text))
                 except Exception:
-                    pass
+                    logger.debug("Failed to parse node content as JSON, using raw text.")
 
             cleaned_contexts.append(final_text)
 
         context_str = "\n\n".join(cleaned_contexts)
-
-        from llama_index.core.llms import ChatMessage, MessageRole
 
         # Format Chat History explicitly
         messages = []
@@ -53,13 +56,10 @@ class SynthesisProcessor(BaseProcessor):
             role = getattr(msg, "role", None)
             content = getattr(msg, "content", None)
             if role and content:
-                # Map role string to enum if needed, or rely on string
                 messages.append(ChatMessage(role=role, content=content))
 
         # Create final user message with context
         fmt = PromptTemplate(RAG_ANSWER_PROMPT)
-        # Note: We keep the same prompt template structure but send it as a User Message
-        # This works well for most models.
         final_user_content = fmt.format(
             role_instruction="",  # Already in system prompt
             chat_history="",  # We passed history as messages
@@ -67,8 +67,6 @@ class SynthesisProcessor(BaseProcessor):
             query_str=ctx.user_message,
         )
 
-        # If history was empty/formatted differently in Prompt, we might need to adjust.
-        # But for RAG, the Context is usually attached to the *last* user message.
         messages.append(ChatMessage(role=MessageRole.USER, content=final_user_content))
 
         try:

@@ -1,50 +1,42 @@
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-
-from app.api.v1.endpoints.pricing import router
+from app.main import app
+from app.api.v1.endpoints.pricing import get_pricing_service
 from app.core.exceptions import TechnicalError
-from app.services.pricing_service import PricingService, get_pricing_service
-
-app = FastAPI()
-app.include_router(router, prefix="/api/v1")
-
-# Mocks
-mock_pricing_svc = MagicMock(spec=PricingService)
+from app.schemas.pricing import PricingMapResponse
 
 
-def override_get_pricing_service():
-    return mock_pricing_svc
+@pytest.fixture
+def client():
+    app.dependency_overrides = {}
+    return TestClient(app)
 
 
-app.dependency_overrides[get_pricing_service] = override_get_pricing_service
+def test_get_pricing_happy_path(client):
+    """Verify successful pricing map retrieval."""
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.get_pricing_map.return_value = PricingMapResponse(
+        prices={"gpt-4o": 0.0025, "gemini-1.5-flash": 0.00001875}, currency="USD"
+    )
+    app.dependency_overrides[get_pricing_service] = lambda: mock_service
 
-client = TestClient(app)
+    # Note: Router prefix is /pricing, so we call /api/v1/pricing/
+    response = client.get("/api/v1/pricing/")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["prices"]["gpt-4o"] == 0.0025
+    assert data["currency"] == "USD"
+    mock_service.get_pricing_map.assert_called_once()
 
 
-class TestPricing:
+def test_get_pricing_technical_error(client):
+    """Verify error handling when service raises an exception."""
+    mock_service = pytest.importorskip("unittest.mock").AsyncMock()
+    mock_service.get_pricing_map.side_effect = Exception("Service failure")
+    app.dependency_overrides[get_pricing_service] = lambda: mock_service
 
-    def setup_method(self):
-        mock_pricing_svc.reset_mock()
-        mock_pricing_svc.get_pricing_map = MagicMock()
+    response = client.get("/api/v1/pricing/")
 
-    def test_get_pricing_success(self):
-        """Test pricing retrieval."""
-        mock_data = {"prices": {"gpt-4": 0.03, "local": 0.0}, "currency": "USD"}
-        mock_pricing_svc.get_pricing_map = AsyncMock(return_value=mock_data)
-
-        response = client.get("/api/v1/pricing")
-
-        assert response.status_code == 200
-        assert response.json()["prices"]["gpt-4"] == 0.03
-        mock_pricing_svc.get_pricing_map.assert_called_once()
-
-    def test_get_pricing_error(self):
-        """Test error handling."""
-        mock_pricing_svc.get_pricing_map.side_effect = Exception("Service Error")
-
-        # Expect 500 (TechnicalError catches generic exception in controller and re-raises TechnicalError)
-        with pytest.raises(TechnicalError):
-            client.get("/api/v1/pricing")
+    assert response.status_code == 500
+    assert response.json()["code"] == "PRICING_FETCH_ERROR"

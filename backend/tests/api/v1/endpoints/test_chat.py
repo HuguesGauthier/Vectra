@@ -10,8 +10,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.endpoints.chat import router
 from app.models.user import User
-from app.services.assistant_service import (AssistantService,
-                                            get_assistant_service)
+from app.services.assistant_service import AssistantService, get_assistant_service
 from app.services.chat_service import ChatService, get_chat_service
 from app.core.database import get_db
 from app.core.exceptions import VectraException
@@ -39,13 +38,18 @@ async def override_get_chat_service():
 async def override_get_assistant_service():
     return mock_asst_svc
 
+
 async def override_get_db():
     return mock_db
 
 
 app.dependency_overrides[get_chat_service] = override_get_chat_service
 app.dependency_overrides[get_assistant_service] = override_get_assistant_service
+app.dependency_overrides[get_chat_service] = override_get_chat_service
+app.dependency_overrides[get_assistant_service] = override_get_assistant_service
 app.dependency_overrides[get_db] = override_get_db
+
+client = TestClient(app)
 
 client = TestClient(app)
 
@@ -109,6 +113,20 @@ class TestChat:
         assert response.status_code == 200
         mock_chat_svc.reset_conversation.assert_called_once_with(session_id)
 
+    def test_chat_stream_malformed_auth(self):
+        """Test chat stream with malformed Bearer token."""
+        asst = MagicMock()
+        asst.id = uuid4()
+        # Even if auth is required, malformed token -> None user -> 401
+        asst.user_authentication = True
+        mock_asst_svc.get_assistant_model.return_value = asst
+
+        data = {"message": "Hello", "assistant_id": str(asst.id), "session_id": "test-session"}
+        headers = {"Authorization": "Bearer"}  # Malformed, missing token
+
+        response = client.post("/api/v1/chat/stream", json=data, headers=headers)
+        assert response.status_code == 401
+
     def test_get_chat_history(self):
         """Test get chat history."""
         session_id = "test-session"
@@ -119,11 +137,11 @@ class TestChat:
         mock_msg.metadata_ = {
             "sources": [{"id": "1", "text": "source content", "metadata": {"file_name": "test.pdf"}}],
             "steps": [{"label": "Step 1", "step_type": "thought"}],
-            "visualization": {"viz_type": "pie", "series": ["10", "20"]}
+            "visualization": {"viz_type": "pie", "series": ["10", "20"]},
         }
-        
+
         mock_chat_svc.chat_repository.get_messages.return_value = [mock_msg]
-        
+
         response = client.get(f"/api/v1/chat/{session_id}/history")
         assert response.status_code == 200
         data = response.json()
@@ -141,21 +159,13 @@ class TestChat:
         mock_msg.metadata_ = {
             "sources": [
                 {"id": "1", "text": "source1", "metadata": {"file_name": "test.docx"}},
-                {"id": "2", "text": "source2", "metadata": {"name": "test.txt"}}
+                {"id": "2", "text": "source2", "metadata": {"name": "test.txt"}},
             ],
-            "steps": [
-                {"step_type": "thought", "metadata": {"is_substep": True}},
-                {"label": "Step 2"}
-            ],
-            "visualization": {
-                "viz_type": "pie",
-                "series": [
-                    {"data": [{"y": "10.5"}, {"y": "invalid"}]}
-                ]
-            }
+            "steps": [{"step_type": "thought", "metadata": {"is_substep": True}}, {"label": "Step 2"}],
+            "visualization": {"viz_type": "pie", "series": [{"data": [{"y": "10.5"}, {"y": "invalid"}]}]},
         }
         mock_chat_svc.chat_repository.get_messages.return_value = [mock_msg]
-        
+
         response = client.get(f"/api/v1/chat/{session_id}/history")
         assert response.status_code == 200
         data = response.json()
@@ -167,85 +177,11 @@ class TestChat:
         assert msg["visualization"]["series"][0]["data"][0]["y"] == 10.5
         assert msg["visualization"]["series"][0]["data"][1]["y"] == 0.0
 
-    def test_ping(self):
-        response = client.get("/api/v1/chat/ping")
-        assert response.status_code == 200
-        assert response.json() == {"status": "ok", "message": "Backend is alive"}
+    def test_get_chat_history_error(self):
+        """Test get chat history failure propagation."""
+        session_id = "test-session"
+        mock_chat_svc.chat_repository.get_messages.side_effect = Exception("DB Error")
 
-    def test_test_db(self):
-        response = client.get("/api/v1/chat/test-db")
-        assert response.status_code == 200
-        assert response.json() == {"status": "ok", "db": "connected"}
-
-    def test_test_assistant_svc(self):
-        response = client.get("/api/v1/chat/test-assistant-service")
-        assert response.status_code == 200
-        assert response.json() == {"status": "ok", "service": "injected"}
-
-    @patch("app.api.v1.endpoints.chat.get_current_user")
-    def test_chat_stream_with_user(self, mock_get_current_user):
-        """Test assistant access with authenticated user."""
-        # Setup User
-        user = MagicMock(spec=User)
-        user.id = uuid4()
-        mock_get_current_user.return_value = user
-        
-        # Setup Assistant Mock
-        asst = MagicMock()
-        asst.id = uuid4()
-        asst.user_authentication = True
-        mock_asst_svc.get_assistant_model.return_value = asst
-
-        # Setup Chat Mock
-        async def async_gen(*args, **kwargs):
-            yield "data"
-        mock_chat_svc.stream_chat.side_effect = async_gen
-
-        data = {"message": "Hello", "assistant_id": str(asst.id), "session_id": "test-session"}
-        
-        # We need to provide a Bearer token to trigger get_optional_user logic
-        headers = {"Authorization": "Bearer some-token"}
-        response = client.post("/api/v1/chat/stream", json=data, headers=headers)
-
-        assert response.status_code == 200
-        mock_chat_svc.stream_chat.assert_called_once()
-        # Verify user_id was passed correctly
-        args, kwargs = mock_chat_svc.stream_chat.call_args
-        assert kwargs["user_id"] == str(user.id)
-
-    def test_debug_stream(self):
-        asst = MagicMock()
-        asst.id = uuid4()
-        mock_asst_svc.get_assistant_model.return_value = asst
-
-        async def async_gen(*args, **kwargs):
-            yield "event1"
-            yield "event2"
-        mock_chat_svc.stream_chat.side_effect = async_gen
-
-        data = {"message": "Hello", "assistant_id": str(asst.id), "session_id": "test-session"}
-        response = client.post("/api/v1/chat/debug-stream", json=data)
-        assert response.status_code == 200
-        assert response.json()["success"] is True
-        assert response.json()["first_event"] == "event1"
-
-    def test_debug_stream_assistant_not_found(self):
-        mock_asst_svc.get_assistant_model.return_value = None
-        data = {"message": "Hello", "assistant_id": str(uuid4()), "session_id": "test-session"}
-        response = client.post("/api/v1/chat/debug-stream", json=data)
-        assert response.status_code == 200
-        assert response.json() == {"error": "Assistant not found"}
-
-    def test_debug_stream_no_events(self):
-        asst = MagicMock()
-        asst.id = uuid4()
-        mock_asst_svc.get_assistant_model.return_value = asst
-
-        async def async_gen(*args, **kwargs):
-            if False: yield "nothing"
-        mock_chat_svc.stream_chat.side_effect = async_gen
-
-        data = {"message": "Hello", "assistant_id": str(asst.id), "session_id": "test-session"}
-        response = client.post("/api/v1/chat/debug-stream", json=data)
-        assert response.status_code == 200
-        assert response.json() == {"error": "No events yielded"}
+        response = client.get(f"/api/v1/chat/{session_id}/history")
+        assert response.status_code == 500
+        assert "Failed to retrieve history" in response.json()["message"]

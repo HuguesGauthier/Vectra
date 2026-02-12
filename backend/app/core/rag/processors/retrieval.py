@@ -15,8 +15,7 @@ class RetrievalProcessor(BaseProcessor):
         try:
             similarity_top_k = ctx.assistant.top_k_retrieval or 10
 
-            # P0: Extract ACLs from Assistant Configuration
-            # P0: Extract ACLs from Assistant Configuration
+            # Extract ACLs from Assistant Configuration
             # "configuration" is a dict stored in DB. Key is "tags" per Schema.
             acls = ctx.assistant.configuration.get("tags", [])
             if isinstance(acls, str):

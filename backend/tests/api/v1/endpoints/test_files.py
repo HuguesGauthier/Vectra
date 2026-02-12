@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -6,13 +6,18 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.endpoints.files import router
-from app.core.exceptions import EntityNotFound, TechnicalError
+from app.core.exceptions import EntityNotFound, TechnicalError, VectraException
 from app.core.security import get_current_user
+from app.main import global_exception_handler
 from app.models.user import User
 from app.schemas.files import FileStreamingInfo
 from app.services.file_service import FileService, get_file_service
 
 app = FastAPI()
+# Add global exception handler to test JSON response format
+app.add_exception_handler(VectraException, global_exception_handler)
+app.add_exception_handler(Exception, global_exception_handler)
+
 app.include_router(router, prefix="/api/v1/files")
 
 # Mocks
@@ -30,7 +35,8 @@ def override_get_user():
 app.dependency_overrides[get_file_service] = override_get_file_service
 app.dependency_overrides[get_current_user] = override_get_user
 
-client = TestClient(app)
+# Disable raising server exceptions to test the global handler's response
+client = TestClient(app, raise_server_exceptions=False)
 
 
 class TestFiles:
@@ -39,10 +45,8 @@ class TestFiles:
         mock_file_svc.reset_mock()
 
     def test_stream_file_success(self):
-        """Test file streaming initiation."""
+        """Test file streaming initiation (Happy Path)."""
         doc_id = uuid4()
-        # Mock what get_file_for_streaming returns: FileStreamingInfo
-        # Use existing file such as this one to pass os.stat checks inside FileResponse
         mock_file_svc.get_file_for_streaming.return_value = FileStreamingInfo(
             file_path=__file__, media_type="text/x-python", file_name="test_files.py"
         )
@@ -50,33 +54,43 @@ class TestFiles:
         response = client.get(f"/api/v1/files/stream/{doc_id}")
 
         assert response.status_code == 200
-        # Starlette FileResponse sets content-type
         assert "text/x-python" in response.headers["content-type"]
         mock_file_svc.get_file_for_streaming.assert_called_once()
 
     def test_stream_file_not_found(self):
-        """Test non-existent file."""
+        """Test non-existent file (Error Case)."""
         doc_id = uuid4()
-        mock_file_svc.get_file_for_streaming.side_effect = EntityNotFound("Missing")
+        mock_file_svc.get_file_for_streaming.side_effect = EntityNotFound("Document not found")
 
-        # In this minimal app instance, we don't have exception handlers loaded,
-        # so check if exception is raised directly.
-        with pytest.raises(EntityNotFound):
-            client.get(f"/api/v1/files/stream/{doc_id}")
+        response = client.get(f"/api/v1/files/stream/{doc_id}")
+
+        assert response.status_code == 404
+        data = response.json()
+        assert data["code"] == "entity_not_found"
+        assert "Document not found" in data["message"]
 
     def test_stream_file_technical_error(self):
-        """Test technical error."""
+        """Test technical error handling."""
         doc_id = uuid4()
-        mock_file_svc.get_file_for_streaming.side_effect = TechnicalError("Error", error_code="SOME_ERROR")
+        mock_file_svc.get_file_for_streaming.side_effect = TechnicalError(
+            message="Storage failure", error_code="storage_error"
+        )
 
-        with pytest.raises(TechnicalError):
-            client.get(f"/api/v1/files/stream/{doc_id}")
+        response = client.get(f"/api/v1/files/stream/{doc_id}")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert data["code"] == "storage_error"
+        assert "Storage failure" in data["message"]
 
     def test_stream_file_unexpected_error(self):
-        """Test unexpected error."""
+        """Test unexpected exception wrapping."""
         doc_id = uuid4()
-        mock_file_svc.get_file_for_streaming.side_effect = Exception("Unexpected")
+        mock_file_svc.get_file_for_streaming.side_effect = Exception("Crash")
 
-        with pytest.raises(TechnicalError) as exc_info:
-            client.get(f"/api/v1/files/stream/{doc_id}")
-        assert "Could not stream file" in str(exc_info.value)
+        response = client.get(f"/api/v1/files/stream/{doc_id}")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert data["code"] == "file_streaming_error"
+        assert "Could not stream file" in data["message"]

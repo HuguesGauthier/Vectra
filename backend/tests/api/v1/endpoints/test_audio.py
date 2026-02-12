@@ -7,23 +7,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from app.api.v1.endpoints.audio import router
-from app.api.v1.endpoints.chat import get_optional_user
-from app.core.exceptions import EntityNotFound, VectraException
 from app.schemas.files import FileStreamingInfo
 from app.services.file_service import FileService, get_file_service
+from app.main import global_exception_handler
 
 # Setup FastAPI App for Testing
 app = FastAPI()
 
-@app.exception_handler(VectraException)
-async def vectra_exception_handler(request: Request, exc: VectraException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.to_dict(),
-    )
-
 app.include_router(router, prefix="/api/v1/audio")
+
+# Register global exception handler
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(VectraException, global_exception_handler)
 
 # Define Mocks
 mock_file_svc = AsyncMock(spec=FileService)
@@ -67,8 +62,8 @@ class TestAudio:
 
         assert response.status_code == 200
         # Verify headers/media type if possible, but FileResponse is handled by Starlette
-        # Just check we called the service correctly
-        mock_file_svc.get_file_for_streaming.assert_called_once_with(doc_id)
+        # Just check we called the service correctly. We expect current_user=None from override.
+        mock_file_svc.get_file_for_streaming.assert_called_once_with(doc_id, current_user=None)
 
     def test_stream_audio_not_found(self):
         """Test 404 behavior"""
@@ -78,7 +73,8 @@ class TestAudio:
 
         response = client.get(f"/api/v1/audio/stream/{doc_id}")
         assert response.status_code == 404
-        assert response.json()["error_code"] == "entity_not_found"
+        assert response.json()["code"] == "NOT_FOUND"
+        assert response.json()["message"] == "Not found"
 
     def test_stream_audio_invalid_uuid(self):
         """Test invalid UUID validation by FastAPI"""
@@ -93,5 +89,5 @@ class TestAudio:
 
         response = client.get(f"/api/v1/audio/stream/{doc_id}")
         assert response.status_code == 500
-        assert response.json()["error_code"] == "technical_error"
+        assert response.json()["code"] == "technical_error"
         assert "Audio stream failed" in response.json()["message"]

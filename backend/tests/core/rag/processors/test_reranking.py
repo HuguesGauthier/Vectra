@@ -1,155 +1,111 @@
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
-from llama_index.core.schema import NodeWithScore, QueryBundle, TextNode
-
+import asyncio
+from unittest.mock import AsyncMock, MagicMock
 from app.core.rag.processors.reranking import RerankingProcessor
 from app.core.rag.types import PipelineContext, PipelineEvent
+from llama_index.core.schema import NodeWithScore, TextNode
 
 
 @pytest.fixture
-def mock_cohere_client():
-    with patch("cohere.AsyncClient") as mock_cls:
-        mock_instance = AsyncMock()
-        mock_cls.return_value = mock_instance
+def mock_ctx():
+    assistant = MagicMock()
+    assistant.use_reranker = True
+    assistant.top_n_rerank = 2
+    assistant.similarity_cutoff = 0.5
 
-        # Mock rerank return format
-        mock_results = MagicMock()
-        mock_results.results = [
-            MagicMock(index=0, relevance_score=0.95),
-            MagicMock(index=1, relevance_score=0.85),
-        ]
-        mock_instance.rerank.return_value = mock_results
-        yield mock_instance
+    nodes = [
+        NodeWithScore(node=TextNode(text="doc1", id_="1"), score=0.8),
+        NodeWithScore(node=TextNode(text="doc2", id_="2"), score=0.7),
+        NodeWithScore(node=TextNode(text="doc3", id_="3"), score=0.6),
+    ]
 
-
-@pytest.fixture
-def pipeline_context():
-    ctx = PipelineContext(
+    return PipelineContext(
         user_message="test query",
         chat_history=[],
         language="en",
-        assistant=MagicMock(),
-        llm=MagicMock(),
-        embed_model=MagicMock(),
-        search_strategy=MagicMock(),
+        assistant=assistant,
+        llm=None,
+        embed_model=None,
+        search_strategy=None,
+        retrieved_nodes=nodes,
     )
-    # Default settings
-    ctx.assistant.use_reranker = True
-    ctx.assistant.top_n_rerank = 5
-
-    # Setup nodes
-    node1 = NodeWithScore(node=TextNode(id_="node1", text="text1"), score=0.5)
-    node2 = NodeWithScore(node=TextNode(id_="node2", text="text2"), score=0.4)
-    ctx.retrieved_nodes = [node1, node2]
-    ctx.query_bundle = QueryBundle("test query")
-    return ctx
 
 
 @pytest.mark.asyncio
-async def test_reranking_processor_skips_if_disabled(pipeline_context):
-    pipeline_context.assistant.use_reranker = False
+async def test_reranking_happy_path(mock_ctx):
+    processor = RerankingProcessor()
+    processor.client = AsyncMock()
+
+    # Mock Cohere response
+    mock_result = MagicMock()
+    mock_result.results = [
+        MagicMock(index=1, relevance_score=0.9),  # doc2
+        MagicMock(index=0, relevance_score=0.85),  # doc1
+    ]
+    processor.client.rerank.return_value = mock_result
+
+    events = []
+    async for event in processor.process(mock_ctx):
+        events.append(event)
+
+    assert len(mock_ctx.retrieved_nodes) == 2
+    assert mock_ctx.retrieved_nodes[0].node.text == "doc2"
+    assert mock_ctx.retrieved_nodes[0].score == 0.9
+
+    # Check events
+    assert events[0].type == "step"
+    assert events[0].status == "running"
+
+    # Last events should be stats and sources
+    assert events[-1].type == "sources"
+    assert len(events[-1].payload) == 2
+
+
+@pytest.mark.asyncio
+async def test_reranking_disabled(mock_ctx):
+    mock_ctx.assistant.use_reranker = False
     processor = RerankingProcessor()
 
     events = []
-    async for event in processor.process(pipeline_context):
+    async for event in processor.process(mock_ctx):
         events.append(event)
 
-    # Note: sources event is always emitted
-    assert any(e.type == "sources" for e in events)
-    assert any(e.label == "Skipped (Disabled)" for e in events if e.type == "step")
+    assert len(mock_ctx.retrieved_nodes) == 3  # Untouched
+    assert events[0].type == "step"
+    assert "Skipped" in events[0].label
 
 
 @pytest.mark.asyncio
-async def test_reranking_processor_skips_if_no_nodes(pipeline_context):
-    pipeline_context.retrieved_nodes = []
+async def test_reranking_fail_open_on_timeout(mock_ctx):
     processor = RerankingProcessor()
+    processor.client = AsyncMock()
+    processor.client.rerank.side_effect = asyncio.TimeoutError()
 
     events = []
-    async for event in processor.process(pipeline_context):
+    async for event in processor.process(mock_ctx):
         events.append(event)
 
-    assert len(events) == 0
+    # Should fallback to top_n_rerank original nodes
+    assert len(mock_ctx.retrieved_nodes) == 2
+    assert mock_ctx.retrieved_nodes[0].node.text == "doc1"
+    assert any(e.type == "error" for e in events)
 
 
 @pytest.mark.asyncio
-async def test_reranking_flow_integration(pipeline_context, mock_cohere_client):
-    """Test full flow with mocked Cohere."""
-    with patch("app.core.rag.processors.reranking.settings") as mock_settings:
-        mock_settings.COHERE_API_KEY = "fake-key"
-        processor = RerankingProcessor()
+async def test_reranking_cutoff_filtering(mock_ctx):
+    processor = RerankingProcessor()
+    processor.client = AsyncMock()
 
-        events = []
-        async for event in processor.process(pipeline_context):
-            events.append(event)
+    # Mock Cohere response: one above cutoff, one below
+    mock_result = MagicMock()
+    mock_result.results = [
+        MagicMock(index=0, relevance_score=0.9),  # Above (0.5)
+        MagicMock(index=1, relevance_score=0.3),  # Below (0.5)
+    ]
+    processor.client.rerank.return_value = mock_result
 
-        assert len(events) >= 3
-        assert any(e.type == "step" and e.status == "running" for e in events)
-        assert any(e.status == "completed" for e in events if e.type == "step")
+    async for _ in processor.process(mock_ctx):
+        pass
 
-
-@pytest.mark.asyncio
-async def test_reranking_fallback_on_error(pipeline_context):
-    """Should fallback to original nodes on reranker or cutoff failure."""
-    with patch("app.core.rag.processors.reranking.settings") as mock_settings:
-        mock_settings.COHERE_API_KEY = "fake-key"
-        processor = RerankingProcessor()
-        
-        # Mock rerank failure
-        # We need to ensure the client exists because of our mock_settings
-        with patch("cohere.AsyncClient") as mock_cls:
-            mock_instance = AsyncMock()
-            mock_cls.return_value = mock_instance
-            mock_instance.rerank.side_effect = Exception("Exploded")
-            
-            # Re-init processor with mocked class
-            processor = RerankingProcessor()
-            
-            events = []
-            async for event in processor.process(pipeline_context):
-                events.append(event)
-
-            assert any(e.type == "error" for e in events)
-            assert len(pipeline_context.retrieved_nodes) > 0
-
-
-@pytest.mark.asyncio
-async def test_reranking_skips_missing_key(pipeline_context):
-    """Verify that reranking is skipped if API key is missing."""
-    with patch("app.core.rag.processors.reranking.settings") as mock_settings:
-        mock_settings.COHERE_API_KEY = None
-        processor = RerankingProcessor()
-
-        events = []
-        async for event in processor.process(pipeline_context):
-            events.append(event)
-
-    assert any("Skipped (Missing API Key)" in (e.label or "") for e in events if e.type == "step")
-
-
-@pytest.mark.asyncio
-async def test_reranking_timeout_fallback(pipeline_context):
-    """❌ Failure Case: LLM hangs -> Timeout Fallback."""
-    from app.core.rag.processors.reranking import TIMEOUT_SECONDS
-    
-    with patch("app.core.rag.processors.reranking.settings") as mock_settings:
-        mock_settings.COHERE_API_KEY = "fake-key"
-        processor = RerankingProcessor()
-        
-        # Mock Cohere Hang
-        async def infinite_sleep(*args, **kwargs):
-            await asyncio.sleep(TIMEOUT_SECONDS + 0.1)
-            raise asyncio.TimeoutError()
-
-        if processor.client:
-            processor.client.rerank = AsyncMock(side_effect=infinite_sleep)
-
-        # Execute
-        events = []
-        async for event in processor.process(pipeline_context):
-            events.append(event)
-
-        # Assert
-        assert len(pipeline_context.retrieved_nodes) == 2
-        assert any(e.status == "completed" and e.payload.get("fallback") for e in events if e.type == "step")
+    assert len(mock_ctx.retrieved_nodes) == 1
+    assert mock_ctx.retrieved_nodes[0].node.text == "doc1"

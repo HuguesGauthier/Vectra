@@ -159,15 +159,15 @@ class TestConnectors:
 
     def test_test_connection_missing_params(self):
         payload = {"connector_type": "sql"}
+        # Schema validation will return 422, not 200 with success: False
         response = client.post("/api/v1/connectors/test-connection", json=payload)
-        assert response.status_code == 200
-        assert response.json()["success"] is False
+        assert response.status_code == 422
 
     def test_test_connection_not_implemented(self):
         payload = {"connector_type": "unsupported", "configuration": {"foo": "bar"}}
+        # Schema validation will return 422 for invalid enum value
         response = client.post("/api/v1/connectors/test-connection", json=payload)
-        assert response.status_code == 200
-        assert "not implemented" in response.json()["message"]
+        assert response.status_code == 422
 
     def test_update_connector(self):
         conn_id = uuid4()
@@ -275,42 +275,37 @@ class TestConnectors:
         assert response.status_code == 200
         mock_conn_svc.stop_connector.assert_called_once_with(conn_id)
 
-    @patch("app.services.chat.vanna_services.VannaServiceFactory", new_callable=AsyncMock)
-    def test_train_vanna_connector_success(self, mock_vanna_factory):
+    def test_train_vanna_connector_success(self):
         conn_id = uuid4()
         doc_id = uuid4()
         payload = {"document_ids": [str(doc_id)]}
 
-        mock_connector = MagicMock()
-        mock_connector.connector_type = "vanna_sql"
-        mock_conn_svc.get_connector.return_value = mock_connector
-
-        mock_vanna_svc = MagicMock()
-        mock_vanna_factory.return_value = mock_vanna_svc
-
-        mock_doc = MagicMock()
-        mock_doc.id = doc_id
-        mock_doc.file_name = "test_view"
-        mock_doc.file_metadata = {"ddl": "CREATE VIEW ..."}
-        mock_doc_svc.document_repo.get_by_id.return_value = mock_doc
+        mock_conn_svc.train_vanna.return_value = {
+            "success": True,
+            "message": "Training completed. 1 documents trained, 0 failed.",
+            "trained_count": 1,
+            "failed_count": 0,
+        }
 
         response = client.post(f"/api/v1/connectors/{conn_id}/train", json=payload)
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert response.json()["trained_count"] == 1
+        mock_conn_svc.train_vanna.assert_called_once()
 
     def test_train_vanna_not_found(self):
         conn_id = uuid4()
-        mock_conn_svc.get_connector.return_value = None
-        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": ["some-id"]})
+        mock_conn_svc.train_vanna.return_value = {"success": False, "message": "Connector not found"}
+        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": [str(uuid4())]})
         assert response.json()["message"] == "Connector not found"
 
     def test_train_vanna_wrong_type(self):
         conn_id = uuid4()
-        mock_connector = MagicMock()
-        mock_connector.connector_type = "local_file"
-        mock_conn_svc.get_connector.return_value = mock_connector
-        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": ["some-id"]})
+        mock_conn_svc.train_vanna.return_value = {
+            "success": False,
+            "message": "Training is only available for vanna_sql connectors",
+        }
+        response = client.post(f"/api/v1/connectors/{conn_id}/train", json={"document_ids": [str(uuid4())]})
         assert "only available for vanna_sql" in response.json()["message"]
 
     def test_create_connector_document(self):

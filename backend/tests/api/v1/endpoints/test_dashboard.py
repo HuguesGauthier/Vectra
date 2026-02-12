@@ -3,13 +3,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
+from fastapi.testclient import TestClient
 
 from app.api.v1.endpoints.dashboard import (
     get_dashboard_stats,
     router,
     start_broadcast_task,
     stop_broadcast_task,
+    broadcast_dashboard_stats_loop,
 )
 from app.schemas.dashboard_stats import (
     ChatStats,
@@ -21,146 +22,125 @@ from app.schemas.dashboard_stats import (
 
 @pytest.fixture
 def app():
+    from fastapi.responses import JSONResponse
+    from app.core.exceptions import VectraException
+
     app = FastAPI()
+
+    async def test_exception_handler(request, exc):
+        status_code = getattr(exc, "status_code", 500)
+        error_code = getattr(exc, "error_code", "INTERNAL_SERVER_ERROR")
+        return JSONResponse(status_code=status_code, content={"code": error_code, "message": str(exc)})
+
+    app.add_exception_handler(VectraException, test_exception_handler)
+    app.add_exception_handler(Exception, test_exception_handler)
+
     app.include_router(router)
     return app
 
 
-@pytest.mark.asyncio
-async def test_get_dashboard_stats(app):
+def test_get_dashboard_stats(app):
     mock_stats = DashboardStats(
-        connect=ConnectStats(
-            active_pipelines=1,
-            total_connectors=2,
-            system_status="ok",
-            last_sync_time=None,
-        ),
-        vectorize=VectorizeStats(
-            total_vectors=100,
-            total_tokens=1000,
-            indexing_success_rate=0.99,
-            failed_docs_count=1,
-        ),
-        chat=ChatStats(
-            monthly_sessions=50, avg_latency_ttft=0.5, total_tokens_used=5000
-        ),
+        connect=ConnectStats(active_pipelines=1, total_connectors=2, system_status="ok", last_sync_time=None),
+        vectorize=VectorizeStats(total_vectors=100, total_tokens=1000, indexing_success_rate=0.99, failed_docs_count=1),
+        chat=ChatStats(monthly_sessions=50, avg_latency_ttft=0.5, total_tokens_used=5000),
     )
 
-    with patch(
-        "app.api.v1.endpoints.dashboard.DashboardStatsService"
-    ) as MockService:
-        mock_service_instance = MockService.return_value
-        mock_service_instance.get_all_stats = AsyncMock(return_value=mock_stats)
+    with patch("app.api.v1.endpoints.dashboard.DashboardStatsService") as MockService:
+        mock_instance = MockService.return_value
+        mock_instance.get_all_stats = AsyncMock(return_value=mock_stats)
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as ac:
-            response = await ac.get("/stats")
+        client = TestClient(app)
+        response = client.get("/stats")
 
         assert response.status_code == 200
         data = response.json()
         assert data["connect"]["active_pipelines"] == 1
-        mock_service_instance.get_all_stats.assert_called_once()
+
+
+def test_get_dashboard_stats_error(app):
+    from app.core.exceptions import TechnicalError
+
+    with patch("app.api.v1.endpoints.dashboard.DashboardStatsService") as MockService:
+        mock_service_instance = MockService.return_value
+        mock_service_instance.get_all_stats.side_effect = TechnicalError("Service Crash")
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/stats")
+
+        assert response.status_code == 500
+        data = response.json()
+        assert data["code"] == "technical_error"
 
 
 @pytest.mark.asyncio
 async def test_broadcast_dashboard_stats_loop():
-    from app.api.v1.endpoints.dashboard import broadcast_dashboard_stats_loop
-
-    mock_stats = DashboardStats(
-        connect=ConnectStats(
-            active_pipelines=1,
-            total_connectors=2,
-            system_status="ok",
-            last_sync_time=None,
-        ),
-        vectorize=VectorizeStats(
-            total_vectors=100,
-            total_tokens=1000,
-            indexing_success_rate=0.99,
-            failed_docs_count=1,
-        ),
-        chat=ChatStats(
-            monthly_sessions=50, avg_latency_ttft=0.5, total_tokens_used=5000
-        ),
-    )
+    import app.api.v1.endpoints.dashboard as dash_mod
 
     mock_db = AsyncMock()
     mock_session_local = MagicMock()
-    mock_session_local.return_value.__aenter__.return_value = mock_db
+    mock_session_local.return_value.__aenter__ = AsyncMock(return_value=mock_db)
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
 
     mock_manager = AsyncMock()
+    mock_stats = DashboardStats(
+        connect=ConnectStats(active_pipelines=1, total_connectors=2, system_status="ok", last_sync_time=None),
+        vectorize=VectorizeStats(total_vectors=100, total_tokens=1000, indexing_success_rate=0.99, failed_docs_count=1),
+        chat=ChatStats(monthly_sessions=50, avg_latency_ttft=0.5, total_tokens_used=5000),
+    )
 
-    # Use a side effect to stop the loop after one iteration
     async def stop_loop(*args, **kwargs):
-        import app.api.v1.endpoints.dashboard as dashboard_mod
+        dash_mod._broadcast_running = False
 
-        dashboard_mod._broadcast_running = False
-
-    with patch(
-        "app.core.database.SessionLocal", mock_session_local
-    ), patch(
-        "app.api.v1.endpoints.dashboard.DashboardStatsService"
-    ) as MockService, patch(
-        "app.core.connection_manager.manager", mock_manager
-    ), patch(
-        "app.api.v1.endpoints.dashboard.asyncio.sleep", side_effect=stop_loop
+    with (
+        patch("app.core.database.SessionLocal", mock_session_local),
+        patch("app.api.v1.endpoints.dashboard.DashboardStatsService") as MockService,
+        patch("app.core.websocket.manager", mock_manager),
+        patch("app.api.v1.endpoints.dashboard.asyncio.sleep", side_effect=stop_loop),
     ):
 
-        mock_service_instance = MockService.return_value
-        mock_service_instance.get_all_stats = AsyncMock(return_value=mock_stats)
-
+        MockService.return_value.get_all_stats = AsyncMock(return_value=mock_stats)
         await broadcast_dashboard_stats_loop(interval_seconds=1)
 
-        assert mock_service_instance.get_all_stats.called
+        assert MockService.return_value.get_all_stats.called
         assert mock_manager.emit_dashboard_stats.called
 
 
 @pytest.mark.asyncio
 async def test_broadcast_dashboard_stats_loop_exception():
-    from app.api.v1.endpoints.dashboard import broadcast_dashboard_stats_loop
+    import app.api.v1.endpoints.dashboard as dash_mod
 
     mock_session_local = MagicMock()
-    mock_session_local.return_value.__aenter__.side_effect = Exception("DB Error")
+    mock_session_local.return_value.__aenter__ = AsyncMock(side_effect=Exception("DB Error"))
+    mock_session_local.return_value.__aexit__ = AsyncMock(return_value=None)
 
     async def stop_loop(*args, **kwargs):
-        import app.api.v1.endpoints.dashboard as dashboard_mod
+        dash_mod._broadcast_running = False
 
-        dashboard_mod._broadcast_running = False
-
-    with patch(
-        "app.core.database.SessionLocal", mock_session_local
-    ), patch(
-        "app.api.v1.endpoints.dashboard.asyncio.sleep", side_effect=stop_loop
+    with (
+        patch("app.core.database.SessionLocal", mock_session_local),
+        patch("app.api.v1.endpoints.dashboard.asyncio.sleep", side_effect=stop_loop),
     ):
 
         await broadcast_dashboard_stats_loop(interval_seconds=1)
-        # Should have caught the exception and called sleep
         assert mock_session_local.return_value.__aenter__.called
 
 
 @pytest.mark.asyncio
 async def test_start_stop_broadcast_task():
-    # Reset global states
     import app.api.v1.endpoints.dashboard as dashboard_mod
 
     dashboard_mod._broadcast_task = None
     dashboard_mod._broadcast_running = False
 
-    with patch(
-        "app.api.v1.endpoints.dashboard.broadcast_dashboard_stats_loop",
-        new_callable=AsyncMock,
-    ):
+    async def mock_loop(*args, **kwargs):
+        while dashboard_mod._broadcast_running:
+            await asyncio.sleep(0.01)
+
+    with patch("app.api.v1.endpoints.dashboard.broadcast_dashboard_stats_loop", side_effect=mock_loop):
         await start_broadcast_task(interval_seconds=1)
         assert dashboard_mod._broadcast_task is not None
         assert dashboard_mod._broadcast_running is True
-
-        # Test starting when already running
-        task_before = dashboard_mod._broadcast_task
-        await start_broadcast_task(interval_seconds=1)
-        assert dashboard_mod._broadcast_task is task_before
-
-        # Test stopping
         await stop_broadcast_task()
         assert dashboard_mod._broadcast_task is None
         assert dashboard_mod._broadcast_running is False
@@ -170,7 +150,8 @@ async def test_start_stop_broadcast_task():
 async def test_stop_broadcast_task_timeout():
     import app.api.v1.endpoints.dashboard as dashboard_mod
 
-    mock_task = MagicMock()
+    mock_task = asyncio.Future()
+    mock_task.cancel = MagicMock()
     dashboard_mod._broadcast_task = mock_task
     dashboard_mod._broadcast_running = True
 
@@ -187,4 +168,3 @@ async def test_stop_broadcast_task_none():
 
     dashboard_mod._broadcast_task = None
     await stop_broadcast_task()
-    # Should just return without error

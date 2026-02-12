@@ -9,13 +9,13 @@ from fastapi.testclient import TestClient
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api.v1.endpoints.notifications import router
+from app.api.v1.endpoints.notifications import get_notification_service, get_websocket, router
 from app.core.security import get_current_admin, get_current_user
 from app.models.user import User
-from app.services.notification_service import (NotificationService,
-                                               get_notification_service)
+from app.services.notification_service import NotificationService
 from app.core.exceptions import EntityNotFound, VectraException
 from app.main import global_exception_handler
+from app.schemas.notification import NotificationResponse
 
 app = FastAPI()
 
@@ -77,18 +77,13 @@ class TestNotifications:
         assert response.status_code == 500
         assert "Failed to fetch notifications" in response.json()["message"]
 
-    def test_create_notification(self):
-        """Test creating a notification."""
-        data = {"type": "info", "message": "Test Notif", "read": False, "user_id": str(uuid4())}
+    def test_create_notification_for_self(self):
+        """Test creating a notification for self (default)."""
+        data = {"type": "info", "message": "Test Notif", "read": False}
 
-        # Mock response needs to be valid for response_model
-        mock_response = MagicMock()
-        mock_response.id = uuid4()
-        mock_response.type = data["type"]
-        mock_response.message = data["message"]
-        mock_response.read = data["read"]
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.user_id = uuid4()
+        mock_response = NotificationResponse(
+            id=uuid4(), type="info", message=data["message"], read=False, user_id=uuid4(), created_at=None
+        )
 
         mock_notif_svc.create_notification.return_value = mock_response
 
@@ -96,6 +91,28 @@ class TestNotifications:
         assert response.status_code == 200
         assert response.json()["message"] == data["message"]
         mock_notif_svc.create_notification.assert_called_once()
+        # Verify it used admin's ID (mocked in override_get_admin)
+        args, kwargs = mock_notif_svc.create_notification.call_args
+        assert args[0].user_id is not None
+
+    def test_create_notification_for_target_user(self):
+        """Test creating a notification for a target user (P0 fix)."""
+        target_id = uuid4()
+        data = {"type": "warning", "message": "Admin Alert", "target_user_id": str(target_id)}
+
+        mock_response = NotificationResponse(
+            id=uuid4(), type="warning", message=data["message"], read=False, user_id=target_id, created_at=None
+        )
+
+        mock_notif_svc.create_notification.return_value = mock_response
+
+        response = client.post("/api/v1/notifications/", json=data)
+        assert response.status_code == 200
+        assert response.json()["user_id"] == str(target_id)
+
+        # Verify target_user_id was passed correctly to service
+        args, kwargs = mock_notif_svc.create_notification.call_args
+        assert str(args[0].user_id) == str(target_id)
 
     def test_create_notification_error(self):
         """Test creation error."""
@@ -106,14 +123,10 @@ class TestNotifications:
 
     def test_mark_notification_read(self):
         """Test marking a single notification as read."""
-        notif_id = str(uuid4())
-        mock_response = MagicMock()
-        mock_response.id = notif_id
-        mock_response.type = "info"
-        mock_response.message = "Read me"
-        mock_response.read = True
-        mock_response.created_at = "2024-01-01T00:00:00"
-        mock_response.user_id = uuid4()
+        notif_id = uuid4()
+        mock_response = NotificationResponse(
+            id=notif_id, type="info", message="Read me", read=True, user_id=uuid4(), created_at=None
+        )
 
         mock_notif_svc.mark_notification_as_read.return_value = mock_response
 
@@ -131,7 +144,8 @@ class TestNotifications:
     def test_mark_notification_read_invalid_uuid(self):
         """Test mark read invalid uuid."""
         response = client.put("/api/v1/notifications/invalid-uuid/read")
-        assert response.status_code == 400
+        # FastAPI handles UUID validation now, returns 422 for path mismatch
+        assert response.status_code == 422
 
     def test_mark_notification_read_entity_not_found(self):
         """Test mark read entity not found exception."""
@@ -151,6 +165,7 @@ class TestNotifications:
         """Test bulk read passes confirmation flag."""
         response = client.put("/api/v1/notifications/read")
         assert response.status_code == 200
+        assert response.json() == {"message": "All notifications marked as read", "success": True}
         mock_notif_svc.mark_all_as_read.assert_called_with(user_id=ANY, user_confirmation=True)
 
     def test_mark_all_read_error(self):
@@ -163,6 +178,7 @@ class TestNotifications:
         """Test clear all passes confirmation."""
         response = client.delete("/api/v1/notifications/")
         assert response.status_code == 200
+        assert response.json() == {"message": "All notifications cleared", "success": True}
         mock_notif_svc.clear_all_notifications.assert_called_with(user_id=ANY, user_confirmation=True)
 
     def test_clear_all_notifications_error(self):
@@ -173,14 +189,17 @@ class TestNotifications:
 
     def test_sse_stream(self):
         """Test SSE endpoint subscription."""
-        with patch("app.api.v1.endpoints.notifications.ws_manager") as mock_ws:
+        with patch("app.api.v1.endpoints.notifications.get_websocket") as mock_get_ws:
+            mock_ws = MagicMock()
+
             async def mock_stream():
                 yield "test message"
                 yield "another message"
+
             mock_ws.stream_events.return_value = mock_stream()
-            
+            mock_get_ws.return_value = mock_ws
+
             with client.stream("GET", "/api/v1/notifications/stream") as response:
                 assert response.status_code == 200
-                # Just consuming the stream to trigger the code
                 gen = response.iter_lines()
                 assert next(gen) == "data: test message"

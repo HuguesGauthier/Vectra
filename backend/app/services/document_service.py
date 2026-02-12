@@ -13,7 +13,7 @@ from sqlalchemy import select as select_func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.websocket import Websocket
+from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector_document import ConnectorDocument

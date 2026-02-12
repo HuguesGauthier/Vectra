@@ -3,14 +3,23 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.endpoints.auth import router
-from app.core.exceptions import FunctionalError, TechnicalError
+from app.core.exceptions import FunctionalError, TechnicalError, VectraException
 from app.schemas.token import Token
 from app.services.auth_service import AuthService, get_auth_service
+from app.main import global_exception_handler
 
 app = FastAPI()
 app.include_router(router, prefix="/api/v1/auth")
+
+# Register exception handlers to simulate production behavior
+app.add_exception_handler(Exception, global_exception_handler)
+app.add_exception_handler(VectraException, global_exception_handler)
+app.add_exception_handler(StarletteHTTPException, global_exception_handler)
+app.add_exception_handler(RequestValidationError, global_exception_handler)
 
 # Mocks
 mock_auth_svc = AsyncMock(spec=AuthService)
@@ -52,7 +61,7 @@ class TestAuth:
         mock_auth_svc.authenticate.assert_called_once_with("user@example.com", "password123")
 
     def test_login_failure_invalid_creds(self):
-        """Test login failure with standard FunctionalError."""
+        """Test login failure with FunctionalError (400)."""
         # Arrange
         mock_auth_svc.authenticate.side_effect = FunctionalError(
             message="Incorrect email or password", error_code="INVALID_CREDENTIALS", status_code=400
@@ -61,14 +70,17 @@ class TestAuth:
         form_data = {"username": "user@example.com", "password": "wrongpassword"}
 
         # Act
-        with pytest.raises(FunctionalError) as excinfo:
-            client.post("/api/v1/auth/login", data=form_data)
+        response = client.post("/api/v1/auth/login", data=form_data)
 
-        assert excinfo.value.status_code == 400
-        assert excinfo.value.error_code == "INVALID_CREDENTIALS"
+        # Assert (Checked against API response, not Exception)
+        assert response.status_code == 400
+        data = response.json()
+        assert data["code"] == "INVALID_CREDENTIALS"
+        assert data["message"] == "Incorrect email or password"
+        assert data["type"] == "FUNCTIONAL"
 
     def test_login_failure_technical_error(self):
-        """Test login failure with TechnicalError."""
+        """Test login failure with TechnicalError (500)."""
         # Arrange
         mock_auth_svc.authenticate.side_effect = TechnicalError(
             message="Database connection failed", error_code="DB_ERROR"
@@ -77,21 +89,28 @@ class TestAuth:
         form_data = {"username": "user@example.com", "password": "password123"}
 
         # Act
-        with pytest.raises(TechnicalError) as excinfo:
-            client.post("/api/v1/auth/login", data=form_data)
+        response = client.post("/api/v1/auth/login", data=form_data)
 
-        assert excinfo.value.message == "Database connection failed"
-        assert excinfo.value.error_code == "DB_ERROR"
+        # Assert
+        assert response.status_code == 500
+        data = response.json()
+        assert data["code"] == "DB_ERROR"
+        assert data["message"] == "Database connection failed"
+        assert data["type"] == "TECHNICAL"
 
     def test_login_failure_unexpected_exception(self):
-        """Test login failure with unexpected exception."""
+        """Test login failure with unexpected exception (Handled by endpoint try/except -> TechnicalError)."""
         # Arrange
         mock_auth_svc.authenticate.side_effect = ValueError("Something went wrong")
 
         form_data = {"username": "user@example.com", "password": "password123"}
 
         # Act
-        with pytest.raises(TechnicalError) as excinfo:
-            client.post("/api/v1/auth/login", data=form_data)
+        response = client.post("/api/v1/auth/login", data=form_data)
 
-        assert excinfo.value.message == "Login failed"
+        # Assert
+        # The endpoint catches broad Exception and raises TechnicalError("Login failed")
+        assert response.status_code == 500
+        data = response.json()
+        assert data["message"] == "Login failed"
+        assert data["type"] == "TECHNICAL"

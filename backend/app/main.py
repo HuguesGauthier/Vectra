@@ -25,7 +25,7 @@ from alembic import command
 from alembic.config import Config
 from app.api.v1.router import router as api_router
 from app.api.v1.ws import router as ws_router
-from app.core.websocket import get_websocket
+from app.core.websocket import get_websocket, manager
 from app.core.database import SessionLocal
 from app.core.exceptions import VectraException
 from app.core.init_db import init_db
@@ -127,6 +127,13 @@ async def lifespan(app: FastAPI):
 
     # [SHUTDOWN]
     logger.info("🛑 Shutting down application...")
+
+    # P1: Explicitly stop background broadcast tasks
+    from app.api.v1.endpoints.dashboard import stop_broadcast_task as stop_dashboard_broadcast
+    from app.api.v1.endpoints.analytics import stop_broadcast_task as stop_analytics_broadcast
+
+    await asyncio.gather(stop_dashboard_broadcast(), stop_analytics_broadcast(), return_exceptions=True)
+
     scheduler_service.shutdown()
     logger.info("Goodbye.")
 
