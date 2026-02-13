@@ -36,7 +36,7 @@ from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
-print("DEBUG: ingestion_orchestrator.py loaded")
+logger.debug("ingestion_orchestrator.py loaded")
 
 
 class IngestionStoppedError(Exception):

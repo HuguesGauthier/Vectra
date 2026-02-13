@@ -178,7 +178,6 @@ class TrendingProcessor(BaseChatProcessor):
             logger.debug(f"UsageStat persisted for session {ctx.session_id}")
 
         except Exception as e:
-            print(f"DEBUG: Usage Persistence Error: {e}")
             logger.error(f"Usage Persistence Failed: {e}", exc_info=True)
             await ctx.db.rollback()
 
