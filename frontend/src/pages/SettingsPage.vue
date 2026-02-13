@@ -50,7 +50,7 @@
 
           <q-separator class="q-mb-md" />
 
-          <q-tab-panels v-model="tab" animated class="bg-transparent text-grey-5">
+          <q-tab-panels v-model="tab" animated class="bg-transparent">
             <!-- General Tab -->
             <q-tab-panel name="general" class="q-px-none">
               <div class="row q-col-gutter-md">
@@ -66,16 +66,7 @@
                         <div class="text-caption q-mb-xs">
                           {{ $t('language') }}
                         </div>
-                        <q-select
-                          v-model="models.app_language"
-                          :options="languageOptions"
-                          outlined
-                          dense
-                          color="accent"
-                          emit-value
-                          map-options
-                          autocomplete="off"
-                        />
+                        <CardSelection v-model="models.app_language" :options="languageOptions" />
                       </div>
 
                       <!-- Dark Mode -->
@@ -83,16 +74,7 @@
                         <div class="text-caption q-mb-xs">
                           {{ $t('theme') }}
                         </div>
-                        <q-select
-                          v-model="models.ui_dark_mode"
-                          :options="themeOptions"
-                          outlined
-                          dense
-                          color="accent"
-                          emit-value
-                          map-options
-                          autocomplete="off"
-                        />
+                        <CardSelection v-model="models.ui_dark_mode" :options="themeOptions" />
                       </div>
                     </q-card-section>
                   </q-card>
@@ -497,6 +479,7 @@ import { useAuthStore } from 'src/stores/authStore';
 import { useTheme } from 'src/composables/useTheme'; // Added import
 import { useQuasar } from 'quasar';
 import type { Setting } from 'src/models/Setting';
+import CardSelection from 'src/components/common/CardSelection.vue';
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -558,14 +541,39 @@ let originalSettings: Setting[] = [];
 // --- COMPUTED ---
 
 const languageOptions = computed(() => [
-  { label: t('langEnglish'), value: 'en-US' },
-  { label: t('langFrench'), value: 'fr' },
+  {
+    label: t('langEnglish'),
+    value: 'en-US',
+    icon: 'translate',
+    description: 'English',
+  },
+  {
+    label: t('langFrench'),
+    value: 'fr',
+    icon: 'language',
+    description: 'Français',
+  },
 ]);
 
 const themeOptions = computed(() => [
-  { label: t('themeAuto'), value: 'auto' },
-  { label: t('themeDark'), value: 'dark' },
-  { label: t('themeLight'), value: 'light' },
+  {
+    label: t('themeAuto'),
+    value: 'auto',
+    icon: 'brightness_auto',
+    description: 'Follow system',
+  },
+  {
+    label: t('themeDark'),
+    value: 'dark',
+    icon: 'dark_mode',
+    description: 'Dark mode',
+  },
+  {
+    label: t('themeLight'),
+    value: 'light',
+    icon: 'light_mode',
+    description: 'Light mode',
+  },
 ]);
 
 // Import centralized AI provider options
