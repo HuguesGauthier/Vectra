@@ -82,8 +82,8 @@ async def test_llm_retry_on_timeout(service, mock_settings):
     mock_llm = MagicMock()
     mock_llm.acomplete = AsyncMock()
 
-    # We need to mock the GoogleGenAI in the method
-    with patch("app.services.schema_discovery_service.GoogleGenAI", return_value=mock_llm):
+    # We need to mock the LLM creation in the method
+    with patch("app.factories.llm_factory.LLMFactory.create_llm", return_value=mock_llm):
         # First call times out, second succeeds
         mock_response = MagicMock()
         mock_response.text = '{"renaming_map": {}, "semantic_cols": []}'

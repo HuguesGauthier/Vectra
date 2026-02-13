@@ -21,12 +21,17 @@ from app.core.exceptions import EntityNotFound, FunctionalError
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    return MagicMock()
 
 
 @pytest.fixture
 def mock_repository():
-    return AsyncMock()
+    repo = MagicMock()
+    repo.email_exists = AsyncMock()
+    repo.create = AsyncMock()
+    repo.get = AsyncMock()
+    repo.update = AsyncMock()
+    return repo
 
 
 @pytest.fixture
@@ -41,7 +46,8 @@ async def test_create_user_success(service, mock_repository):
     # Setup
     user_in = UserCreate(email="test@example.com", password="securepassword", role="user")
     mock_repository.email_exists.return_value = False
-    mock_repository.create.side_effect = lambda u: u  # Return the user object
+    async def _create_side_effect(u): return u
+    mock_repository.create.side_effect = _create_side_effect
 
     # Execute
     user = await service.create(user_in)

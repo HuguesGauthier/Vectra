@@ -1,5 +1,5 @@
 import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -22,7 +22,8 @@ app = get_test_app()
 app.include_router(router, prefix="/api/v1/audio")
 
 # Define Mocks
-mock_file_svc = AsyncMock(spec=FileService)
+mock_file_svc = MagicMock(spec=FileService)
+mock_file_svc.get_file_for_streaming = AsyncMock()
 
 
 # Helper overrides
@@ -44,12 +45,15 @@ class TestAudio:
 
     def setup_method(self):
         mock_file_svc.reset_mock()
-        # Ensure default behavior is reset
-        mock_file_svc.get_file_for_streaming = AsyncMock()
+        mock_file_svc.get_file_for_streaming.side_effect = None
+        mock_file_svc.get_file_for_streaming.return_value = None
 
-    def test_stream_audio_success(self):
+    @pytest.mark.asyncio
+    async def test_stream_audio_success(self):
         """Test happy path streaming"""
         doc_id = uuid4()
+        # Create a new AsyncMock for this test to ensure it's awaited cleanly
+        mock_file_svc.get_file_for_streaming = AsyncMock()
 
         # We need a real file for FileResponse to not error 500 inside Starlette
         # Using this test file itself

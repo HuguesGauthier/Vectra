@@ -264,6 +264,7 @@ export default {
   stepIntelligence: 'Chat Engine',
   selectAIEngine: 'Select Answer Engine',
   configure: 'Configure',
+  configureProvider: 'Configure provider settings',
   selectAIEngineDesc:
     'Choose the AI model that will formulate answers and reason about your data (not embedding).',
   selectConnectorTypeDesc: 'Choose the type of data source you want to connect.',

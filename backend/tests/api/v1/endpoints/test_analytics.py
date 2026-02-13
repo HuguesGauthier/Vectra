@@ -361,14 +361,15 @@ def reset_broadcast_globals():
 
 
 @pytest.mark.asyncio
-@patch("app.api.v1.endpoints.analytics.broadcast_analytics_loop")
-@patch("app.api.v1.endpoints.analytics.asyncio.create_task")
+@patch("app.api.v1.endpoints.analytics.broadcast_analytics_loop", new_callable=MagicMock)
+@patch("app.api.v1.endpoints.analytics.asyncio.create_task", new_callable=MagicMock)
 @patch("app.api.v1.endpoints.analytics.logger")
 async def test_start_broadcast_task(mock_logger, mock_create_task, mock_broadcast_loop):
     from app.api.v1.endpoints import analytics
 
     await analytics.start_broadcast_task(interval_seconds=1)
-    analytics._broadcast_task.done.return_value = False
+    # Ensure the task mock behaves correctly
+    analytics._broadcast_task.done = MagicMock(return_value=False)
     assert analytics._broadcast_running is True
     mock_create_task.assert_called_once()
     mock_logger.info.assert_called_with("Analytics broadcast task started")
@@ -391,7 +392,8 @@ async def test_stop_broadcast_task(mock_logger, mock_wait_for):
     mock_logger.info.assert_not_called()
 
     # Setup a mock task to be "stopped"
-    mock_task = AsyncMock(spec=asyncio.Task)
+    mock_task = MagicMock(spec=asyncio.Task)
+    mock_task.__await__ = MagicMock(return_value=iter([])) # Make it awaitable if needed by wait_for
     analytics._broadcast_task = mock_task
     analytics._broadcast_running = True
 
@@ -514,8 +516,10 @@ async def test_broadcast_analytics_loop_exception_handling(
     from app.api.v1.endpoints import analytics
 
     # Configure mocks
-    mock_analytics_instance = mock_analytics_service_class.return_value = AsyncMock(spec=AnalyticsService)
-    mock_analytics_instance.get_all_advanced_analytics.side_effect = Exception("Service error")
+    mock_analytics_instance = MagicMock()
+    mock_analytics_service_class.return_value = mock_analytics_instance
+    async def _fail(*args, **kwargs): raise Exception("Service error")
+    mock_analytics_instance.get_all_advanced_analytics.side_effect = _fail
 
     # Mock the session context manager
     mock_session = AsyncMock()

@@ -15,7 +15,9 @@ from app.services.chat.source_service import SourceService
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    db = MagicMock()
+    db.execute = AsyncMock()
+    return db
 
 
 @pytest.fixture
@@ -100,8 +102,8 @@ async def test_process_sources_invalid_uuid(mock_db, mock_node):
     # Execute
     results = await SourceService.process_sources(nodes, mock_db)
 
-    # Verify - Should not crash and should not call DB
     assert len(results) == 1
+    # Verify DB was NOT called for invalid UUID
     mock_db.execute.assert_not_called()
 
 

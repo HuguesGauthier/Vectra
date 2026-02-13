@@ -16,7 +16,7 @@ def mock_db_session():
     mock_session.__aexit__.return_value = None
     mock_session.commit = AsyncMock()
     mock_session.refresh = AsyncMock()
-    mock_session.begin_nested = AsyncMock()
+    mock_session.add = MagicMock()
     return mock_session
 
 
@@ -40,6 +40,8 @@ def ingestion_service(mock_db_session, mock_connector_repo, mock_doc_repo, mock_
     service = IngestionService(mock_db_session, schema_service=mock_schema_service)
     service.connector_repo = mock_connector_repo
     service.doc_repo = mock_doc_repo
+    # Mock state_service to avoid unawaited coroutine warnings on finalize_connector
+    service.state_service = AsyncMock()  # Must be AsyncMock to be awaited
     return service
 
 

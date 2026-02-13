@@ -20,8 +20,12 @@ from app.services.connector_service import MANAGED_UPLOAD_DIR, ConnectorService
 # Setup simple mocks
 @pytest.fixture
 def mock_repo():
-    repo = AsyncMock()
+    repo = MagicMock()
     repo.db = MagicMock()
+    repo.get_by_id = AsyncMock()
+    repo.update = AsyncMock()
+    repo.create = AsyncMock()
+    repo.delete_with_relations = AsyncMock()
     return repo
 
 

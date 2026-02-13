@@ -260,6 +260,7 @@ export default {
   stepIntelligence: 'Moteur de Réponse',
   selectAIEngine: 'Sélectionner le moteur de réponse',
   configure: 'Configurer',
+  configureProvider: 'Configurer les paramètres du fournisseur',
   selectAIEngineDesc:
     "Choisissez le modèle d'IA qui formulera les réponses et raisonnera sur vos données (ce n'est pas le moteur de vectorisation).",
   selectConnectorTypeDesc: 'Choisissez le type de source de données que vous souhaitez connecter.',

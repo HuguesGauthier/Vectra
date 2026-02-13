@@ -11,7 +11,7 @@ from typing import Any, List, Optional, Sequence
 
 from llama_index.core.program import LLMTextCompletionProgram
 from llama_index.core.schema import BaseNode, TransformComponent
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +84,7 @@ class ComboMetadataExtractor(TransformComponent):
     language: str = Field(default="fr", description="Language for extraction prompts (fr/en)")
     extraction_program: Optional[Any] = Field(default=None, description="Compiled LLM program")
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def __init__(self, llm, extraction_model: str = "gemini-flash", language: str = "fr", **kwargs):
         super().__init__(llm=llm, extraction_model=extraction_model, language=language, **kwargs)

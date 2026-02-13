@@ -17,53 +17,62 @@ from app.models.topic_stat import TopicStat
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    db = MagicMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+    db.refresh = AsyncMock()
+    return db
 
 
 @pytest.fixture
 def mock_repository():
-    return AsyncMock()
+    repo = MagicMock()
+    repo.create = AsyncMock()
+    repo.get_by_id_with_lock = AsyncMock()
+    repo.get_trending = AsyncMock()
+    repo.update = AsyncMock()
+    return repo
 
 
 @pytest.fixture
 def mock_vector_service():
-    service = AsyncMock()
-    service.get_async_qdrant_client = AsyncMock()
-    # Configure it to return a mock client
-    mock_client = AsyncMock()
-    service.get_async_qdrant_client.return_value = mock_client
+    service = MagicMock()
+    mock_client = MagicMock()
+    service.get_async_qdrant_client = AsyncMock(return_value=mock_client)
+    mock_client.query_points = AsyncMock()
+    mock_client.upsert_points = AsyncMock()
+    service.ensure_collection_exists = AsyncMock()
     return service
 
 
 @pytest.fixture
 def mock_settings_service():
-    return AsyncMock()
+    return MagicMock()
 
 
 @pytest.fixture
 def service(mock_db, mock_repository, mock_vector_service, mock_settings_service):
-    with patch("app.services.trending_service.VectorRepository") as mock_v_repo:
+    with patch("app.services.trending_service.VectorRepository"):
         svc = TrendingService(
             db=mock_db,
             repository=mock_repository,
             vector_service=mock_vector_service,
             settings_service=mock_settings_service,
         )
-        # Fix: Ensure vector_repo is AsyncMock for assert_awaited usage
-        svc.vector_repo = AsyncMock()
+        svc.vector_repo = MagicMock()
+        svc.vector_repo.upsert_points = AsyncMock()
         return svc
 
 
 @pytest.mark.asyncio
-async def test_process_user_question_new_topic(service, mock_vector_service):
+async def test_process_user_question_new_topic(service, mock_vector_service, mock_repository):
     # Setup
     a_id = uuid4()
     question = "How to use this app?"
     embedding = [0.1] * 1536
 
     # Mock semantic search results (empty for new topic)
-    mock_client = mock_vector_service.get_async_qdrant_client.return_value
-    mock_client.query_points = AsyncMock()
+    mock_client = await mock_vector_service.get_async_qdrant_client()
     mock_client.query_points.return_value.points = []
 
     # Execute
@@ -91,10 +100,14 @@ async def test_process_user_question_existing_topic(service, mock_vector_service
     mock_client.query_points.return_value.points = [mock_match]
 
     # Mock DB record
-    mock_topic = MagicMock()
-    mock_topic.frequency = 1
-    mock_topic.raw_variations = ["How does it work?"]
-    mock_repository.get_by_id_with_lock = AsyncMock(return_value=mock_topic)
+    mock_topic = TopicStat(
+        id=t_id,
+        assistant_id=a_id,
+        canonical_text="Topic 1",
+        frequency=1,
+        raw_variations=["How does it work?"]
+    )
+    mock_repository.get_by_id_with_lock.return_value = mock_topic
 
     # Execute
     await service.process_user_question(question, a_id, embedding)
@@ -142,7 +155,7 @@ async def test_get_trending_topics_aggregation(service, mock_repository):
     t3.frequency = 10
     t3.raw_variations = ["B1"]
 
-    mock_repository.get_trending = AsyncMock(return_value=[t1, t2, t3])
+    service.repository.get_trending = AsyncMock(return_value=[t1, t2, t3])
 
     # Execute
     results = await service.get_trending_topics(limit=5)

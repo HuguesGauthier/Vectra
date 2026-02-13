@@ -21,7 +21,10 @@ def mock_context():
 async def test_process_happy_path_viz_triggered(mock_context):
     # Setup
     processor = VisualizationProcessor()
-    processor.viz_service = AsyncMock()
+    processor.viz_service = MagicMock()
+    processor.viz_service.extract_data_info = AsyncMock()
+    processor.viz_service.classify_visualization_type = AsyncMock()
+    processor.viz_service.format_visualization_data = AsyncMock()
     
     # Mock Data Extraction
     mock_data_info = MagicMock()
@@ -76,7 +79,9 @@ async def test_process_skipped_ai_decision(mock_context):
     mock_context.message = "hello world"
     
     processor = VisualizationProcessor()
-    processor.viz_service = AsyncMock()
+    processor.viz_service = MagicMock()
+    processor.viz_service.extract_data_info = AsyncMock()
+    processor.viz_service.classify_visualization_type = AsyncMock()
 
     # Execute
     events = []
@@ -93,10 +98,10 @@ async def test_process_skipped_ai_decision(mock_context):
 async def test_process_error_fail_open(mock_context):
     # Setup
     processor = VisualizationProcessor()
-    processor.viz_service = AsyncMock()
-    
-    # Mock Error
-    processor.viz_service.extract_data_info.side_effect = Exception("Service Error")
+    processor.viz_service = MagicMock()
+    async def _extract(*args, **kwargs): raise Exception("Service Error")
+    processor.viz_service.extract_data_info.side_effect = _extract
+    processor.viz_service.classify_visualization_type = AsyncMock()
 
     # Execute
     events = []
@@ -111,7 +116,9 @@ async def test_process_error_fail_open(mock_context):
 async def test_process_redundant_table(mock_context):
     # Setup
     processor = VisualizationProcessor()
-    processor.viz_service = AsyncMock()
+    processor.viz_service = MagicMock()
+    processor.viz_service.extract_data_info = AsyncMock()
+    processor.viz_service.classify_visualization_type = AsyncMock()
     
     mock_data_info = MagicMock()
     mock_data_info.row_count = 5

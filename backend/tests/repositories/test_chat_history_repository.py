@@ -97,7 +97,9 @@ async def test_redis_clear(redis_repo, mock_redis):
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture(autouse=True)

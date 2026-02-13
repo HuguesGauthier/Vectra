@@ -8,7 +8,9 @@ from app.core.exceptions import TechnicalError
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture(autouse=True)

@@ -12,9 +12,11 @@ def mock_context():
     ctx.session_id = str(uuid4())
     ctx.message = "Hello world"
     ctx.language = "en"
-    ctx.db = AsyncMock()
-    ctx.settings_service = AsyncMock()
-    ctx.vector_service = AsyncMock()
+    ctx.db = MagicMock()
+    ctx.db.commit = AsyncMock()
+    ctx.db.rollback = AsyncMock()
+    ctx.settings_service = MagicMock()
+    ctx.vector_service = MagicMock()
     ctx.assistant = MagicMock()
     ctx.assistant.id = str(uuid4())
     ctx.assistant.model = "gpt-4o"
@@ -103,10 +105,13 @@ async def test_execute_trending_safe_timeout(mock_context):
 async def test_persist_usage_statistics_safe(mock_context):
     processor = TrendingProcessor()
 
-    with patch("app.services.chat.processors.trending_processor.UsageRepository") as MockRepo:
-        # Mock DB add/commit
+    with patch("app.services.chat.processors.trending_processor.UsageRepository"):
+        async def _commit(): pass
+        async def _rollback(): pass
+        mock_context.db.commit.side_effect = _commit
+        mock_context.db.rollback.side_effect = _rollback
+        # Ensure add is mocked
         mock_context.db.add = MagicMock()
-        mock_context.db.commit = AsyncMock()
 
         await processor._persist_usage_statistics_safe(mock_context)
 

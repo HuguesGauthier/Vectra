@@ -70,12 +70,17 @@ def mock_vector_service(mock_settings_service):
 
 @pytest.fixture
 def document_service(mock_doc_repo, mock_conn_repo, mock_vector_service, mock_settings_service):
-    return DocumentService(
+    document_service = DocumentService(
         document_repo=mock_doc_repo,
         connector_repo=mock_conn_repo,
         vector_service=mock_vector_service,
         settings_service=mock_settings_service,
     )
+    # Mock methods that are spawned as background tasks to avoid unawaited coroutine warnings
+    document_service._safe_delete_vectors = MagicMock(return_value=None)
+    document_service._safe_update_acl = MagicMock(return_value=None)
+    document_service._safe_delete_file = MagicMock(return_value=None)
+    return document_service
 
 
 @pytest.fixture

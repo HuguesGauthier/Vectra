@@ -184,20 +184,3 @@ class TestNotifications:
         response = client.delete("/api/v1/notifications/")
         assert response.status_code == 500
 
-    @pytest.mark.skip("Hangs in TestClient")
-    def test_sse_stream(self):
-        """Test SSE endpoint subscription."""
-        with patch("app.api.v1.endpoints.notifications.get_websocket") as mock_get_ws:
-            mock_ws = MagicMock()
-
-            async def mock_stream():
-                yield "test message"
-                yield "another message"
-
-            mock_ws.stream_events.return_value = mock_stream()
-            mock_get_ws.return_value = mock_ws
-
-            with client.stream("GET", "/api/v1/notifications/stream") as response:
-                assert response.status_code == 200
-                gen = response.iter_lines()
-                assert next(gen) == "data: test message"

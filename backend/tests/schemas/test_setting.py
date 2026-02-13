@@ -4,7 +4,7 @@ Tests cover validation, DoS protection, group validation, and secret handling.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 
 from pydantic import ValidationError
 
@@ -211,7 +211,7 @@ class TestSettingResponse:
 
     def test_valid_setting_response(self):
         """Test creating a valid setting response."""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         response = SettingResponse(
             key="test_key",
             value="test_value",
@@ -282,7 +282,7 @@ class TestEdgeCases:
             value="value",
             group="general",
             is_secret=False,
-            updated_at=datetime.utcnow(),
+            updated_at=datetime.now(UTC),
         )
         data = setting.model_dump()
         assert isinstance(data, dict)

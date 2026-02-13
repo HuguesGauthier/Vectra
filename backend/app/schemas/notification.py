@@ -21,7 +21,7 @@ class NotificationBase(SQLModel):
     Base properties for Notification.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, use_enum_values=True)
 
     # We use the Enum for validation, but store as string in DB usually
     # (or Enum column, but SQLModel+Enum can be tricky with migrations sometimes,

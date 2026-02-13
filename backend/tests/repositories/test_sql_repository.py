@@ -21,7 +21,9 @@ class MockModel(SQLModel, table=True):
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture(autouse=True)

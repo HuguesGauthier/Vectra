@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
     GEMINI_TRANSCRIPTION_MODEL: str = "gemini-1.5-flash-latest"
     GEMINI_CHAT_MODEL: str = "gemini-1.5-flash-latest"
+    LOCAL_EXTRACTION_MODEL: Optional[str] = "mistral"
+    LOCAL_EXTRACTION_URL: str = "http://localhost:11434"
 
     # Observability
     ENABLE_PHOENIX_TRACING: bool = False  # Set to True via env to enable Arize Phoenix

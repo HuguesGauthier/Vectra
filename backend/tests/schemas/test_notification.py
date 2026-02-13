@@ -4,7 +4,7 @@ Tests cover validation, DoS protection, and serialization.
 """
 
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -127,7 +127,7 @@ class TestNotificationResponse:
         """Test creating a valid notification response."""
         notification_id = uuid4()
         user_id = uuid4()
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         response = NotificationResponse(
             id=notification_id,

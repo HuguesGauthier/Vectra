@@ -4,6 +4,7 @@ Tests for CSV processor with edge cases.
 
 import os
 import tempfile
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -79,7 +80,9 @@ class TestCsvProcessorSuccess:
             # When we hit exactly MAX_ROWS, we assume truncation (file might have more)
             assert doc.metadata["truncated"] is True
         finally:
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+            await asyncio.sleep(0)
 
 
 class TestCsvProcessorTruncation:
@@ -138,7 +141,8 @@ class TestCsvProcessorFailures:
             assert results[0].success is False
             assert "too large" in results[0].error_message.lower()
         finally:
-            os.unlink(tmp_path)
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
     @pytest.mark.asyncio
     async def test_get_supported_extensions(self):

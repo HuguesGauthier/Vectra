@@ -16,7 +16,9 @@ from app.schemas.user import UserUpdate
 
 @pytest.fixture
 def mock_db():
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture

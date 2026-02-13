@@ -32,7 +32,9 @@ class MockModel:
 @pytest.fixture
 def mock_db():
     """Create a mock AsyncSession."""
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture(autouse=True)

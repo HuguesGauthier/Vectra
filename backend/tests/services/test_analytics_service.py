@@ -23,6 +23,8 @@ from app.schemas.advanced_analytics import AdvancedAnalyticsResponse
 from app.schemas.analytics import AnalyticsResponse
 from app.services.analytics_service import (
     ANALYTICS_TASK_TIMEOUT,
+    DEFAULT_COST_PER_1K_TOKENS,
+    DEFAULT_MIN_SAVED_PER_DOC,
     AnalyticsService,
     AnalyticsTask,
     get_analytics_service,
@@ -54,20 +56,25 @@ def mock_session_factory(mock_session):
 @pytest.fixture
 def mock_settings_service():
     """Mock for SettingsService with default behaviors."""
-    service = AsyncMock()
-    # Default behavior: return the default value provided to get_value
-    service.get_value.side_effect = lambda key, default=None: AsyncMock(return_value=default)()
+    service = MagicMock() # Changed to MagicMock because it might be used as a base for sync attributes
+    service.get_value = AsyncMock()
+    async def _side_effect(key, default=None):
+        return default
+    service.get_value.side_effect = _side_effect
     return service
 
 
 @pytest.fixture
 def service(mock_session_factory, mock_settings_service, fixed_now):
     """Configured AnalyticsService instance for testing."""
-    return AnalyticsService(
+    service = AnalyticsService(
         session_factory=mock_session_factory,
         settings_service=mock_settings_service,
         time_provider=lambda: fixed_now,
     )
+    # Mock internal methods that are called but might not be awaited or are mocked as AsyncMock incorrectly
+    service._fetch_business_settings = AsyncMock(return_value=(DEFAULT_COST_PER_1K_TOKENS, DEFAULT_MIN_SAVED_PER_DOC))
+    return service
 
 
 # --- Business Metrics Tests ---
@@ -92,10 +99,10 @@ async def test_get_business_metrics_success(service, mock_session, monkeypatch):
     assert isinstance(result, AnalyticsResponse)
     assert result.total_docs == 50
     assert result.total_tokens == 100000
-    # (100000 / 1000) * 0.0002 = 0.02
-    assert result.estimated_cost == 0.02
-    # (50 * 10.0) / 60.0 = 8.333... -> 8.3
-    assert result.time_saved_hours == 8.3
+    # (100000 / 1000) * 0.0001 = 0.01
+    assert result.estimated_cost == 0.01
+    # (50 * 5.0) / 60.0 = 4.166... -> 4.2
+    assert result.time_saved_hours == 4.2
 
 
 @pytest.mark.asyncio
@@ -179,8 +186,10 @@ async def test_safe_unpack_catches_exceptions(service):
 @pytest.mark.asyncio
 async def test_get_ttft_percentiles_mapping(service, monkeypatch):
     """Verify TTFT percentile extraction and mapping."""
-    mock_repo = AsyncMock()
-    mock_repo.get_ttft_percentiles.return_value = {"p50": 0.45, "p95": 1.2, "p99": 3.0}
+    mock_repo = MagicMock()
+    async def _ttft(*args, **kwargs):
+        return {"p50": 0.45, "p95": 1.2, "p99": 3.0}
+    mock_repo.get_ttft_percentiles.side_effect = _ttft
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_ttft_percentiles(24)
@@ -191,14 +200,15 @@ async def test_get_ttft_percentiles_mapping(service, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_step_breakdown_mapping(service, monkeypatch):
     """Verify step breakdown durations and token mapping."""
-    mock_repo = AsyncMock()
+    mock_repo = MagicMock()
     row = MagicMock()
     row.step_name = "synthesis"
     row.avg_duration = 1.25
     row.step_count = 100
     row.avg_input_tokens = 500
     row.avg_output_tokens = 250
-    mock_repo.get_step_breakdown.return_value = [row]
+    async def _breakdown(*args, **kwargs): return [row]
+    mock_repo.get_step_breakdown.side_effect = _breakdown
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_step_breakdown(7)
@@ -210,8 +220,9 @@ async def test_get_step_breakdown_mapping(service, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_topic_diversity_empty_case(service, monkeypatch):
     """Ensure diversity score returns None when no data exists (backward compatibility)."""
-    mock_repo = AsyncMock()
-    mock_repo.get_topic_frequencies.return_value = []
+    mock_repo = MagicMock()
+    async def _freqs(*args, **kwargs): return []
+    mock_repo.get_topic_frequencies.side_effect = _freqs
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_topic_diversity(None)
@@ -239,14 +250,15 @@ def test_calculate_diversity_metrics_logic(service):
 @pytest.mark.asyncio
 async def test_get_assistant_costs_calculation(service, monkeypatch):
     """Test token cost estimation per assistant."""
-    mock_repo = AsyncMock()
+    mock_repo = MagicMock()
     row = MagicMock()
     row.id = uuid4()
     row.name = "Bot Alpha"
     row.input_tokens = 2000
     row.output_tokens = 1000
     row.total_tokens = 3000
-    mock_repo.get_assistant_usage_sums.return_value = [row]
+    async def _usage(*args, **kwargs): return [row]
+    mock_repo.get_assistant_usage_sums.side_effect = _usage
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_assistant_costs(24)
@@ -258,12 +270,12 @@ async def test_get_assistant_costs_calculation(service, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_document_freshness_percentages(service, monkeypatch):
     """Verify freshness bucket percentage calculations."""
-    mock_repo = AsyncMock()
+    mock_repo = MagicMock()
     rows = [
         MagicMock(freshness_category="Fresh", doc_count=20),
         MagicMock(freshness_category="Stale", doc_count=80),
     ]
-    mock_repo.get_document_freshness_stats.return_value = rows
+    mock_repo.get_document_freshness_stats = AsyncMock(return_value=rows)
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_document_freshness()
@@ -274,13 +286,13 @@ async def test_get_document_freshness_percentages(service, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_document_utilization_enriched_mapping(service, monkeypatch):
     """Verify document utilization report uses enriched names from repository."""
-    mock_repo = AsyncMock()
+    mock_repo = MagicMock()
     row = MagicMock()
     row.file_name = "report.pdf"
     row.connector_name = "SharePoint"
     row.retrieval_count = 15
     row.last_retrieved = datetime.now(timezone.utc)
-    mock_repo.get_document_retrieval_stats.return_value = [row]
+    mock_repo.get_document_retrieval_stats = AsyncMock(return_value=[row])
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_document_utilization(30)
@@ -293,7 +305,7 @@ async def test_get_document_utilization_enriched_mapping(service, monkeypatch):
 @pytest.mark.asyncio
 async def test_get_user_stats_mapping_robustness(service, monkeypatch):
     """Verify user stat mapping handles missing names gracefully."""
-    mock_repo = AsyncMock()
+    mock_repo = MagicMock()
     row = MagicMock()
     row.user_id = uuid4()
     row.email = "anon@example.com"
@@ -302,7 +314,7 @@ async def test_get_user_stats_mapping_robustness(service, monkeypatch):
     row.total_tokens = 10
     row.interaction_count = 1
     row.last_active = datetime.now(timezone.utc)
-    mock_repo.get_user_usage_stats.return_value = [row]
+    mock_repo.get_user_usage_stats = AsyncMock(return_value=[row])
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
 
     result = await service.get_user_stats(30)

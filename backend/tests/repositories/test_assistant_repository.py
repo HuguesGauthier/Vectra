@@ -10,7 +10,9 @@ from app.core.exceptions import EntityNotFound, TechnicalError, ValidationError
 @pytest.fixture
 def mock_db():
     """Create a mock AsyncSession."""
-    return AsyncMock()
+    mock = AsyncMock()
+    mock.add = MagicMock()
+    return mock
 
 
 @pytest.fixture

@@ -26,7 +26,16 @@ app = get_test_app()
 app.include_router(router, prefix="/api/v1/assistants")
 
 # Setup Mocks
-mock_asst_svc = AsyncMock(spec=AssistantService)
+mock_asst_svc = MagicMock(spec=AssistantService)
+mock_asst_svc.get_assistants = AsyncMock()
+mock_asst_svc.get_assistant = AsyncMock()
+mock_asst_svc.create_assistant = AsyncMock()
+mock_asst_svc.update_assistant = AsyncMock()
+mock_asst_svc.delete_assistant = AsyncMock()
+mock_asst_svc.upload_avatar = AsyncMock()
+mock_asst_svc.remove_avatar = AsyncMock()
+mock_asst_svc.get_avatar_path = AsyncMock()
+mock_asst_svc.clear_cache = AsyncMock()
 
 
 async def override_get_service():
@@ -51,25 +60,12 @@ client = TestClient(app)
 class TestAssistants:
 
     def setup_method(self):
-        mock_asst_svc.reset_mock(return_value=True, side_effect=True)
-        mock_asst_svc.get_assistants.side_effect = None
-        mock_asst_svc.get_assistants.return_value = None
-        mock_asst_svc.get_assistant.side_effect = None
-        mock_asst_svc.get_assistant.return_value = None
-        mock_asst_svc.create_assistant.side_effect = None
-        mock_asst_svc.create_assistant.return_value = None
-        mock_asst_svc.update_assistant.side_effect = None
-        mock_asst_svc.update_assistant.return_value = None
-        mock_asst_svc.delete_assistant.side_effect = None
-        mock_asst_svc.delete_assistant.return_value = None
-        mock_asst_svc.upload_avatar.side_effect = None
-        mock_asst_svc.upload_avatar.return_value = None
-        mock_asst_svc.remove_avatar.side_effect = None
-        mock_asst_svc.remove_avatar.return_value = None
-        mock_asst_svc.get_avatar_path.side_effect = None
-        mock_asst_svc.get_avatar_path.return_value = None
-        mock_asst_svc.clear_cache.side_effect = None
-        mock_asst_svc.clear_cache.return_value = None
+        mock_asst_svc.reset_mock()
+        # Reset side effects and return values
+        for attr in ["get_assistants", "get_assistant", "create_assistant", "update_assistant",
+                    "delete_assistant", "upload_avatar", "remove_avatar", "get_avatar_path", "clear_cache"]:
+            getattr(mock_asst_svc, attr).side_effect = None
+            getattr(mock_asst_svc, attr).return_value = None
 
     def test_get_assistants(self):
         """Test listing assistants."""
