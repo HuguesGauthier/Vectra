@@ -95,9 +95,9 @@ class ScannerService:
             if not connector:
                 raise TechnicalError(message=f"Connector {connector_id} not found", error_code="CONNECTOR_NOT_FOUND")
 
-            initial_status = DocStatus.PENDING
-            if connector.schedule_type == "manual" or not connector.schedule_cron:
-                initial_status = DocStatus.IDLE
+            # P0: Always set to IDLE during scan to prevent auto-ingestion
+            # The user must manually click 'Process' or wait for the scheduled sync
+            initial_status = DocStatus.IDLE
 
             await self._safe_emit("SCAN_STARTED", {"connector_id": str(connector_id), "message": "Scanning files..."})
 
@@ -234,6 +234,11 @@ class ScannerService:
             is_supported = False
             validation_error = "CSV files are not supported in Folder connectors. Use the CSV File connector instead."
 
+        # Logic to exclude non-CSVs from local_file
+        if connector_type == "local_file" and ext != ".csv":
+            is_supported = False
+            validation_error = "Only CSV files are supported in this connector type."
+
         if is_supported and ext == ".csv":
             try:
                 await IngestionUtils.validate_csv_file(full_path)
@@ -324,8 +329,8 @@ class ScannerService:
         if os.path.isfile(base_path):
             base_name = os.path.basename(base_path)
             if not (base_name.startswith(self.IGNORED_PREFIXES) or base_name in self.IGNORED_FILES):
-                # For single file, rel_path is the filename
-                found_files[base_name] = base_path
+                # For single file, use the full path as rel_path to preserve directory structure
+                found_files[base_path] = base_path
             return found_files
 
         for root, dirs, files in os.walk(base_path):

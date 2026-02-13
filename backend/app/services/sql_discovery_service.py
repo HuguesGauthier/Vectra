@@ -11,7 +11,7 @@ from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.engine.url import URL
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.websocket import Websocket
+from app.core.websocket import manager
 from app.core.database import get_db
 from app.models.assistant import AssistantConnectorLink
 from app.models.connector import Connector
@@ -488,7 +488,7 @@ class SQLDiscoveryService:
                             "file_path": obj_name,
                             "file_name": obj_name,
                             "file_size": len(obj["content"]),
-                            "status": DocStatus.PENDING,
+                            "status": DocStatus.IDLE,
                             "file_metadata": metadata,
                         }
                     )
@@ -541,7 +541,7 @@ class SQLDiscoveryService:
                             "file_path": v,
                             "file_name": v,
                             "file_size": 0,
-                            "status": DocStatus.PENDING,
+                            "status": DocStatus.IDLE,
                             "file_metadata": {"type": "view", "source": "sql_discovery"},
                         }
                     )

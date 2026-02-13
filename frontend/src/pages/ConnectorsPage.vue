@@ -211,19 +211,11 @@
                       size="sm"
                       icon="play_arrow"
                       color="grey-5"
-                      :disable="
-                        !props.row.is_enabled ||
-                        !props.row.total_docs_count ||
-                        props.row.schedule_type !== 'manual'
-                      "
+                      :disable="!props.row.is_enabled || !props.row.total_docs_count"
                       @click="syncSource(props.row)"
                     >
-                      <AppTooltip>
-                        {{
-                          props.row.schedule_type !== 'manual'
-                            ? $t('scheduledSyncOnly')
-                            : $t('syncNow')
-                        }}
+                      <AppTooltip pill>
+                        {{ $t('syncNow') }}
                       </AppTooltip>
                     </q-btn>
                   </div>

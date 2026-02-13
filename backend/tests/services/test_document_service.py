@@ -107,7 +107,7 @@ def mock_blocking_io(func, *args, **kwargs):
 async def test_upload_file_async_nominal(document_service):
     """Test async streaming upload."""
     mock_file = MagicMock(spec=UploadFile)
-    mock_file.filename = "test.txt"
+    mock_file.filename = "test.csv"
     mock_file.read = AsyncMock(side_effect=[b"chunk1", b"chunk2", b""])  # Stream content
 
     # Mock aiofiles
@@ -122,12 +122,15 @@ async def test_upload_file_async_nominal(document_service):
     with (
         patch("aiofiles.open", return_value=mock_aio_open) as m_open,
         patch.object(document_service, "_run_blocking_io") as mock_run,
+        patch(
+            "app.services.document_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock
+        ) as mock_validate,
     ):
-
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
         path = await document_service.upload_file(mock_file)
 
         assert "temp_uploads" in path
-        assert "test.txt" in path
+        assert "test.csv" in path
         assert mock_file.read.call_count == 3
         mock_f.write.assert_awaited()
         mock_run.assert_awaited()  # makedirs
@@ -141,7 +144,7 @@ async def test_delete_document_background_tasks(document_service, mock_doc_repo,
     c = Connector(
         id=cid, name="Test", connector_type="local_file", configuration={"ai_provider": "gemini"}, total_docs_count=5
     )
-    doc = ConnectorDocument(id=doc_id, connector_id=c.id, file_path="/tmp/f.txt")
+    doc = ConnectorDocument(id=doc_id, connector_id=c.id, file_path="/tmp/f.csv")
 
     mock_doc_repo.get_by_id = AsyncMock(return_value=doc)
     mock_conn_repo.get_by_id = AsyncMock(return_value=c)
@@ -166,15 +169,18 @@ async def test_create_document_nominal(document_service, mock_conn_repo, mock_do
     c = Connector(id=cid, name="Test", connector_type="local_file", schedule_type="manual", total_docs_count=0)
     mock_conn_repo.get_by_id = AsyncMock(return_value=c)
 
-    doc_data = ConnectorDocumentCreate(file_name="test.txt", file_path="/p/t.txt")
+    doc_data = ConnectorDocumentCreate(file_name="test.csv", file_path="/p/t.csv")
     doc_dict = doc_data.model_dump()
     if "configuration" not in doc_dict or doc_dict["configuration"] is None:
         doc_dict["configuration"] = {}
     mock_doc_repo.create = AsyncMock(return_value=ConnectorDocument(id=uuid4(), connector_id=cid, **doc_dict))
-
-    await document_service.create_document(cid, doc_data)
-    mock_doc_repo.create.assert_called_once()
-    mock_conn_repo.update.assert_called_once()
+    with patch(
+        "app.services.document_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock
+    ) as mock_validate:
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
+        await document_service.create_document(cid, doc_data)
+        mock_doc_repo.create.assert_called_once()
+        mock_conn_repo.update.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -184,15 +190,15 @@ async def test_update_document_acl_background(document_service, mock_doc_repo, m
     doc_before = ConnectorDocument(
         id=doc_id,
         connector_id=uuid4(),
-        file_path="/test/path.txt",
-        file_name="path.txt",
+        file_path="/test/path.csv",
+        file_name="path.csv",
         configuration={"connector_document_acl": ["old"]},
     )
     doc_after = ConnectorDocument(
         id=doc_id,
         connector_id=doc_before.connector_id,
-        file_path="/test/path.txt",
-        file_name="path.txt",
+        file_path="/test/path.csv",
+        file_name="path.csv",
         configuration={"connector_document_acl": ["new"]},
     )
     mock_doc_repo.get_by_id = AsyncMock(return_value=doc_before)

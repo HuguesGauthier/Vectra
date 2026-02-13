@@ -2,7 +2,11 @@
   <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md">
     <ConfigurationGeneralFields v-model="localData" />
 
-    <FileConfigFields v-model="localData.configuration" v-model:file="activeFile" />
+    <FileConfigFields
+      v-model="localData.configuration"
+      v-model:file="activeFile"
+      :accept="localData.connector_type === 'local_file' ? '.csv' : undefined"
+    />
 
     <q-select
       v-if="!props.hideAiProvider"

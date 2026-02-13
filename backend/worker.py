@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from croniter import croniter
+
 # Enforce .env loading for consistent secrets
 from dotenv import load_dotenv
 from sqlalchemy.future import select
@@ -29,7 +30,7 @@ else:
 # No manual overrides for OMP/MKL needed for cloud-only mode
 # os.environ["OMP_NUM_THREADS"] = ...
 
-from app.core.connection_manager import manager  # noqa: E402
+from app.core.websocket import manager  # noqa: E402
 from app.core.logging import setup_logging
 from app.core.settings import settings
 from app.core.time import SystemClock
@@ -221,10 +222,11 @@ async def check_triggers():
                             logger.info(f"Triggering scheduled scan for {connector.name}")
 
                     if should_run:
+                        connector_id = connector.id
                         connector.status = ConnectorStatus.SYNCING
                         db.add(connector)
                         await db.commit()
-                        asyncio.create_task(process_connector_wrapper(connector.id))
+                        asyncio.create_task(process_connector_wrapper(connector_id))
 
                 except Exception as e:
                     logger.error(f"Error checking schedule for {connector.name}: {e}")
@@ -241,7 +243,8 @@ async def check_triggers():
             pending_docs = result_docs.scalars().all()
 
             for doc in pending_docs:
-                logger.info(f"Worker picked up pending document {doc.id} (Fallback polling)")
+                doc_id = doc.id
+                logger.info(f"Worker picked up pending document {doc_id} (Fallback polling)")
                 doc.status = DocStatus.PROCESSING
                 db.add(doc)
                 await db.commit()
@@ -250,12 +253,12 @@ async def check_triggers():
                 # We use a temporary simple emit here, but the service will handle the rest
                 try:
                     await manager.emit_document_update(
-                        str(doc.id), DocStatus.PROCESSING, "Processing started on worker."
+                        str(doc_id), DocStatus.PROCESSING, "Processing started on worker."
                     )
                 except Exception as e:
                     logger.warning(f"Failed to emit status update: {e}")
 
-                asyncio.create_task(process_single_document_wrapper(doc.id))
+                asyncio.create_task(process_single_document_wrapper(doc_id))
 
     except Exception as e:
         logger.error(f"Error in Trigger Checker: {e}")
@@ -307,14 +310,11 @@ if __name__ == "__main__":
             if settings.ENABLE_PHOENIX_TRACING:
                 try:
                     import phoenix as px
-                    from openinference.instrumentation.llama_index import \
-                        LlamaIndexInstrumentor
+                    from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
                     from opentelemetry import trace as trace_api
-                    from opentelemetry.exporter.otlp.proto.http.trace_exporter import \
-                        OTLPSpanExporter
+                    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
                     from opentelemetry.sdk.trace import TracerProvider
-                    from opentelemetry.sdk.trace.export import \
-                        SimpleSpanProcessor
+                    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
                     # Configure OpenTelemetry to export to Phoenix Docker Container
                     endpoint = "http://localhost:6006/v1/traces"

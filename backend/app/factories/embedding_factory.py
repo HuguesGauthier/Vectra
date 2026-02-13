@@ -62,12 +62,14 @@ class EmbeddingProviderFactory:
 
         logger.info(f"🔹 Creating Local Embedding | Model: {model_name} | Batch: {batch_size}")
 
+        # Fix for "Cannot copy out of meta tensor" error
+        # AVOID model_kwargs here as it can trigger meta-device loading in some transformers versions
         return await asyncio.to_thread(
             HuggingFaceEmbedding,
             model_name=model_name,
             trust_remote_code=True,
             embed_batch_size=batch_size,
-            model_kwargs={"low_cpu_mem_usage": False},
+            device="cpu",
         )
 
     @staticmethod

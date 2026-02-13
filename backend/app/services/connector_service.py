@@ -137,7 +137,7 @@ class ConnectorService:
 
             # 🟡 P2: Use Enum instead of Magic String
             if connector_data.connector_type == ConnectorType.LOCAL_FILE:
-                await self._validate_file_path(connector_data.configuration)
+                await self._validate_file_path(connector_data.configuration, connector_data.connector_type)
             elif connector_data.connector_type == ConnectorType.LOCAL_FOLDER:
                 await self._validate_folder_path(connector_data.configuration)
 
@@ -196,7 +196,7 @@ class ConnectorService:
             if connector_update.configuration:
                 # Type-specific validation
                 if db_connector.connector_type == ConnectorType.LOCAL_FILE:
-                    await self._validate_file_path(connector_update.configuration)
+                    await self._validate_file_path(connector_update.configuration, db_connector.connector_type)
                 elif db_connector.connector_type == ConnectorType.LOCAL_FOLDER:
                     await self._validate_folder_path(connector_update.configuration)
 
@@ -524,8 +524,8 @@ class ConnectorService:
             return False
 
     @classmethod
-    async def _validate_file_path(cls, config: dict):
-        """Non-blocking validation of file existence."""
+    async def _validate_file_path(cls, config: dict, connector_type: ConnectorType):
+        """Non-blocking validation of file existence and type."""
         if not config or "path" not in config:
             raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG", status_code=400)
 
@@ -533,6 +533,11 @@ class ConnectorService:
         exists = await cls._run_blocking_io(os.path.isfile, path)
         if not exists:
             raise FunctionalError(f"File not found: {path}", error_code="FILE_NOT_FOUND", status_code=400)
+
+        # ARCHITECT FIX: Validate extension for CSV connectors
+        if connector_type == ConnectorType.LOCAL_FILE:
+            if not path.lower().endswith(".csv"):
+                raise FunctionalError("This connector only supports CSV files", error_code="INVALID_EXTENSION")
 
     @classmethod
     async def _validate_folder_path(cls, config: dict):

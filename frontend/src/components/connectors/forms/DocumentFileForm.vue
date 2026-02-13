@@ -13,6 +13,7 @@
     <q-file
       v-model="activeFile"
       :display-value="activeFile ? undefined : localData.file_path"
+      :accept="accept"
       clearable
       dark
       color="white"
@@ -51,6 +52,10 @@ import { useNotification } from 'src/composables/useNotification';
 import type { ConnectorDocument } from 'src/services/connectorDocumentService';
 
 // --- DEFINITIONS ---
+defineProps<{
+  accept?: string;
+}>();
+
 // The form modifies this data model directly via local copy
 const data = defineModel<Partial<ConnectorDocument>>('data', { required: true });
 

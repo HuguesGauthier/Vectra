@@ -42,7 +42,7 @@ async def test_security_prevent_arbitrary_file_deletion(service):
     """
     # 1. Setup a connector pointing to a sensitive system file
     connector_id = uuid4()
-    sensitive_path = "C:\\Windows\\System32\\drivers\\etc\\hosts" if os.name == "nt" else "/etc/passwd"
+    sensitive_path = "C:\\Windows\\System32\\drivers\\etc\\hosts.csv" if os.name == "nt" else "/etc/passwd.csv"
 
     # Use real Connector object
     mock_connector = Connector(
@@ -57,7 +57,7 @@ async def test_security_prevent_arbitrary_file_deletion(service):
     service.connector_repo.update.return_value = mock_connector
 
     # 2. Update to a new path (triggering 'cleanup' of old path)
-    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "new_file.txt"))
+    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "new_file.csv"))
     update_payload = ConnectorUpdate(configuration={"path": new_path})
 
     # Mock OS functions to simulate file existence
@@ -83,7 +83,7 @@ async def test_security_allow_managed_file_deletion(service):
     """
     connector_id = uuid4()
     # Create a path that IS inside the managed dir
-    safe_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "safefile.txt"))
+    safe_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "safefile.csv"))
 
     # Use real Connector object
     mock_connector = Connector(
@@ -98,7 +98,7 @@ async def test_security_allow_managed_file_deletion(service):
     service.connector_repo.update.return_value = mock_connector
 
     # Update to trigger cleanup
-    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "other.txt"))
+    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "other.csv"))
     update_payload = ConnectorUpdate(configuration={"path": new_path})
 
     with (

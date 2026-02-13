@@ -104,7 +104,7 @@ def mock_blocking_io(func, *args):
 async def test_create_connector_nominal(connector_service, mock_connector_repo, mock_ws_manager):
     """Test nominal creation with background scan schedule."""
     data = ConnectorCreate(
-        name="Folder", connector_type="local_file", configuration={"path": "/tmp", "recursive": True}
+        name="Folder", connector_type="local_file", configuration={"path": "/tmp/test.csv", "recursive": True}
     )
 
     # Mock Repo
@@ -147,14 +147,14 @@ async def test_update_connector_nominal(connector_service, mock_connector_repo, 
         id=cid,
         name="Test Conn",
         connector_type="local_file",
-        configuration={"path": "temp_uploads/old.txt", "connector_acl": ["User"]},
+        configuration={"path": "temp_uploads/old.csv", "connector_acl": ["User"]},
         status=ConnectorStatus.IDLE,
     )
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
     mock_connector_repo.update = AsyncMock(return_value=c)
 
-    update = ConnectorUpdate(configuration={"path": "temp_uploads/new.txt", "connector_acl": ["Admin"]})
+    update = ConnectorUpdate(configuration={"path": "temp_uploads/new.csv", "connector_acl": ["Admin"]})
 
     with (
         patch("asyncio.to_thread", side_effect=mock_blocking_io),
@@ -177,7 +177,10 @@ async def test_delete_connector_cleanup(connector_service, mock_connector_repo, 
     """Test deletion spawns cleanup tasks."""
     cid = uuid4()
     c = Connector(
-        id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data", "ai_provider": "gemini"}
+        id=cid,
+        name="Test Conn",
+        connector_type="local_file",
+        configuration={"path": "/data/test.csv", "ai_provider": "gemini"},
     )
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
@@ -199,7 +202,7 @@ async def test_delete_connector_security_guard(connector_service, mock_connector
     """Worst Case: Deletion attempt on non-managed path should skip file deletion."""
     connector_id = uuid4()
     # Path OUTSIDE MANAGED_UPLOAD_DIR
-    fake_connector = Connector(id=connector_id, connector_type="local_file", configuration={"path": "/etc/passwd"})
+    fake_connector = Connector(id=connector_id, connector_type="local_file", configuration={"path": "/etc/passwd.csv"})
     mock_connector_repo.get_by_id = AsyncMock(return_value=fake_connector)
     mock_connector_repo.delete_with_relations = AsyncMock()
 
@@ -246,7 +249,7 @@ async def test_update_critical_config_stops_connector(connector_service, mock_co
 async def test_manual_scan_connector(connector_service, mock_connector_repo, mock_scanner_service):
     """Test manual scan trigger."""
     cid = uuid4()
-    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
+    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data/test.csv"})
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
     mock_scanner_service.scan_folder = AsyncMock(return_value={"added": 0, "updated": 0})
@@ -277,7 +280,7 @@ async def test_safe_wrappers(connector_service):
 async def test_manual_scan_creates_logs(connector_service, mock_connector_repo, mock_scanner_service):
     """Test manual scan creates sync logs."""
     cid = uuid4()
-    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
+    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data/test.csv"})
 
     # Mock Logs
     log_mock = MagicMock()
@@ -302,7 +305,7 @@ async def test_manual_scan_creates_logs(connector_service, mock_connector_repo, 
 async def test_manual_scan_logs_failure(connector_service, mock_connector_repo, mock_scanner_service):
     """Test manual scan logs exceptions."""
     cid = uuid4()
-    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data"})
+    c = Connector(id=cid, name="Test Conn", connector_type="local_file", configuration={"path": "/data/test.csv"})
 
     log_mock = MagicMock()
     log_mock.id = uuid4()
@@ -324,7 +327,7 @@ async def test_manual_scan_logs_failure(connector_service, mock_connector_repo, 
 async def test_background_scan_creates_logs(connector_service):
     """Test background scan wrapper creates logs."""
     cid = uuid4()
-    config = {"path": "/data", "recursive": False}
+    config = {"path": "/data/test.csv", "recursive": False}
 
     # Mock local session/components within wrapper
     mock_db = AsyncMock()

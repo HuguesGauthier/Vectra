@@ -211,7 +211,6 @@ class DocumentRepository(SQLRepository[ConnectorDocument, Any, Any]):
                     # Update existing document (Manual UPDATE to keep transaction open)
                     existing.status = DocStatus.INDEXED
                     existing.file_metadata = doc.metadata
-                    existing.last_indexed_at = datetime.now(timezone.utc)
 
                     self.db.add(existing)  # Add to session for flush/commit
                     processed_docs.append(existing)

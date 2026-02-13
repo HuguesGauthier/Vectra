@@ -194,6 +194,7 @@
           <q-card-section class="q-pt-none bg-primary">
             <DocumentFileForm
               v-model:data="newDocument"
+              :accept="connector?.connector_type === ConnectorType.LOCAL_FILE ? '.csv' : '*'"
               @save="onSaveDocumentConnector"
               @cancel="drawerOpen = false"
             />

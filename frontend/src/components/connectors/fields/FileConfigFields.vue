@@ -9,6 +9,7 @@
       v-if="file !== undefined"
       v-model="file"
       :label="$t('selectFile')"
+      :accept="accept"
       standout
       color="white"
       bottom-slots
@@ -33,6 +34,10 @@
 
 <script setup lang="ts">
 // --- DEFINITIONS ---
+defineProps<{
+  accept?: string | undefined;
+}>();
+
 // File connector has no specific configuration fields, but needs internal index sig
 type FileConfig = Record<string, unknown>;
 

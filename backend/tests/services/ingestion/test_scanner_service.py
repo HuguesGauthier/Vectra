@@ -96,7 +96,7 @@ async def test_scan_folder_success_batched(
     mock_doc_repo.count_by_connector.return_value = 1
 
     # Mock FS
-    found_files = {"test.txt": "/tmp/test.txt"}
+    found_files = {"test.csv": "/tmp/test.csv"}
 
     with (
         patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io,
@@ -158,11 +158,14 @@ async def test_scan_folder_zombie_cleanup_batched(
 async def test_determine_file_delta_new(scanner_service, mock_doc_repo, connector_id):
     """Test _determine_file_delta for a new file."""
 
-    rel_path = "hello.md"
-    full_path = "/tmp/hello.md"
+    rel_path = "hello.csv"
+    full_path = "/tmp/hello.csv"
 
-    with patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io:
-
+    with (
+        patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io,
+        patch("app.services.scanner_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock) as mock_validate,
+    ):
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
         mock_stat = MagicMock()
         mock_stat.st_size = 100
         mock_stat.st_mtime = 123456789
@@ -181,8 +184,8 @@ async def test_determine_file_delta_new(scanner_service, mock_doc_repo, connecto
 async def test_determine_file_delta_unchanged(scanner_service, mock_doc_repo, connector_id):
     """Test _determine_file_delta for an unchanged file."""
 
-    rel_path = "same.md"
-    full_path = "/tmp/same.md"
+    rel_path = "same.csv"
+    full_path = "/tmp/same.csv"
 
     # Mock Doc has same properties
     mock_doc = MagicMock()
@@ -190,8 +193,11 @@ async def test_determine_file_delta_unchanged(scanner_service, mock_doc_repo, co
     mock_doc.last_modified_at_source = datetime.fromtimestamp(123456789)
     mock_doc.status = DocStatus.IDLE
 
-    with patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io:
-
+    with (
+        patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io,
+        patch("app.services.scanner_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock) as mock_validate,
+    ):
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
         mock_stat = MagicMock()
         mock_stat.st_size = 100
         mock_stat.st_mtime = 123456789  # Same timestamp
@@ -209,8 +215,8 @@ async def test_determine_file_delta_unchanged(scanner_service, mock_doc_repo, co
 async def test_determine_file_delta_changed(scanner_service, mock_doc_repo, connector_id):
     """Test _determine_file_delta for a CHANGED file (size)."""
 
-    rel_path = "changed.md"
-    full_path = "/tmp/changed.md"
+    rel_path = "changed.csv"
+    full_path = "/tmp/changed.csv"
 
     # Mock Doc has OLD size
     mock_doc = MagicMock()
@@ -219,8 +225,11 @@ async def test_determine_file_delta_changed(scanner_service, mock_doc_repo, conn
     mock_doc.last_modified_at_source = datetime.fromtimestamp(123456789)
     mock_doc.status = DocStatus.IDLE
 
-    with patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io:
-
+    with (
+        patch("app.services.scanner_service.ScannerService._run_blocking_io") as mock_io,
+        patch("app.services.scanner_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock) as mock_validate,
+    ):
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
         mock_stat = MagicMock()
         mock_stat.st_size = 100  # CHANGED SIZE
         mock_stat.st_mtime = 123456789
@@ -252,7 +261,7 @@ async def test_determine_file_delta_unsupported(scanner_service, connector_id):
 
         assert action == "ignore"
         assert data["status"] == DocStatus.UNSUPPORTED
-        assert data["file_metadata"]["reason"] == "Unsupported extension"
+        assert "Only CSV files" in data["file_metadata"]["reason"]
 
 
 @pytest.mark.asyncio

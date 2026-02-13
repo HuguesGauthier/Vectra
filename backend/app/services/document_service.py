@@ -17,7 +17,7 @@ from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector_document import ConnectorDocument
-from app.models.enums import DocStatus
+from app.models.enums import ConnectorType, DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.schemas.connector import ConnectorResponse
@@ -200,6 +200,11 @@ class DocumentService:
             connector = await self.connector_repo.get_by_id(connector_id)
             if not connector:
                 raise EntityNotFound(f"Connector {connector_id} not found")
+
+            # 0. Extension Validation (Hardening)
+            if connector.connector_type == ConnectorType.LOCAL_FILE:
+                if not doc_data.file_path.lower().endswith(".csv"):
+                    raise FunctionalError("This connector only supports CSV files", error_code="INVALID_EXTENSION")
 
             # 1. Content Validation
             if doc_data.file_path and doc_data.file_path.lower().endswith(".csv"):
