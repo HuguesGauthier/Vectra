@@ -253,23 +253,47 @@ class IngestionOrchestrator:
 
                 # Import extractor
                 from app.core.ingestion.extractors import ComboMetadataExtractor
+                from app.factories.llm_factory import LLMFactory
 
-                # Get fast LLM for extraction
+                # Determine Extraction Provider & Model
                 extraction_model = await self.settings_service.get_value("gemini_extraction_model")
-
-                # Instantiate LLM for extraction
-                from llama_index.llms.google_genai import GoogleGenAI
-
+                extraction_provider = "gemini"
                 api_key = await self.settings_service.get_value("gemini_api_key")
+                base_url = None
+
+                # P0: Support Local Extraction (Ollama)
+                # If gemini is not configured or we want to force local (logic can be refined)
+                # Current logic: If gemini key is missing, try local. Or if local is explicitly set?
+                # Simpler logic: Check if we are in "Local" mode for embedding?
+                # Actually, extraction can be independent.
+                # Let's check if gemini_api_key is present. If not, fallback to local settings.
+
+                if not api_key:
+                    local_model = await self.settings_service.get_value("local_extraction_model")
+                    if local_model:
+                        extraction_model = local_model
+                        extraction_provider = "ollama"
+                        base_url = await self.settings_service.get_value("local_extraction_url")
+                        logger.info(f"Using Local Extraction (Ollama) | Model: {extraction_model}")
+                    else:
+                        logger.warning(
+                            "⚠️ No valid extraction configuration found (Gemini key missing, Local model missing)."
+                        )
+                        extraction_model = None
 
                 if not extraction_model:
-                    logger.warning("⚠️ gemini_extraction_model not configured. Skipping smart extraction.")
-                elif not api_key:
-                    logger.warning("⚠️ Gemini API key not found. Skipping smart extraction.")
+                    logger.warning("⚠️ Extraction model not configured. Skipping smart extraction.")
                 else:
-                    extraction_llm = GoogleGenAI(
-                        model=extraction_model, api_key=api_key, temperature=0.0  # Deterministic for extraction
-                    )
+                    try:
+                        extraction_llm = LLMFactory.create_llm(
+                            provider=extraction_provider,
+                            model_name=extraction_model,
+                            api_key=api_key or "ollama",  # Ollama doesn't strict need key
+                            base_url=base_url,
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to create extraction LLM: {e}")
+                        extraction_llm = None
 
                     # Retrieve application language preference (defaulting to 'fr' if not found)
                     app_language = await self.settings_service.get_value("app_language", "fr")

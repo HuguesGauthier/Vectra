@@ -20,7 +20,12 @@ class LLMFactory:
 
     @staticmethod
     def create_llm(
-        provider: str, model_name: str, api_key: str, temperature: float = DEFAULT_TEMP, output_class: Any = None
+        provider: str,
+        model_name: str,
+        api_key: str,
+        temperature: float = DEFAULT_TEMP,
+        output_class: Any = None,
+        base_url: Optional[str] = None,
     ) -> Any:
         provider_clean = provider.lower().strip()
 
@@ -54,8 +59,10 @@ class LLMFactory:
 
             # For Ollama, api_key is typically not needed but we handle base_url via factory args if possible,
             # or rely on default/settings.
-            base_url = api_key if api_key and "http" in api_key else "http://localhost:11434"
-            llm = Ollama(model=model_name, base_url=base_url, temperature=temperature, request_timeout=360.0)
+            final_base_url = (
+                base_url if base_url else (api_key if api_key and "http" in api_key else "http://localhost:11434")
+            )
+            llm = Ollama(model=model_name, base_url=final_base_url, temperature=temperature, request_timeout=360.0)
         elif provider_clean == "local":
             # Support for Local LLMs (LM Studio, Ollama, etc.) via OpenAILike
             from llama_index.llms.openai_like import OpenAILike

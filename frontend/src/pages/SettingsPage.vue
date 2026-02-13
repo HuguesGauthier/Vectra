@@ -86,152 +86,27 @@
             <q-tab-panel name="embedding" class="q-px-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
-                  <q-banner v-if="hasChanges" rounded class="bg-warning text-dark q-mb-md">
-                    <template v-slot:avatar>
-                      <q-icon name="warning" />
-                    </template>
-                    {{ $t('restartRequiredInfo') }}
-                  </q-banner>
-
-                  <q-banner rounded class="bg-info text-white q-mb-md" dense>
-                    <template v-slot:avatar>
-                      <q-icon name="info" />
-                    </template>
-                    {{ $t('embeddingWarning') }}
-                  </q-banner>
-
                   <!-- Embedding Provider Selection -->
-                  <q-card flat bordered class="bg-secondary q-mb-md">
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('embeddingProvider') }}
-                      </div>
-                      <q-select
-                        v-model="models.embedding_provider"
-                        :options="embeddingProviderOptions"
-                        outlined
-                        dense
-                        color="accent"
-                        emit-value
-                        map-options
-                      />
-                    </q-card-section>
-                  </q-card>
+                  <div class="q-mb-md">
+                    <EmbeddingSelection
+                      v-model="models.embedding_provider"
+                      :providers="embeddingProviderOptions"
+                      show-config-button
+                      :config-label="$t('configure')"
+                      :config-tooltip="$t('configureProvider')"
+                      :selectable="false"
+                      @configure="openEmbeddingConfig"
+                    />
+                  </div>
 
-                  <!-- Gemini Embedding Config -->
-                  <q-card
-                    v-if="models.embedding_provider === 'gemini'"
-                    flat
-                    bordered
-                    class="bg-secondary"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('geminiConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.gemini_api_key"
-                          :label="$t('apiKey')"
-                          outlined
-                          dense
-                          type="password"
-                          autocomplete="new-password"
-                        />
-                        <q-input
-                          v-model="models.gemini_embedding_model"
-                          :label="$t('modelName')"
-                          outlined
-                          dense
-                          :hint="$t('modelNameHint')"
-                        >
-                          <template v-slot:append>
-                            <q-icon name="warning" class="cursor-pointer text-warning">
-                              <q-tooltip class="text-body2">{{
-                                $t('modelDeprecationWarning')
-                              }}</q-tooltip>
-                            </q-icon>
-                          </template>
-                        </q-input>
-                        <q-input
-                          v-model="models.gemini_transcription_model"
-                          :label="$t('transcriptionModel')"
-                          outlined
-                          dense
-                          :hint="$t('transcriptionModelHint')"
-                        />
-                        <q-input
-                          v-model="models.gemini_extraction_model"
-                          label="Extraction Model (Ingestion)"
-                          outlined
-                          dense
-                          hint="ex. gemini-2.0-flash"
-                        />
-                      </div>
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- OpenAI Embedding Config -->
-                  <q-card
-                    v-if="models.embedding_provider === 'openai'"
-                    flat
-                    bordered
-                    class="bg-secondary q-mt-md"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('openaiConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.openai_api_key"
-                          :label="$t('apiKey')"
-                          outlined
-                          dense
-                          type="password"
-                          autocomplete="new-password"
-                        />
-                        <q-input
-                          v-model="models.openai_embedding_model"
-                          :label="$t('modelName')"
-                          outlined
-                          dense
-                          hint="ex. text-embedding-3-small"
-                        >
-                          <template v-slot:append>
-                            <q-icon name="warning" class="cursor-pointer text-warning">
-                              <q-tooltip class="text-body2">{{
-                                $t('modelDeprecationWarning')
-                              }}</q-tooltip>
-                            </q-icon>
-                          </template>
-                        </q-input>
-                      </div>
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- Local Embedding Config -->
-                  <q-card
-                    v-if="models.embedding_provider === 'local'"
-                    flat
-                    bordered
-                    class="bg-secondary q-mt-md"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('localConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.local_embedding_model"
-                          :label="$t('modelName')"
-                          outlined
-                          dense
-                          hint="ex. nomic-embed-text"
-                        />
-                      </div>
-                    </q-card-section>
-                  </q-card>
+                  <!-- Configuration Dialog -->
+                  <EmbeddingConfigurationDialog
+                    v-model:isOpen="showEmbeddingConfig"
+                    :provider-id="configProviderId"
+                    :provider-name="configProviderName"
+                    :models="models"
+                    @save="handleConfigSave"
+                  />
                 </div>
               </div>
             </q-tab-panel>
@@ -480,6 +355,8 @@ import { useTheme } from 'src/composables/useTheme'; // Added import
 import { useQuasar } from 'quasar';
 import type { Setting } from 'src/models/Setting';
 import CardSelection from 'src/components/common/CardSelection.vue';
+import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
+import EmbeddingConfigurationDialog from 'src/components/dialogs/EmbeddingConfigurationDialog.vue';
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -515,6 +392,8 @@ const models = reactive<Record<string, string>>({
   openai_embedding_model: 'text-embedding-3-small',
   local_embedding_url: 'http://localhost:11434',
   local_embedding_model: 'nomic-embed-text',
+  local_extraction_model: 'mistral',
+  local_extraction_url: 'http://localhost:11434',
 
   // Chat/Generation Settings
   gen_ai_provider: 'gemini',
@@ -534,9 +413,13 @@ const models = reactive<Record<string, string>>({
 // Original raw settings (not reactive)
 let originalSettings: Setting[] = [];
 
-// Debug / Traffic State (Moved to DebugPanel)
-// const trafficLogs = ref<TrafficParams[]>([]);
-// ... removed ...
+// Dialog State
+const showEmbeddingConfig = ref(false);
+const configProviderId = ref('');
+const configProviderName = computed(() => {
+  const provider = embeddingProviderOptions.value.find((p) => p.id === configProviderId.value);
+  return provider ? provider.name : '';
+});
 
 // --- COMPUTED ---
 
@@ -696,6 +579,21 @@ async function saveSettings() {
   } finally {
     saving.value = false;
   }
+}
+
+function openEmbeddingConfig(providerId: string) {
+  configProviderId.value = providerId;
+  // If clicking configure on a provider that isn't selected, select it?
+  // Probably yes for better UX, or keep it independent.
+  // Let's select it for now.
+  models.embedding_provider = providerId;
+  showEmbeddingConfig.value = true;
+}
+
+function handleConfigSave(updatedModels: Record<string, string>) {
+  // Merge updates back into main models
+  Object.assign(models, updatedModels);
+  hasChanges.value = true;
 }
 </script>
 <style scoped>

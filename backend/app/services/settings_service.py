@@ -47,8 +47,9 @@ class SettingsService:
         "gemini_extraction_model": "gemini-1.5-flash-latest",
         "openai_api_key": "",
         "openai_embedding_model": "text-embedding-3-small",
-        "local_embedding_url": "http://localhost:11434",
         "local_embedding_model": "nomic-embed-text",
+        "local_extraction_model": "mistral",
+        "local_extraction_url": "http://localhost:11434",
         "analytics_cost_per_1k_tokens": "0.0001",
         "analytics_minutes_saved_per_doc": "5.0",
     }
@@ -129,6 +130,8 @@ class SettingsService:
             "gemini_transcription_model": env_settings.GEMINI_TRANSCRIPTION_MODEL,
             "gemini_chat_model": env_settings.GEMINI_CHAT_MODEL,
             "gemini_embedding_model": env_settings.GEMINI_EMBEDDING_MODEL,
+            "local_extraction_model": env_settings.LOCAL_EXTRACTION_MODEL,
+            "local_extraction_url": env_settings.LOCAL_EXTRACTION_URL,
             "qdrant_api_key": env_settings.QDRANT_API_KEY,
         }
         return env_map.get(key)

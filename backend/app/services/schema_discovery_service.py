@@ -99,8 +99,15 @@ class SchemaDiscoveryService:
             csv_preview = await self._read_csv_preview(full_path)
 
             api_key = await self.settings_service.get_value("gemini_api_key")
+
+            # P0: Allow fallback to Local/Ollama if Gemini key is missing
+            local_extraction_model = await self.settings_service.get_value("local_extraction_model")
+
+            if not api_key and not local_extraction_model:
+                raise ConfigurationError("GEMINI_API_KEY missing and no Local Extraction model configured")
+
             if not api_key:
-                raise ConfigurationError("GEMINI_API_KEY missing in settings")
+                api_key = "ollama"  # Signal to use local
 
             schema_json = await self._discover_schema_with_llm(api_key, csv_preview)
 
@@ -154,16 +161,44 @@ class SchemaDiscoveryService:
         return "".join(lines)
 
     async def _discover_schema_with_llm(self, api_key: str, csv_preview: str) -> dict:
-        model_name = await self.settings_service.get_value("gemini_extraction_model")
+        gemini_model = await self.settings_service.get_value("gemini_extraction_model")
+        local_model = await self.settings_service.get_value("local_extraction_model")
+
+        provider = "gemini"
+        model_name = gemini_model
+        base_url = None
+
+        # P0: Logic to choose provider
+        # If API key is for Gemini (starts with AI...), use Gemini.
+        # If API key is "ollama" or empty (handled below), use Local.
+        # Ideally, we should pass the provider explicitely.
+        # But here `api_key` argument comes from `analyze_and_map_csv` which fetches `gemini_api_key`.
+        # We need to refactor `analyze_and_map_csv` to be provider-aware.
+
+        # Quick fix within this method for now, but better to refactor caller.
+        # However, let's look at `analyze_and_map_csv`.
+
+        # REFACTORING CALLER LOGIC INLINE HERE FOR SAFETY (Detecting provider from key presence)
+        # If the passed `api_key` looks like a Gemini key, use Gemini.
+        # If it's missing or we prefer local, use local settings.
+
+        display_key = api_key[:5] if api_key else "None"
+
+        if not api_key or api_key == "ollama":
+            provider = "ollama"
+            model_name = local_model
+            base_url = await self.settings_service.get_value("local_extraction_url")
+            api_key = "ollama"  # Dummy for factory
 
         if not model_name:
-            raise ConfigurationError("gemini_extraction_model is not configured in settings")
+            raise ConfigurationError("Extraction model not configured")
 
-        # Ensure 'models/' prefix if missing
-        if not model_name.startswith("models/") and "gemini" in model_name:
-            model_name = f"models/{model_name}"
+        from app.factories.llm_factory import LLMFactory
 
-        llm = GoogleGenAI(model=model_name, api_key=api_key, temperature=0.0)
+        llm = LLMFactory.create_llm(
+            provider=provider, model_name=model_name, api_key=api_key, temperature=0.0, base_url=base_url
+        )
+
         prompt = PROMPT_SCHEMA_DISCOVERY.replace("{csv_preview}", csv_preview)
 
         # P0 Fix: Move TransientIngestionError detection into retry decorator

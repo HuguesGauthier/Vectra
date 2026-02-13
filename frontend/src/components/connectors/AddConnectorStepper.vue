@@ -83,65 +83,11 @@
               :done="subStep > 1"
             >
               <div class="row q-col-gutter-lg justify-center">
-                <div v-for="provider in aiProviders" :key="provider.id" class="col-12 col-md-4">
-                  <q-card
-                    class="selection-card full-height column justify-between"
-                    :class="{
-                      selected: selectedProvider === provider.id,
-                      disabled: provider.disabled,
-                    }"
-                    v-ripple="!provider.disabled"
-                    @click="!provider.disabled ? (selectedProvider = provider.id) : null"
-                    style="min-height: 280px"
-                  >
-                    <div v-if="selectedProvider === provider.id" class="selected-overlay">
-                      <q-icon name="check_circle" color="accent" size="32px" />
-                    </div>
-
-                    <AppTooltip v-if="provider.disabled">
-                      {{ $t('engineNotConfigured') }}
-                    </AppTooltip>
-
-                    <q-card-section class="col-grow column items-center text-center q-pt-lg">
-                      <div class="q-mb-md relative-position">
-                        <img :src="provider.logo" style="width: 64px; height: 64px" />
-                        <q-badge
-                          v-if="provider.badge"
-                          floating
-                          :color="provider.badgeColor"
-                          rounded
-                          class="q-px-sm q-py-xs shadow-2"
-                          style="top: -5px; right: -15px"
-                        >
-                          {{ provider.badge }}
-                        </q-badge>
-                      </div>
-
-                      <div class="text-h6 text-weight-bold q-mb-xs">{{ provider.name }}</div>
-                      <div class="text-caption text-grey-5 q-mb-md">{{ provider.tagline }}</div>
-
-                      <div class="text-body2 text-grey-4 full-width">
-                        {{ provider.description }}
-                      </div>
-                    </q-card-section>
-
-                    <div class="row justify-center q-pb-md">
-                      <q-btn
-                        flat
-                        no-caps
-                        dense
-                        color="accent"
-                        icon="settings"
-                        :label="$t('advancedSettings')"
-                        size="sm"
-                        :disable="provider.disabled"
-                        @click.stop="showAdvancedSettings = true"
-                      >
-                        <q-tooltip class="text-body2">{{ $t('advancedIndexingDesc') }}</q-tooltip>
-                      </q-btn>
-                    </div>
-                  </q-card>
-                </div>
+                <EmbeddingSelection
+                  v-model="selectedProvider"
+                  :providers="aiProviders"
+                  :selectable="true"
+                />
               </div>
             </q-step>
 
@@ -165,13 +111,6 @@
               </q-stepper-navigation>
             </q-step>
           </q-stepper>
-
-          <AdvancedIndexingSettings
-            v-model:isOpen="showAdvancedSettings"
-            :chunk-size="connectorData.chunk_size"
-            :chunk-overlap="connectorData.chunk_overlap"
-            @update="updateChunkingConfig"
-          />
         </div>
 
         <!-- Step 4: Schedule (Moved from Step 5) -->
@@ -298,7 +237,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, type Component, watch } from 'vue';
+import { ref, computed, type Component, watch, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { Connector } from 'src/models/Connector';
 import { ConnectorType, ScheduleType } from 'src/models/enums';
@@ -306,16 +245,14 @@ import FolderForm from './forms/FolderForm.vue';
 import SqlForm from './forms/SqlForm.vue';
 import ConnectorFileForm from './forms/ConnectorFileForm.vue';
 import SmartExtractionConfig from './fields/SmartExtractionConfig.vue';
-import geminiLogo from 'src/assets/gemini_logo.svg';
-import openaiLogo from 'src/assets/openai_logo.svg';
-import localLogo from 'src/assets/local_logo.svg';
 import { useDialog } from 'src/composables/useDialog';
 import { connectorService } from 'src/services/connectorService';
-import AppTooltip from 'src/components/common/AppTooltip.vue';
-import AdvancedIndexingSettings from './dialogs/AdvancedIndexingSettings.vue';
+// import AppTooltip from 'src/components/common/AppTooltip.vue';
 import ConnectorTypeStep from './ConnectorTypeStep.vue';
 import { settingsService } from 'src/services/settingsService';
 import ScheduleOptions from './ScheduleOptions.vue';
+import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
+import { useAiProviders } from 'src/composables/useAiProviders';
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -340,19 +277,10 @@ const activeForm = ref<any>(null);
 const aclMode = ref<string>('public');
 const connectorData = ref<Connector>(new Connector()); // Active connector being configured
 
-// Advanced Indexing
-const showAdvancedSettings = ref(false);
-
 // Smart Metadata Extraction
 const smartExtractionEnabled = ref(false);
 
 const settingsMap = ref<Record<string, string>>({});
-
-function updateChunkingConfig(payload: { chunkSize: number; chunkOverlap: number }) {
-  if (!connectorData.value) return;
-  connectorData.value.chunk_size = payload.chunkSize;
-  connectorData.value.chunk_overlap = payload.chunkOverlap;
-}
 
 // ACL Modes
 const aclModes = computed(() => [
@@ -372,45 +300,8 @@ const aclModes = computed(() => [
   },
 ]);
 
-// AI Providers
-const aiProviders = computed(() => [
-  {
-    id: 'local',
-    name: t('localEmbeddings'),
-    tagline: 'Private & Secure',
-    description: settingsMap.value['local_embedding_model']
-      ? `${t('modelLabel')}: ${settingsMap.value['local_embedding_model']}`
-      : t('localEmbeddingsDesc'),
-    logo: localLogo,
-    badge: t('private'),
-    badgeColor: 'grey-7',
-    disabled: !settingsMap.value['local_embedding_model'],
-  },
-  {
-    id: 'gemini',
-    name: t('geminiEmbeddings'),
-    tagline: 'Google DeepMind',
-    description: settingsMap.value['gemini_embedding_model']
-      ? `${t('modelLabel')}: ${settingsMap.value['gemini_embedding_model']}`
-      : t('geminiEmbeddingsDesc'),
-    logo: geminiLogo,
-    badge: t('public'),
-    badgeColor: 'blue-6',
-    disabled: !settingsMap.value['gemini_embedding_model'],
-  },
-  {
-    id: 'openai',
-    name: t('openaiEmbeddings'),
-    tagline: 'Standard Industry Model',
-    description: settingsMap.value['openai_embedding_model']
-      ? `${t('modelLabel')}: ${settingsMap.value['openai_embedding_model']}`
-      : t('openaiEmbeddingsDesc'),
-    logo: openaiLogo,
-    badge: t('public'),
-    badgeColor: 'green-6',
-    disabled: !settingsMap.value['openai_embedding_model'],
-  },
-]);
+// AI Providers (Centralized logic)
+const { embeddingProviderOptions: aiProviders } = useAiProviders(settingsMap);
 
 // Forms mapping
 const forms: Record<string, Component> = {
@@ -459,16 +350,22 @@ watch(selectedProvider, (val) => {
 });
 
 // Watch for dialog close to reset state
-watch(isOpen, (val) => {
-  if (val) {
-    // If opening with existing data (e.g. edit mode passed externally? no, this is 'AddConnectorStepper', probably mostly new)
-    // But if we wanted to support pre-filling:
-    // (Schedule parsing moved to component)
-    // Fetch settings to update disabled states
-    void loadSettings();
-  } else {
-    setTimeout(resetState, 300);
-  }
+watch(
+  isOpen,
+  (val) => {
+    if (val) {
+      // Check settings every time dialog opens to ensure enabled/disabled states are fresh
+      void loadSettings();
+    } else {
+      setTimeout(resetState, 300);
+    }
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  // Try to load settings on mount as well, just in case
+  void loadSettings();
 });
 
 // Watch for ACL mode changes

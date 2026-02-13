@@ -81,28 +81,12 @@
                 {{ $t('selectVectorizationEngineDesc') }}
               </div>
 
-              <q-select
+              <EmbeddingSelection
                 v-model="indexationConfig.ai_provider"
-                :options="embeddingProviderOptions"
-                :label="$t('embeddingProvider')"
-                standout
-                flat
-                emit-value
-                map-options
-                :disable="isEditing"
-                :hint="isEditing ? $t('cannotChangeAfterCreation') : ''"
-              >
-                <template v-slot:option="scope">
-                  <q-item v-bind="scope.itemProps">
-                    <q-item-section>
-                      <q-item-label>{{ scope.opt.label }}</q-item-label>
-                      <q-item-label caption v-if="scope.opt.description">
-                        {{ scope.opt.description }}
-                      </q-item-label>
-                    </q-item-section>
-                  </q-item>
-                </template>
-              </q-select>
+                :providers="embeddingProviderOptions"
+                :disable-config="isEditing"
+                class="q-mb-md"
+              />
 
               <!-- Advanced Settings Button -->
               <div class="row justify-end q-mt-sm">
@@ -187,6 +171,7 @@ import type { Connector } from 'src/models/Connector';
 import { ScheduleType } from 'src/models/enums';
 import { useDialog } from 'src/composables/useDialog';
 import { useAiProviders } from 'src/composables/useAiProviders';
+import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
 
 // Field components
 import ConfigurationGeneralFields from './fields/ConfigurationGeneralFields.vue';
