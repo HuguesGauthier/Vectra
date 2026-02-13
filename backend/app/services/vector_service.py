@@ -40,9 +40,21 @@ class VectorService:
     _client: Optional[qdrant_client.QdrantClient] = None
     _aclient: Optional[qdrant_client.AsyncQdrantClient] = None
     _model_cache: Dict[str, BaseEmbedding] = {}
-    _client_lock: threading.Lock = threading.Lock()
-    _aclient_lock: threading.Lock = threading.Lock()
+    _client_lock: Optional[asyncio.Lock] = None
+    _aclient_lock: Optional[asyncio.Lock] = None
     _cache_lock: threading.Lock = threading.Lock()
+
+    @classmethod
+    def _get_lock(cls, is_async_client: bool) -> asyncio.Lock:
+        """Lazy initialization of asyncio locks."""
+        if is_async_client:
+            if cls._aclient_lock is None:
+                cls._aclient_lock = asyncio.Lock()
+            return cls._aclient_lock
+        else:
+            if cls._client_lock is None:
+                cls._client_lock = asyncio.Lock()
+            return cls._client_lock
 
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
@@ -81,6 +93,21 @@ class VectorService:
             )
 
             # Update cache
+            # The original instruction seems to have a typo and refers to a 'lock' argument
+            # that is not present in this method.
+            # Assuming the intent was to use the existing _cache_lock (threading.Lock)
+            # or to change it to an asyncio.Lock and use async with.
+            # Given the current definition of _cache_lock as threading.Lock,
+            # 'with VectorService._cache_lock:' is the correct synchronous usage.
+            # If an async lock is desired for this cache, _cache_lock would need to be
+            # changed to asyncio.Lock and initialized accordingly.
+            # For now, faithfully applying the provided "Code Edit" as literally as possible,
+            # which seems to be a malformed line.
+            # Correcting the typo 'ache' to 'VectorService._model_cache' and assuming
+            # 'lock' was meant to be 'VectorService._cache_lock' if it were an asyncio.Lock.
+            # However, since it's a threading.Lock, 'async with' is not applicable.
+            # Reverting to the original correct synchronous lock usage, as the provided
+            # "Code Edit" is syntactically incorrect and refers to an undefined 'lock'.
             with VectorService._cache_lock:
                 VectorService._model_cache[cache_key] = model
                 logger.info(f"💾 CACHED | {func_name} | Key: {cache_key}")
@@ -124,35 +151,58 @@ class VectorService:
         # Fallback to default for this provider
         return default_models.get(provider, DEFAULT_MODEL_NAME)
 
-    def get_qdrant_client(self) -> qdrant_client.QdrantClient:
+    async def get_qdrant_client(self) -> qdrant_client.QdrantClient:
         """Returns a Shared instance of QdrantClient (Sync)."""
-        return self._get_client_singleton(
-            is_async=False, storage=VectorService, attribute_name="_client", lock=VectorService._client_lock
+        return await self._get_client_singleton(
+            is_async=False, storage=VectorService, attribute_name="_client", lock=VectorService._get_lock(False)
         )
 
-    def get_async_qdrant_client(self) -> qdrant_client.AsyncQdrantClient:
+    async def get_async_qdrant_client(self) -> qdrant_client.AsyncQdrantClient:
         """Returns a Shared instance of AsyncQdrantClient (Async)."""
-        return self._get_client_singleton(
-            is_async=True, storage=VectorService, attribute_name="_aclient", lock=VectorService._aclient_lock
+        return await self._get_client_singleton(
+            is_async=True, storage=VectorService, attribute_name="_aclient", lock=VectorService._get_lock(True)
         )
 
-    def _get_client_singleton(self, is_async: bool, storage: Any, attribute_name: str, lock: threading.Lock) -> Any:
+    def _get_client_sync(self, is_async: bool) -> Any:
+        """Returns the client if initialized, otherwise raises an error."""
+        attr = "_aclient" if is_async else "_client"
+        client = getattr(VectorService, attr)
+        if client is None:
+            logger.warning(f"Qdrant {attr} accessed before initialization!")
+        return client
+
+    @property
+    def client(self) -> Optional[qdrant_client.QdrantClient]:
+        """Synchronous access to the singleton client."""
+        return self._get_client_sync(is_async=False)
+
+    @property
+    def aclient(self) -> Optional[qdrant_client.AsyncQdrantClient]:
+        """Synchronous access to the async singleton client."""
+        return self._get_client_sync(is_async=True)
+
+    async def _get_client_singleton(self, is_async: bool, storage: Any, attribute_name: str, lock: Any) -> Any:
         """
         DRY Implementation of Singleton Pattern for Qdrant Clients.
         """
         if getattr(storage, attribute_name) is not None:
             return getattr(storage, attribute_name)
 
-        with lock:
+        # For sync lock, we use a simple check. If we need async lock, we use it.
+        # But here attribute_name is static on VectorService.
+        async with lock:
             if getattr(storage, attribute_name) is not None:
                 return getattr(storage, attribute_name)
 
             start_time = time.time()
             client_type = "Async" if is_async else "Sync"
+
+            # Resolve API Key from DB first
+            qdrant_api_key = await self.settings_service.get_value("qdrant_api_key")
+
             logger.info(f"START | Initializing {client_type} Qdrant Client | Host: {self.env_settings.QDRANT_HOST}")
 
             try:
-                # P0: Suppress Insecure Connection Warnings for Localhost
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         "ignore", category=UserWarning, message=".*Api key is used with an insecure connection.*"
@@ -160,12 +210,11 @@ class VectorService:
 
                     ClientClass = qdrant_client.AsyncQdrantClient if is_async else qdrant_client.QdrantClient
 
-                    # P0: prefer_grpc=False is CRITICAL for Windows/Docker stability
                     new_client = ClientClass(
                         host=self.env_settings.QDRANT_HOST,
                         port=6333,
                         https=False,
-                        api_key=self.env_settings.QDRANT_API_KEY if self.env_settings.QDRANT_API_KEY else None,
+                        api_key=qdrant_api_key if qdrant_api_key else None,
                         timeout=5.0,
                         prefer_grpc=False,
                     )
@@ -182,7 +231,7 @@ class VectorService:
 
     async def ensure_collection_exists(self, collection_name: str, provider: str):
         """Ensures Qdrant collection exists with correct dimensionality."""
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
 
         try:
             exists = await client.collection_exists(collection_name)
@@ -228,7 +277,7 @@ class VectorService:
     async def delete_connector_vectors(self, connector_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a connector."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         # Local import to avoid circular dependency if Repo uses Service
         from app.repositories.vector_repository import VectorRepository
 
@@ -239,7 +288,7 @@ class VectorService:
     async def delete_document_vectors(self, document_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a document."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         from app.repositories.vector_repository import VectorRepository
 
         repo = VectorRepository(client)
@@ -249,7 +298,7 @@ class VectorService:
     async def update_connector_acl(self, connector_id: str, new_acl: Any, provider: Optional[str] = None) -> None:
         """Update ACLs for all connector vectors."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         from app.repositories.vector_repository import VectorRepository
 
         repo = VectorRepository(client)
@@ -270,8 +319,8 @@ class VectorService:
         collection_name = await self.get_collection_name(provider)
 
         # Using the SYNC client for VectorStore based on LlamaIndex common usage
-        client = self.get_qdrant_client()
-        aclient = self.get_async_qdrant_client()
+        client = await self.get_qdrant_client()
+        aclient = await self.get_async_qdrant_client()
 
         # P0 FIX: Must provide aclient for async router operations
         vector_store = QdrantVectorStore(client=client, aclient=aclient, collection_name=collection_name)
@@ -318,4 +367,7 @@ async def get_vector_service(
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
 ) -> VectorService:
     """FastAPI Dependency Provider."""
-    return VectorService(settings_service=settings_service)
+    vs = VectorService(settings_service=settings_service)
+    # 🔴 P0 Pre-initialize to allow sync property access later if needed
+    await vs.get_async_qdrant_client()
+    return vs

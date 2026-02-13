@@ -76,13 +76,13 @@ class GeminiVisionService:
 # --- Dependency Injection ---
 
 
-def get_gemini_client() -> genai.Client:
-    """Provider for Gemini Client."""
-    s = get_settings()
-    if not s.GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not set. Vision service is dormant.")
+async def get_gemini_client(settings_service: Annotated[SettingsService, Depends()]) -> genai.Client:
+    """Provider for Gemini Client using DB-aware settings."""
+    api_key = await settings_service.get_value("gemini_api_key")
+    if not api_key:
+        logger.warning("GEMINI_API_KEY could not be resolved from DB or Env. Vision service is dormant.")
         raise TechnicalError("Gemini API Key missing", error_code="GEMINI_CONFIG_ERROR")
-    return genai.Client(api_key=s.GEMINI_API_KEY)
+    return genai.Client(api_key=api_key)
 
 
 async def get_gemini_vision_service(

@@ -358,7 +358,7 @@ class DocumentService:
         try:
             from app.repositories.vector_repository import VectorRepository
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             await repo.delete_by_document_id(collection, document_id)
             logger.info(f"BACKGROUND VECTOR CLEANUP SUCCESS | Doc: {document_id}")
@@ -381,7 +381,7 @@ class DocumentService:
         try:
             from app.repositories.vector_repository import VectorRepository
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             collection = await self.vector_service.get_collection_name()
             await repo.update_acl(collection, "connector_document_id", str(document_id), acl)

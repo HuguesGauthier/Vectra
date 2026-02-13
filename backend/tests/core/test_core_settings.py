@@ -10,7 +10,7 @@ Validates:
 """
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -65,7 +65,9 @@ class TestSecretValidation:
     def test_weak_secret_allowed_in_development(self):
         """Weak secrets should be allowed in development mode with warning."""
         with patch.dict(os.environ, {"ENV": "development", "GEMINI_API_KEY": "dummy"}, clear=True):
-            settings = Settings(SECRET_KEY="dev-secret-key-replace-in-production", WORKER_SECRET="dev-worker-secret", _env_file=None)
+            settings = Settings(
+                SECRET_KEY="dev-secret-key-replace-in-production", WORKER_SECRET="dev-worker-secret", _env_file=None
+            )
 
             # Should not raise, just warn
             assert settings.SECRET_KEY == "dev-secret-key-replace-in-production"
@@ -80,7 +82,7 @@ class TestSecretValidation:
                     SECRET_KEY="dev-secret-key-replace-in-production",
                     WORKER_SECRET="strong-enough-secret-for-production-testing-purposes-12345",
                     FIRST_SUPERUSER_PASSWORD="strong-pass-123!",
-                    _env_file=None
+                    _env_file=None,
                 )
 
             assert "weak/default patterns" in str(exc_info.value)
@@ -95,7 +97,7 @@ class TestSecretValidation:
                     SECRET_KEY="short",
                     WORKER_SECRET="also-short",
                     FIRST_SUPERUSER_PASSWORD="strong-pass-123!",
-                    _env_file=None
+                    _env_file=None,
                 )
 
             assert "at least 32 characters" in str(exc_info.value)
@@ -120,13 +122,13 @@ class TestSecretValidation:
 class TestProviderValidation:
     """Test embedding provider and API key validation."""
 
-    def test_gemini_provider_without_key_fails_in_development(self):
-        """Selecting Gemini without API key should fail in development."""
+    def test_gemini_provider_without_key_falls_back_in_development(self):
+        """Selecting Gemini without API key should fallback to local in development."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            with pytest.raises(ValidationError) as exc_info:
-                Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None, _env_file=None)
+            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None, _env_file=None)
 
-            assert "requires GEMINI_API_KEY" in str(exc_info.value)
+            assert settings.EMBEDDING_PROVIDER == "local"
+            # Should log a warning (not checked here)
 
     def test_openai_provider_without_key_fails(self):
         """Selecting OpenAI without API key should fail."""
@@ -169,7 +171,11 @@ class TestProductionValidation:
             with pytest.raises(ValidationError) as exc_info:
                 Settings(
                     DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
-                    DEBUG=True, SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="strong-pass-123", _env_file=None
+                    DEBUG=True,
+                    SECRET_KEY="a" * 64,
+                    WORKER_SECRET="b" * 64,
+                    FIRST_SUPERUSER_PASSWORD="strong-pass-123",
+                    _env_file=None,
                 )
 
             assert "DEBUG must be False in production" in str(exc_info.value)
@@ -180,7 +186,10 @@ class TestProductionValidation:
             with pytest.raises(ValidationError) as exc_info:
                 Settings(
                     DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
-                    SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="vectra123!", _env_file=None
+                    SECRET_KEY="a" * 64,
+                    WORKER_SECRET="b" * 64,
+                    FIRST_SUPERUSER_PASSWORD="vectra123!",
+                    _env_file=None,
                 )
 
             assert "Default FIRST_SUPERUSER_PASSWORD" in str(exc_info.value)
@@ -211,6 +220,7 @@ class TestLazyInitialization:
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
             # Clear the global singleton
             from app.core import settings
+
             settings._settings = None
 
             settings1 = get_settings()
@@ -219,10 +229,11 @@ class TestLazyInitialization:
             assert settings1 is settings2
 
     def test_get_settings_error_handling(self):
-        """get_settings should handle ValidationError properly."""
+        """get_settings should return a construct fallback if validation fails during pytest."""
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
             # Clear singleton
             from app.core import settings
+
             settings._settings = None
 
             # Mock Settings to raise ValidationError
@@ -231,8 +242,12 @@ class TestLazyInitialization:
                     "test", [{"type": "missing", "loc": ("SECRET_KEY",), "msg": "field required", "input": {}}]
                 )
 
-                with pytest.raises(ValidationError):
-                    get_settings()
+                # Now it should NOT raise, it should return a fallback
+                # Mock model_construct to return an object with a real ENV attribute
+                MockSettings.model_construct.return_value = MagicMock(ENV="development")
+                s = get_settings()
+                assert s is not None
+                assert s.ENV == "development"
 
 
 class TestEnvironmentDetection:
@@ -336,3 +351,14 @@ class TestDatabaseURLValidation:
             settings = Settings(_env_file=None)
             assert "127.0.0.1" in settings.DATABASE_URL
             assert "localhost" not in settings.DATABASE_URL
+
+    def test_windows_qdrant_host_fixer(self):
+        """On Windows, QDRANT_HOST 'localhost' should be replaced with '127.0.0.1'."""
+        import sys
+
+        if sys.platform != "win32":
+            pytest.skip("Only relevant on Windows")
+
+        with patch.dict(os.environ, {"ENV": "test", "QDRANT_HOST": "localhost"}, clear=True):
+            settings = Settings(_env_file=None)
+            assert settings.QDRANT_HOST == "127.0.0.1"

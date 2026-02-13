@@ -19,6 +19,7 @@ class PipelineContext:
     llm: Any
     embed_model: Any
     search_strategy: Any
+    settings_service: Any = None
     tools: List[Any] = field(default_factory=list)
 
     # Intermediate State

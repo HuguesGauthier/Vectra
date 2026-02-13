@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import sys
 from typing import Annotated
 
@@ -50,7 +50,7 @@ async def test_repository_providers():
 async def test_vector_repository_provider():
     """Happy Path: Verify vector repository provider."""
     mock_vs = MagicMock(spec=VectorService)
-    mock_vs.get_async_qdrant_client.return_value = MagicMock()
+    mock_vs.get_async_qdrant_client = AsyncMock(return_value=MagicMock())
 
     repo = await get_vector_repository(mock_vs)
     assert isinstance(repo, VectorRepository)

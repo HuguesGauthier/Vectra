@@ -6,10 +6,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.dependencies import (HybridStrategy, VectorOnlyStrategy,
-                              get_connector_repository,
-                              get_document_repository, get_search_strategy,
-                              get_user_repository, get_vector_repository)
+from app.dependencies import (
+    HybridStrategy,
+    VectorOnlyStrategy,
+    get_connector_repository,
+    get_document_repository,
+    get_search_strategy,
+    get_user_repository,
+    get_vector_repository,
+)
 
 
 @pytest.mark.asyncio
@@ -30,7 +35,7 @@ async def test_get_repositories():
 async def test_get_vector_repository():
     """✅ SUCCESS: Vector Repo gets client from service."""
     mock_vs = MagicMock()
-    mock_vs.get_async_qdrant_client.return_value = "mock_client"
+    mock_vs.get_async_qdrant_client = AsyncMock(return_value="mock_client")
 
     repo = await get_vector_repository(mock_vs)
     assert repo.client == "mock_client"

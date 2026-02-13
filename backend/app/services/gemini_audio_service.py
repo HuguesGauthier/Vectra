@@ -9,8 +9,7 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, ValidationError
 
-from app.core.exceptions import (ConfigurationError, ExternalDependencyError,
-                                 TechnicalError)
+from app.core.exceptions import ConfigurationError, ExternalDependencyError, TechnicalError
 from app.core.settings import get_settings
 from app.services.settings_service import SettingsService
 
@@ -191,13 +190,13 @@ class GeminiAudioService:
 
 
 # 🟠 P1: Modern FastAPI Dependency Injection
-def get_gemini_client() -> genai.Client:
-    """Provider for Gemini Client."""
-    s = get_settings()
-    if not s.GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not set. Audio service is dormant.")
+async def get_gemini_client(settings_service: Annotated[SettingsService, Depends()]) -> genai.Client:
+    """Provider for Gemini Client using DB-aware settings."""
+    api_key = await settings_service.get_value("gemini_api_key")
+    if not api_key:
+        logger.warning("GEMINI_API_KEY could not be resolved from DB or Env. Audio service is dormant.")
         raise TechnicalError("Gemini API Key missing", error_code="GEMINI_CONFIG_ERROR")
-    return genai.Client(api_key=s.GEMINI_API_KEY)
+    return genai.Client(api_key=api_key)
 
 
 async def get_gemini_audio_service(

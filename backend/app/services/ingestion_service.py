@@ -403,7 +403,7 @@ class IngestionService:
 
     async def _get_or_create_orchestrator(self) -> IngestionOrchestrator:
         if self._orchestrator is None:
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             vector_repo = VectorRepository(client)
             self._orchestrator = IngestionOrchestrator(
                 self.db,

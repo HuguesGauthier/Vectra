@@ -23,8 +23,7 @@ from pathlib import Path
 from app.core.exceptions import ConfigurationError
 from app.core.settings import get_settings
 from app.factories.processors.base import FileProcessor, ProcessedDocument
-from app.factories.processors.pdf_cloud_processor import (GeminiProcessorError,
-                                                          PdfCloudProcessor)
+from app.factories.processors.pdf_cloud_processor import GeminiProcessorError, PdfCloudProcessor
 from app.factories.processors.pdf_local_processor import PdfLocalProcessor
 from app.factories.processors.pdf_quality_inspector import PdfQualityInspector
 
@@ -49,21 +48,19 @@ class PdfProcessor(FileProcessor):
     """
 
     def __init__(self):
-        """Initialize with both processors."""
+        """Initialize both processors."""
         super().__init__(max_file_size_bytes=100 * 1024 * 1024)
 
         # Initialize both processors
         self._cloud_processor = PdfCloudProcessor()
         self._local_processor = PdfLocalProcessor()
 
-        # Check if cloud processor is available
-        settings = get_settings()
-        self._has_api_key = bool(settings.GEMINI_API_KEY)
+        logger.info("pdf_processor_initialized", extra={"mode": "hybrid_local_first"})
 
-        if self._has_api_key:
-            logger.info("pdf_processor_initialized", extra={"mode": "hybrid_local_first_with_gemini_fallback"})
-        else:
-            logger.info("pdf_processor_initialized", extra={"mode": "local_only", "reason": "missing_gemini_key"})
+    @property
+    def _has_api_key(self) -> bool:
+        """Helper for internal routing and backward compatibility with tests."""
+        return get_settings().GEMINI_API_KEY is not None
 
     async def process(self, file_path: str | Path) -> list[ProcessedDocument]:
         """
@@ -143,57 +140,70 @@ class PdfProcessor(FileProcessor):
             logger.error("pdf_local_processor_unexpected_error_trying_cloud", extra={"error": str(e)}, exc_info=True)
 
         # ========== STRATEGY 2: CLOUD FALLBACK (GEMINI) ==========
-        if self._has_api_key:
-            logger.info("pdf_attempting_cloud_processing", extra={"processor": "Gemini", "has_ocr": True})
-
-            try:
-                cloud_result = await self._cloud_processor.process(str(validated_path))
-
-                # Check if cloud processing succeeded
-                if cloud_result and cloud_result[0].success:
-                    logger.info(
-                        "pdf_cloud_processing_successful", extra={"processor": "Gemini", "decision": "cloud_accepted"}
-                    )
-                    return cloud_result
-
-                # Cloud processing returned error document
-                logger.error(
-                    "pdf_cloud_processing_failed",
-                    extra={"reason": cloud_result[0].error_message if cloud_result else "unknown"},
+        if not self._has_api_key:
+            logger.warning(
+                "pdf_no_cloud_key_keeping_local_result",
+                extra={"quality": "potentially_poor", "suggestion": "configure_GEMINI_API_KEY"},
+            )
+            return local_result or [
+                ProcessedDocument(
+                    content="",
+                    metadata={"file_type": "pdf"},
+                    success=False,
+                    error_message="All PDF processors failed and no cloud API key available",
                 )
+            ]
 
-                # Return cloud error (more informative than generic error)
+        logger.info("pdf_attempting_cloud_processing", extra={"processor": "Gemini", "has_ocr": True})
+
+        try:
+            cloud_result = await self._cloud_processor.process(str(validated_path))
+
+            # Check if cloud processing succeeded
+            if cloud_result and cloud_result[0].success:
+                logger.info(
+                    "pdf_cloud_processing_successful", extra={"processor": "Gemini", "decision": "cloud_accepted"}
+                )
                 return cloud_result
 
-            except (ConfigurationError, GeminiProcessorError) as e:
-                # Expected errors - log and return error doc
-                logger.error("pdf_cloud_processor_error", extra={"error": str(e), "processor": "Gemini"})
+            # Cloud processing returned error document
+            logger.error(
+                "pdf_cloud_processing_failed",
+                extra={"reason": cloud_result[0].error_message if cloud_result else "unknown"},
+            )
 
-                return [
-                    ProcessedDocument(
-                        content="",
-                        metadata={"file_type": "pdf"},
-                        success=False,
-                        error_message=f"Cloud processing failed: {str(e)}",
-                    )
-                ]
+            # Return cloud error (more informative than generic error)
+            return cloud_result
 
-            except Exception as e:
-                # Unexpected error - log with full stack
-                logger.error(
-                    "pdf_cloud_processor_unexpected_error",
-                    extra={"error": str(e), "processor": "Gemini"},
-                    exc_info=True,
+        except (ConfigurationError, GeminiProcessorError) as e:
+            # Expected errors - log and return error doc
+            logger.error("pdf_cloud_processor_error", extra={"error": str(e), "processor": "Gemini"})
+
+            return [
+                ProcessedDocument(
+                    content="",
+                    metadata={"file_type": "pdf"},
+                    success=False,
+                    error_message=f"Cloud processing failed: {str(e)}",
                 )
+            ]
 
-                return [
-                    ProcessedDocument(
-                        content="",
-                        metadata={"file_type": "pdf"},
-                        success=False,
-                        error_message=f"Unexpected cloud error: {str(e)}",
-                    )
-                ]
+        except Exception as e:
+            # Unexpected error - log with full stack
+            logger.error(
+                "pdf_cloud_processor_unexpected_error",
+                extra={"error": str(e), "processor": "Gemini"},
+                exc_info=True,
+            )
+
+            return [
+                ProcessedDocument(
+                    content="",
+                    metadata={"file_type": "pdf"},
+                    success=False,
+                    error_message=f"Unexpected cloud error: {str(e)}",
+                )
+            ]
 
         # ========== NO CLOUD KEY AVAILABLE ==========
         # Keep local result even if quality is poor (no alternative)

@@ -156,10 +156,10 @@ async def test_delete_document_background_tasks(document_service, mock_doc_repo,
 
         # Should verify we tried to spawn tasks (Vector delete + File delete)
         assert mock_task.call_count >= 1
-        mock_doc_repo.delete.assert_called_once_with(doc_id)
+        mock_doc_repo.delete.assert_awaited_once_with(doc_id)
 
         # Count update check
-        mock_conn_repo.update.assert_called_once()
+        mock_conn_repo.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -179,8 +179,8 @@ async def test_create_document_nominal(document_service, mock_conn_repo, mock_do
     ) as mock_validate:
         mock_validate.return_value = [{"name": "id", "type": "string"}]
         await document_service.create_document(cid, doc_data)
-        mock_doc_repo.create.assert_called_once()
-        mock_conn_repo.update.assert_called_once()
+        mock_doc_repo.create.assert_awaited_once()
+        mock_conn_repo.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -208,6 +208,7 @@ async def test_update_document_acl_background(document_service, mock_doc_repo, m
 
     with patch("asyncio.create_task") as mock_task:
         await document_service.update_document(doc_id, update)
+        # mock_task is sync (asyncio.create_task is a function producing a task)
         mock_task.assert_called()
 
 
@@ -222,7 +223,7 @@ async def test_sync_document_nominal(document_service, mock_doc_repo, mock_ws_ma
     assert (
         doc.status == DocStatus.IDLE
     )  # Status change should be reflected in update call not necessarily on object if not refreshed
-    mock_doc_repo.update.assert_called_once()
+    mock_doc_repo.update.assert_awaited_once()
     mock_ws_manager.emit_trigger_document_sync.assert_awaited()
 
 

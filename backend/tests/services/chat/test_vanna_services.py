@@ -55,6 +55,8 @@ def mock_vector_service():
     service = MagicMock()
     client = MagicMock()
     service.get_qdrant_client.return_value = client
+    # Fix: vanna_services.py accesses .client property directly
+    service.client = client
 
     # Mock query_points result
     hit = MagicMock()

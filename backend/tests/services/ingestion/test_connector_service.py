@@ -62,7 +62,7 @@ def mock_settings_service(mock_db_session):
 def mock_vector_service(mock_settings_service):
     vs = MagicMock()
     vs.get_collection_name = AsyncMock(return_value="test_collection")
-    vs.get_async_qdrant_client = MagicMock()
+    vs.get_async_qdrant_client = AsyncMock()
     return vs
 
 
@@ -119,7 +119,7 @@ async def test_create_connector_nominal(connector_service, mock_connector_repo, 
         result = await connector_service.create_connector(data)
 
         # Verify Repo calls
-        mock_connector_repo.create.assert_called_once()
+        mock_connector_repo.create.assert_awaited_once()
 
         # Verify background scan triggered
         mock_scan.assert_called_once()
@@ -130,7 +130,6 @@ async def test_create_connector_nominal(connector_service, mock_connector_repo, 
 async def test_get_connectors(connector_service, mock_connector_repo):
     """Test retrieval."""
     c1 = Connector(id=uuid4(), name="C1", connector_type="local_file")
-    # We use the repo method we actually call
     mock_connector_repo.get_all_with_stats = AsyncMock(return_value=[c1])
 
     connectors = await connector_service.get_connectors()
@@ -166,7 +165,7 @@ async def test_update_connector_nominal(connector_service, mock_connector_repo, 
         await connector_service.update_connector(cid, update)
 
         # Verification
-        mock_connector_repo.update.assert_called_once()
+        mock_connector_repo.update.assert_awaited_once()
         # Background tasks should have been called
         mock_delete.assert_called_once()
         mock_acl.assert_called_once()
@@ -194,7 +193,7 @@ async def test_delete_connector_cleanup(connector_service, mock_connector_repo, 
 
         # Cleanup file + Cleanup vectors
         mock_vectors.assert_called_once()
-        mock_connector_repo.delete_with_relations.assert_called_once_with(cid)
+        mock_connector_repo.delete_with_relations.assert_awaited_once_with(cid)
 
 
 @pytest.mark.asyncio
@@ -212,7 +211,7 @@ async def test_delete_connector_security_guard(connector_service, mock_connector
 
         # Assert
         mock_delete.assert_not_called()
-        mock_connector_repo.delete_with_relations.assert_called_once()
+        mock_connector_repo.delete_with_relations.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -296,9 +295,7 @@ async def test_manual_scan_creates_logs(connector_service, mock_connector_repo, 
     # Verify
     connector_service.sync_log_repo.create_log.assert_called_once_with(cid)
     mock_scanner_service.scan_folder.assert_awaited()
-    connector_service.sync_log_repo.update_log.assert_called_once_with(
-        log_mock.id, status="success", documents_synced=7
-    )
+    connector_service.sync_log_repo.update_log.assert_awaited_with(log_mock.id, status="success", documents_synced=7)
 
 
 @pytest.mark.asyncio
@@ -318,7 +315,8 @@ async def test_manual_scan_logs_failure(connector_service, mock_connector_repo, 
     with pytest.raises(Exception):
         await connector_service.scan_connector(cid)
 
-    connector_service.sync_log_repo.update_log.assert_called_with(
+    # Verification
+    connector_service.sync_log_repo.update_log.assert_awaited_with(
         log_mock.id, status="failure", error_message="Disk Full"
     )
 
@@ -349,5 +347,5 @@ async def test_background_scan_creates_logs(connector_service):
 
         await connector_service._safe_background_scan(cid, config)
 
-        mock_repo.create_log.assert_called_once_with(cid)
-        mock_repo.update_log.assert_called_with(log_mock.id, status="success", documents_synced=10)
+        mock_repo.create_log.assert_awaited_once_with(cid)
+        mock_repo.update_log.assert_awaited_with(log_mock.id, status="success", documents_synced=10)

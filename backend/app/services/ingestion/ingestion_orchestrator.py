@@ -213,8 +213,8 @@ class IngestionOrchestrator:
         NOW WITH CACHING ENABLED for massive performance/cost savings!
         """
         try:
-            client = self.vector_service.get_qdrant_client()
-            aclient = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_qdrant_client()
+            aclient = await self.vector_service.get_async_qdrant_client()
             provider = connector.configuration.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider)
 
@@ -645,7 +645,7 @@ class IngestionOrchestrator:
             embed_model = await self.vector_service.get_embedding_model(provider=provider)
 
             # P0 FIX: Ensure Collection Exists (was missing in CSV flow)
-            client = self.vector_service.get_qdrant_client()
+            client = await self.vector_service.get_qdrant_client()
             if not client.collection_exists(collection_name):
                 logger.info(f"Creating collection {collection_name}")
                 from qdrant_client.http import models as qmodels

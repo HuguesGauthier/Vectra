@@ -29,8 +29,6 @@ HISTORY_WINDOW_SIZE = 3
 
 # --- Defaults ---
 DEFAULT_PROVIDER = "gemini"
-DEFAULT_MODEL_GEMINI = "gemini-1.5-flash"
-DEFAULT_MODEL_OPENAI = "gpt-3.5-turbo"
 
 # --- Keys & Labels ---
 KEY_SQL_QUERY_RESULT = "sql_query_result"
@@ -479,7 +477,7 @@ class AgenticProcessor(BaseChatProcessor):
             nonlocal full_text, output_tokens
             async for token in token_gen:
                 token_str = str(token)
-                
+
                 # feed parser
                 for event in parser.feed(token_str):
                     if event.type == "token":
@@ -493,9 +491,7 @@ class AgenticProcessor(BaseChatProcessor):
                             ctx.metadata["content_blocks"] = []
                         ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
                         logger.info("[AgenticProcessor] Stream: extracted table block")
-                        yield json.dumps(
-                            {"type": "content_block", "block_type": "table", "data": table_data}
-                        ) + "\n"
+                        yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
 
                 # Polling for events during streaming
                 if event_queue:
@@ -534,29 +530,27 @@ class AgenticProcessor(BaseChatProcessor):
                 full_text_raw = str(response)
                 # Feed the whole text to the parser
                 for event in parser.feed(full_text_raw):
-                     if event.type == "token":
+                    if event.type == "token":
                         full_text += event.content
                         output_tokens += 1
                         yield self._format_token(event.content)
-                     elif event.type == "block":
+                    elif event.type == "block":
                         table_data = event.content
                         if "content_blocks" not in ctx.metadata:
                             ctx.metadata["content_blocks"] = []
                         ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
-                        yield json.dumps(
-                            {"type": "content_block", "block_type": "table", "data": table_data}
-                        ) + "\n"
+                        yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
 
         except Exception as e:
             logger.error(f"Stream Error: {e}")
 
         # Flush parser buffer
         for event in parser.flush():
-             if event.type == "token":
+            if event.type == "token":
                 full_text += event.content
                 output_tokens += 1
                 yield self._format_token(event.content)
-        
+
         ctx.full_response_text = full_text
 
         # Extract token counts

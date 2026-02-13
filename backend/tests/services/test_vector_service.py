@@ -42,27 +42,29 @@ class TestVectorService:
         VectorService._client = None
         VectorService._aclient = None
 
-    def test_singleton_logic(self, mock_settings_service, mock_qdrant_module):
+    @pytest.mark.asyncio
+    async def test_singleton_logic(self, mock_settings_service, mock_qdrant_module):
         """Test that qdrant client is stored at class level but accessible via instance."""
         s1 = VectorService(mock_settings_service)
         s2 = VectorService(mock_settings_service)
 
         # First call
-        client1 = s1.get_qdrant_client()
+        client1 = await s1.get_qdrant_client()
         assert mock_qdrant_module.QdrantClient.called
 
         # Reset mock to verify it's NOT called again
         mock_qdrant_module.QdrantClient.reset_mock()
 
         # Second call on DIFFERENT instance
-        client2 = s2.get_qdrant_client()
+        client2 = await s2.get_qdrant_client()
         assert not mock_qdrant_module.QdrantClient.called
         assert client1 is client2
 
-    def test_get_qdrant_client_config(self, mock_settings_service, mock_qdrant_module):
+    @pytest.mark.asyncio
+    async def test_get_qdrant_client_config(self, mock_settings_service, mock_qdrant_module):
         """Test client configuration parameters (timeout, grpc=False)."""
         service = VectorService(mock_settings_service)
-        service.get_qdrant_client()
+        await service.get_qdrant_client()
 
         mock_qdrant_module.QdrantClient.assert_called_with(
             host=ANY,
@@ -77,7 +79,7 @@ class TestVectorService:
     async def test_ensure_collection_exists_skips_if_present(self, mock_settings_service, mock_qdrant_module):
         """Verify that we don't try to create if collection exists."""
         service = VectorService(mock_settings_service)
-        mock_aclient = service.get_async_qdrant_client()
+        mock_aclient = await service.get_async_qdrant_client()
         mock_aclient.collection_exists = AsyncMock(return_value=True)
         # Explicitly mock create_collection as AsyncMock to avoid 'function' object AttributeError
         mock_aclient.create_collection = AsyncMock()
@@ -90,14 +92,14 @@ class TestVectorService:
     async def test_ensure_collection_exists_creates_if_missing(self, mock_settings_service, mock_qdrant_module):
         """Verify that we create collection with correct dimension if missing."""
         service = VectorService(mock_settings_service)
-        mock_aclient = service.get_async_qdrant_client()
+        mock_aclient = await service.get_async_qdrant_client()
         mock_aclient.collection_exists = AsyncMock(return_value=False)
         mock_aclient.create_collection = AsyncMock()
 
         await service.ensure_collection_exists("test_col", "openai")
 
         # OpenAI = 1536
-        mock_aclient.create_collection.assert_called_once()
+        mock_aclient.create_collection.assert_awaited_once()
         args = mock_aclient.create_collection.call_args[1]
         assert args["collection_name"] == "test_col"
         assert args["vectors_config"].size == 1536

@@ -516,7 +516,7 @@ class SQLDiscoveryService:
             if to_delete_ids:
                 try:
                     vector_svc = VectorService(self.settings_service)
-                    vector_repo = VectorRepository(vector_svc.get_async_qdrant_client())
+                    vector_repo = VectorRepository(await vector_svc.get_async_qdrant_client())
                     collection = await vector_svc.get_collection_name(
                         connector.configuration.get("ai_provider", "gemini")
                     )

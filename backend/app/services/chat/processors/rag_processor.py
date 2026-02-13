@@ -2,17 +2,18 @@ import asyncio
 import json
 import logging
 import time
-from typing import (Any, AsyncGenerator, Dict, List, Optional, Set, Tuple,
-                    TypeVar)
+from typing import Any, AsyncGenerator, Dict, List, Optional, Set, Tuple, TypeVar
 
 from app.core.rag.pipeline import RAGPipeline
-from app.core.rag.processors import (QueryRewriterProcessor,
-                                     RerankingProcessor, RetrievalProcessor,
-                                     SynthesisProcessor,
-                                     VectorizationProcessor)
+from app.core.rag.processors import (
+    QueryRewriterProcessor,
+    RerankingProcessor,
+    RetrievalProcessor,
+    SynthesisProcessor,
+    VectorizationProcessor,
+)
 from app.core.rag.types import PipelineContext, PipelineEvent
-from app.repositories import (ConnectorRepository, DocumentRepository,
-                              VectorRepository)
+from app.repositories import ConnectorRepository, DocumentRepository, VectorRepository
 from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.source_service import SourceService
@@ -103,6 +104,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
             llm=components["llm"],
             embed_model=components["embed_model"],
             search_strategy=components["search_strategy"],
+            settings_service=ctx.settings_service,
             tools=[],  # Visualization tool moved to VisualizationProcessor
         )
 
@@ -213,7 +215,9 @@ class RAGGenerationProcessor(BaseChatProcessor):
         try:
             embed = await ctx.vector_service.get_embedding_model(provider=provider)
         except Exception as e:
-            logger.warning(f"Failed to get embedding model for provider '{provider}'. Falling back to local. Error: {e}")
+            logger.warning(
+                f"Failed to get embedding model for provider '{provider}'. Falling back to local. Error: {e}"
+            )
             embed = await ctx.vector_service.get_embedding_model(
                 model_kwargs={"local_files_only": True}, provider="local"
             )

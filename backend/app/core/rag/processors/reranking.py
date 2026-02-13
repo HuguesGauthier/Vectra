@@ -26,14 +26,16 @@ class RerankingProcessor(BaseProcessor):
 
     def __init__(self):
         super().__init__()
-        self.api_key = settings.COHERE_API_KEY
-        if not self.api_key:
-            logger.warning("⚠️ COHERE_API_KEY not found in settings. Reranking will be skipped.")
-
-        # Initialize client only if key exists
-        self.client = cohere.AsyncClient(api_key=self.api_key) if self.api_key else None
+        self.api_key = None
+        self.client = None
 
     async def process(self, ctx: PipelineContext) -> AsyncGenerator[PipelineEvent, None]:
+        # P0 FIX: Get API Key from DB/SettingsService
+        if ctx.settings_service and not self.api_key:
+            self.api_key = await ctx.settings_service.get_value("cohere_api_key")
+            if self.api_key and not self.client:
+                self.client = cohere.AsyncClient(api_key=self.api_key)
+
         # 0. Fast Exit checks
         if not ctx.retrieved_nodes:
             logger.debug("[RERANK] No nodes retrieved, skipping.")
@@ -50,9 +52,7 @@ class RerankingProcessor(BaseProcessor):
 
         # Check for API Key validity
         if not self.client:
-            logger.error(
-                f"❌ [RERANK] Cohere API Key missing. Skipping Rerank. (API Key Present? {bool(self.api_key)})"
-            )
+            logger.error(f"❌ [RERANK] Cohere API Key missing (could not be resolved from DB or Env). Skipping Rerank.")
             yield PipelineEvent(
                 type="step", step_type="reranking", status="completed", label="Skipped (Missing API Key)"
             )

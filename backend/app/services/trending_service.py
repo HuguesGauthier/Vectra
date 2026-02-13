@@ -68,7 +68,7 @@ class TrendingService:
             self.vector_repo = vector_repository
         else:
             # We use the Async client for the repo
-            self.vector_repo = VectorRepository(self.vector_service.get_async_qdrant_client())
+            self.vector_repo = VectorRepository(self.vector_service.aclient)
 
     def _get_collection_name(self, provider: str) -> str:
         """Helper to generate provider-specific collection name."""
@@ -103,7 +103,7 @@ class TrendingService:
             await self.vector_service.ensure_collection_exists(collection_name, provider=embedding_provider)
 
             # 3. Semantic Search via Repository (Abstracted)
-            results = await self.vector_service.get_async_qdrant_client().query_points(
+            results = await (await self.vector_service.get_async_qdrant_client()).query_points(
                 collection_name=collection_name,
                 query=embedding,
                 limit=1,
@@ -198,7 +198,7 @@ class TrendingService:
                 # Re-inject dependencies
                 settings_svc = SettingsService(db)
                 vector_svc = VectorService(settings_svc)
-                vector_repo = VectorRepository(vector_svc.get_async_qdrant_client())
+                vector_repo = VectorRepository(await vector_svc.get_async_qdrant_client())
 
                 service = TrendingService(
                     db=db, settings_service=settings_svc, vector_service=vector_svc, vector_repository=vector_repo
@@ -281,7 +281,7 @@ class TrendingService:
             # Use Repository ACL/Updater approach if possible, or direct Payload update
             # Adding payload update helper to Repo would be best, but for now we use client via repo access?
             # Or just use qdrant client from vector_service as we have it.
-            await self.vector_service.get_async_qdrant_client().set_payload(
+            await (await self.vector_service.get_async_qdrant_client()).set_payload(
                 collection_name=collection_name, payload={"canonical_text": refined_title}, points=[str(topic_id)]
             )
 
@@ -347,7 +347,7 @@ async def get_trending_service(
 ) -> TrendingService:
     """Dependency Provider."""
     # We construct Repo here to ensure standard DI chain
-    vector_repo = VectorRepository(vector_service.get_async_qdrant_client())
+    vector_repo = VectorRepository(await vector_service.get_async_qdrant_client())
 
     return TrendingService(
         db=db, vector_service=vector_service, settings_service=settings_service, vector_repository=vector_repo

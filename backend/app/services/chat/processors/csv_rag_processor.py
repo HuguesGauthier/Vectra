@@ -206,7 +206,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 embedding_provider = await ctx.settings_service.get_value("embedding_provider", default="local")
 
             collection_name = await ctx.vector_service.get_collection_name(embedding_provider)
-            qdrant_client = ctx.vector_service.get_qdrant_client()
+            qdrant_client = await ctx.vector_service.get_qdrant_client()
             facet_service = FacetRepository(qdrant_client)
 
             facets = {}
@@ -460,9 +460,9 @@ class CSVRAGProcessor(BaseChatProcessor):
                 model_kwargs={"local_files_only": True}, provider="local"
             )
 
-        qdrant_client = ctx.vector_service.get_qdrant_client()
+        qdrant_client = await ctx.vector_service.get_qdrant_client()
         vector_store = QdrantVectorStore(
-            collection_name=col_name, client=qdrant_client, aclient=ctx.vector_service.get_async_qdrant_client()
+            collection_name=col_name, client=qdrant_client, aclient=await ctx.vector_service.get_async_qdrant_client()
         )
         vector_index = VectorStoreIndex.from_vector_store(vector_store=vector_store, embed_model=embed)
 

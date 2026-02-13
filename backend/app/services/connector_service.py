@@ -566,7 +566,7 @@ class ConnectorService:
             ai_provider = config.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider=ai_provider)
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             await repo.update_acl(collection, "connector_id", str(connector_id), acl)
 
@@ -580,7 +580,7 @@ class ConnectorService:
             ai_provider = config.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider=ai_provider)
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             await repo.delete_by_connector_id(collection, connector_id)
 

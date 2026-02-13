@@ -66,7 +66,7 @@ async def get_vector_repository(vs: Annotated[VectorService, Depends(get_vector_
     Provide VectorRepository instance.
     Uses async client for non-blocking Qdrant operations.
     """
-    qdrant_client = vs.get_async_qdrant_client()
+    qdrant_client = await vs.get_async_qdrant_client()
     return VectorRepository(qdrant_client)
 
 

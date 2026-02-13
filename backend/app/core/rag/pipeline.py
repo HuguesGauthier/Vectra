@@ -28,12 +28,15 @@ class RAGPipeline:
         assistant: Any = None,
         chat_history: List[Any] = None,
         language: str = "en",
+        settings_service: Any = None,
         # New optional args for flexible orchestration
         context: Optional[PipelineContext] = None,
         processors: Optional[List[BaseProcessor]] = None,
     ):
         if context:
             self.ctx = context
+            if settings_service:
+                self.ctx.settings_service = settings_service
         else:
             self.ctx = PipelineContext(
                 user_message="",
@@ -43,6 +46,7 @@ class RAGPipeline:
                 llm=llm,
                 embed_model=embed_model,
                 search_strategy=search_strategy,
+                settings_service=settings_service,
             )
 
         # Define Pipeline Strategy

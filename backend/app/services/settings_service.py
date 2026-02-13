@@ -123,8 +123,13 @@ class SettingsService:
         env_map = {
             "gemini_api_key": env_settings.GEMINI_API_KEY,
             "openai_api_key": env_settings.OPENAI_API_KEY,
+            "cohere_api_key": env_settings.COHERE_API_KEY,
+            "mistral_api_key": env_settings.MISTRAL_API_KEY,
             "embedding_provider": env_settings.EMBEDDING_PROVIDER,
             "gemini_transcription_model": env_settings.GEMINI_TRANSCRIPTION_MODEL,
+            "gemini_chat_model": env_settings.GEMINI_CHAT_MODEL,
+            "gemini_embedding_model": env_settings.GEMINI_EMBEDDING_MODEL,
+            "qdrant_api_key": env_settings.QDRANT_API_KEY,
         }
         return env_map.get(key)
 

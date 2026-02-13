@@ -72,8 +72,11 @@ class VectraCustomVanna(VannaBase):
             # self.embedding_service is the Model (BaseEmbedding), not the service.
             query_vector = self.embedding_service.get_text_embedding(question)
 
-            # 2. Get Sync Client
-            client = self.vector_service.get_qdrant_client()
+            # 2. Get Sync Client (Pre-initialized in Factory)
+            client = self.vector_service.client
+            if not client:
+                logger.error("Vanna | Qdrant client not initialized. Cannot retrieve DDL.")
+                return []
 
             # 3. Use Injected Collection Name
             if not self.collection_name:
@@ -400,9 +403,17 @@ async def VannaServiceFactory(
         connector_config: Configuration dictionary for the connector (DB type, host, etc.)
     """
     # 1. Determine Provider for Vectors (Connector Specific)
-    vector_provider = context_provider if context_provider else settings.EMBEDDING_PROVIDER
+    # Priority:
+    # A. Connector Specific Provider (from UI/DB)
+    # B. Global Default from DB/SettingsService
+    # C. Env Fallback (handled by settings_service)
 
-    logger.info(f"Vanna Factory | Vector Provider: {vector_provider} | LLM Provider: {settings.EMBEDDING_PROVIDER}")
+    global_embedding_provider = await settings_service.get_value("embedding_provider")
+    vector_provider = context_provider if context_provider else global_embedding_provider
+
+    logger.info(
+        f"Vanna Factory | Vector Provider: {vector_provider} | LLM Provider (Global): {global_embedding_provider}"
+    )
 
     # 2. Create Embedding Engine (Async) - Used for Query Embedding (Must match Vector Store)
     embedding_model = await EmbeddingProviderFactory.create_embedding_model(
@@ -415,7 +426,7 @@ async def VannaServiceFactory(
     from app.factories.chat_engine_factory import ChatEngineFactory
 
     llm = await ChatEngineFactory.create_from_provider(
-        provider=settings.EMBEDDING_PROVIDER, settings_service=settings_service
+        provider=global_embedding_provider, settings_service=settings_service
     )
 
     # 4. Instantiate VectorService (for context retrieval)
@@ -425,6 +436,9 @@ async def VannaServiceFactory(
 
     # 5. Resolve Collection Name (Must match Vector Provider)
     collection_name = await vector_service.get_collection_name(provider=vector_provider)
+
+    # 5.1 Pre-initialize Qdrant Client (Sync) for Vanna's sync methods
+    await vector_service.get_qdrant_client()
 
     # 6. Return Custom Vanna Instance with Collection Context
     # 6. Return Custom Vanna Instance with Collection Context

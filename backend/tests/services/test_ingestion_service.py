@@ -55,10 +55,10 @@ async def test_process_connector_happy_path(ingestion_service, mock_orchestrator
         await ingestion_service.process_connector(connector_id)
 
         # Verify
-        ingestion_service.state_service.update_connector_status.assert_called_with(
+        ingestion_service.state_service.update_connector_status.assert_awaited_with(
             connector_id, ConnectorStatus.VECTORIZING
         )
-        ingestion_service.state_service.finalize_connector.assert_called_with(connector_id)
+        ingestion_service.state_service.finalize_connector.assert_awaited_with(connector_id)
 
 
 @pytest.mark.asyncio
@@ -90,7 +90,7 @@ async def test_process_connector_error_handling(ingestion_service):
         await ingestion_service.process_connector(connector_id)
 
     # Verify
-    ingestion_service.state_service.mark_connector_failed.assert_called_once()
+    ingestion_service.state_service.mark_connector_failed.assert_awaited_once()
     assert ingestion_service.db.rollback.called
 
 
@@ -116,8 +116,8 @@ async def test_process_single_document_happy_path(ingestion_service, mock_orches
         await ingestion_service.process_single_document(doc_id)
 
         # Verify
-        ingestion_service.state_service.update_document_status.assert_called()
-        ingestion_service.state_service.finalize_connector.assert_called()
+        ingestion_service.state_service.update_document_status.assert_awaited()
+        ingestion_service.state_service.finalize_connector.assert_awaited()
 
 
 @pytest.mark.asyncio

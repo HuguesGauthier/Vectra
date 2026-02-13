@@ -65,7 +65,7 @@ class TestWebSocket:
 
     def test_worker_connection_authorized_header(self):
         """Test worker connection accepted with correct header."""
-        secret = settings.WORKER_SECRET
+        secret = str(settings.WORKER_SECRET)
         with client.websocket_connect("/ws?client_type=worker", headers={"x-worker-secret": secret}) as websocket:
             # 1. connect msg
             websocket.receive_json()

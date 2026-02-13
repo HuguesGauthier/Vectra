@@ -28,7 +28,10 @@ def mock_repository():
 @pytest.fixture
 def mock_vector_service():
     service = AsyncMock()
-    service.get_async_qdrant_client = MagicMock()
+    service.get_async_qdrant_client = AsyncMock()
+    # Configure it to return a mock client
+    mock_client = AsyncMock()
+    service.get_async_qdrant_client.return_value = mock_client
     return service
 
 
@@ -46,7 +49,8 @@ def service(mock_db, mock_repository, mock_vector_service, mock_settings_service
             vector_service=mock_vector_service,
             settings_service=mock_settings_service,
         )
-        svc.vector_repo = mock_v_repo.return_value
+        # Fix: Ensure vector_repo is AsyncMock for assert_awaited usage
+        svc.vector_repo = AsyncMock()
         return svc
 
 
@@ -66,8 +70,8 @@ async def test_process_user_question_new_topic(service, mock_vector_service):
     await service.process_user_question(question, a_id, embedding)
 
     # Verify
-    service.repository.create.assert_called_once()
-    service.vector_repo.upsert_points.assert_called_once()
+    service.repository.create.assert_awaited_once()
+    service.vector_repo.upsert_points.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -99,7 +103,7 @@ async def test_process_user_question_existing_topic(service, mock_vector_service
     assert mock_topic.frequency == 2
     assert question in mock_topic.raw_variations
     mock_db = service.db
-    mock_db.commit.assert_called()
+    mock_db.commit.assert_awaited()
 
 
 def test_clean_ai_title(service):

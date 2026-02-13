@@ -20,8 +20,7 @@ from typing import Annotated, Any, Dict, List, Optional
 import redis.asyncio as aioredis
 from fastapi import Depends
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import (Distance, FieldCondition, Filter, MatchValue,
-                                  PointStruct, SearchParams, VectorParams)
+from qdrant_client.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, SearchParams, VectorParams
 
 from app.core.exceptions import TechnicalError
 from app.core.settings import settings
@@ -360,5 +359,5 @@ async def get_cache_service(
     provider = await vector_service.settings_service.get_value("embedding_provider")
     embedding_dim = vector_service._determine_dimension(provider or "gemini")
 
-    qdrant_client = vector_service.get_async_qdrant_client()
+    qdrant_client = await vector_service.get_async_qdrant_client()
     return SemanticCacheService(qdrant_client, embedding_dim=embedding_dim)
