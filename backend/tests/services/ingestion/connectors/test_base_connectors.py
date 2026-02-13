@@ -18,7 +18,10 @@ async def test_file_connector_validation_success():
     connector = FileConnector()
     valid_config = FileIngestionConfig(path="valid_path.txt")
 
-    with patch("os.path.exists", return_value=True):
+    with (
+        patch("os.path.exists", return_value=True),
+        patch("os.path.isfile", return_value=True),
+    ):
         assert await connector.validate_config(valid_config) is True
 
 
@@ -32,6 +35,7 @@ async def test_file_connector_async_load():
 
     with (
         patch("os.path.exists", return_value=True),
+        patch("os.path.isfile", return_value=True),
         patch("app.services.ingestion.connectors.file_connector.SimpleDirectoryReader") as MockReader,
     ):
         instance = MockReader.return_value

@@ -45,7 +45,8 @@ async def cleanup_background_tasks():
     dash_mod._broadcast_task = None
 
 
-def test_get_dashboard_stats(app):
+@pytest.mark.asyncio
+async def test_get_dashboard_stats(app):
     mock_stats = DashboardStats(
         connect=ConnectStats(active_pipelines=1, total_connectors=2, system_status="ok", last_sync_time=None),
         vectorize=VectorizeStats(total_vectors=100, total_tokens=1000, indexing_success_rate=0.99, failed_docs_count=1),
@@ -64,7 +65,8 @@ def test_get_dashboard_stats(app):
         assert data["connect"]["active_pipelines"] == 1
 
 
-def test_get_dashboard_stats_error(app):
+@pytest.mark.asyncio
+async def test_get_dashboard_stats_error(app):
     from app.core.exceptions import TechnicalError
 
     with patch("app.api.v1.endpoints.dashboard.DashboardStatsService") as MockService:

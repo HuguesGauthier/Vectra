@@ -64,8 +64,8 @@ class TestSecretValidation:
 
     def test_weak_secret_allowed_in_development(self):
         """Weak secrets should be allowed in development mode with warning."""
-        with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            settings = Settings(SECRET_KEY="dev-secret-key-replace-in-production", WORKER_SECRET="dev-worker-secret")
+        with patch.dict(os.environ, {"ENV": "development", "GEMINI_API_KEY": "dummy"}, clear=True):
+            settings = Settings(SECRET_KEY="dev-secret-key-replace-in-production", WORKER_SECRET="dev-worker-secret", _env_file=None)
 
             # Should not raise, just warn
             assert settings.SECRET_KEY == "dev-secret-key-replace-in-production"
@@ -76,9 +76,11 @@ class TestSecretValidation:
             with pytest.raises(ValidationError) as exc_info:
                 Settings(
                     ENV="production",
+                    DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
                     SECRET_KEY="dev-secret-key-replace-in-production",
                     WORKER_SECRET="strong-enough-secret-for-production-testing-purposes-12345",
                     FIRST_SUPERUSER_PASSWORD="strong-pass-123!",
+                    _env_file=None
                 )
 
             assert "weak/default patterns" in str(exc_info.value)
@@ -87,7 +89,14 @@ class TestSecretValidation:
         """Secrets shorter than 32 chars should be rejected in production."""
         with patch.dict(os.environ, {"ENV": "production", "GEMINI_API_KEY": "prod-key"}, clear=True):
             with pytest.raises(ValidationError) as exc_info:
-                Settings(SECRET_KEY="short", WORKER_SECRET="also-short", FIRST_SUPERUSER_PASSWORD="strong-pass-123!")
+                Settings(
+                    ENV="production",
+                    DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
+                    SECRET_KEY="short",
+                    WORKER_SECRET="also-short",
+                    FIRST_SUPERUSER_PASSWORD="strong-pass-123!",
+                    _env_file=None
+                )
 
             assert "at least 32 characters" in str(exc_info.value)
 
@@ -97,9 +106,11 @@ class TestSecretValidation:
             os.environ, {"ENV": "production", "GEMINI_API_KEY": "strong-gemini-key-for-production-testing"}, clear=True
         ):
             settings = Settings(
+                DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
                 SECRET_KEY="a" * 64,  # Strong secret
                 WORKER_SECRET="b" * 64,
                 FIRST_SUPERUSER_PASSWORD="super-strong-admin-password-123!",
+                _env_file=None,
             )
 
             assert len(settings.SECRET_KEY) == 64
@@ -113,7 +124,7 @@ class TestProviderValidation:
         """Selecting Gemini without API key should fail in development."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
             with pytest.raises(ValidationError) as exc_info:
-                Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None)
+                Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None, _env_file=None)
 
             assert "requires GEMINI_API_KEY" in str(exc_info.value)
 
@@ -121,14 +132,14 @@ class TestProviderValidation:
         """Selecting OpenAI without API key should fail."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
             with pytest.raises(ValidationError) as exc_info:
-                Settings(EMBEDDING_PROVIDER="openai", OPENAI_API_KEY=None)
+                Settings(EMBEDDING_PROVIDER="openai", OPENAI_API_KEY=None, _env_file=None)
 
             assert "requires OPENAI_API_KEY" in str(exc_info.value)
 
     def test_gemini_provider_with_key_succeeds(self):
         """Gemini provider with API key should work."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY="test-gemini-key")
+            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY="test-gemini-key", _env_file=None)
 
             assert settings.EMBEDDING_PROVIDER == "gemini"
             assert settings.GEMINI_API_KEY == "test-gemini-key"
@@ -136,7 +147,7 @@ class TestProviderValidation:
     def test_local_provider_no_key_needed(self):
         """Local provider should not require API keys."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            settings = Settings(EMBEDDING_PROVIDER="local", GEMINI_API_KEY=None, OPENAI_API_KEY=None)
+            settings = Settings(EMBEDDING_PROVIDER="local", GEMINI_API_KEY=None, OPENAI_API_KEY=None, _env_file=None)
 
             assert settings.EMBEDDING_PROVIDER == "local"
 
@@ -144,7 +155,7 @@ class TestProviderValidation:
         """API key validation should be skipped in test environment."""
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
             # Should not raise even without API keys
-            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None)
+            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None, _env_file=None)
 
             assert settings.ENV == "test"
 
@@ -157,7 +168,8 @@ class TestProductionValidation:
         with patch.dict(os.environ, {"ENV": "production", "GEMINI_API_KEY": "prod-key"}, clear=True):
             with pytest.raises(ValidationError) as exc_info:
                 Settings(
-                    DEBUG=True, SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="strong-pass-123"
+                    DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
+                    DEBUG=True, SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="strong-pass-123", _env_file=None
                 )
 
             assert "DEBUG must be False in production" in str(exc_info.value)
@@ -166,7 +178,10 @@ class TestProductionValidation:
         """Default admin password should be rejected in production."""
         with patch.dict(os.environ, {"ENV": "production", "GEMINI_API_KEY": "prod-key"}, clear=True):
             with pytest.raises(ValidationError) as exc_info:
-                Settings(SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="vectra123!")
+                Settings(
+                    DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
+                    SECRET_KEY="a" * 64, WORKER_SECRET="b" * 64, FIRST_SUPERUSER_PASSWORD="vectra123!", _env_file=None
+                )
 
             assert "Default FIRST_SUPERUSER_PASSWORD" in str(exc_info.value)
 
@@ -176,10 +191,12 @@ class TestProductionValidation:
             os.environ, {"ENV": "production", "GEMINI_API_KEY": "production-gemini-api-key-for-testing"}, clear=True
         ):
             settings = Settings(
+                DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
                 DEBUG=False,
                 SECRET_KEY="a" * 64,
                 WORKER_SECRET="b" * 64,
                 FIRST_SUPERUSER_PASSWORD="secure-admin-password-456!",
+                _env_file=None,
             )
 
             assert settings.ENV == "production"
@@ -194,7 +211,6 @@ class TestLazyInitialization:
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
             # Clear the global singleton
             from app.core import settings
-
             settings._settings = None
 
             settings1 = get_settings()
@@ -207,7 +223,6 @@ class TestLazyInitialization:
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
             # Clear singleton
             from app.core import settings
-
             settings._settings = None
 
             # Mock Settings to raise ValidationError
@@ -226,7 +241,7 @@ class TestEnvironmentDetection:
     def test_development_environment(self):
         """Development environment should have relaxed validation."""
         with patch.dict(os.environ, {"ENV": "development"}, clear=True):
-            settings = Settings(_env_file=None)
+            settings = Settings(GEMINI_API_KEY="dummy", _env_file=None)
 
             assert settings.ENV == "development"
             # Ephemeral secret generated in dev
@@ -236,7 +251,7 @@ class TestEnvironmentDetection:
     def test_test_environment(self):
         """Test environment should skip API key validation."""
         with patch.dict(os.environ, {"ENV": "test"}, clear=True):
-            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None)  # Allowed in test
+            settings = Settings(EMBEDDING_PROVIDER="gemini", GEMINI_API_KEY=None, _env_file=None)  # Allowed in test
 
             assert settings.ENV == "test"
 
@@ -245,10 +260,12 @@ class TestEnvironmentDetection:
         with patch.dict(os.environ, {"ENV": "production", "GEMINI_API_KEY": "prod-api-key"}, clear=True):
             # Must provide strong secrets and proper config
             settings = Settings(
+                DATABASE_URL="postgresql+asyncpg://user:pass@remote-host:5432/prod_db",
                 SECRET_KEY="a" * 64,
                 WORKER_SECRET="b" * 64,
                 DEBUG=False,
                 FIRST_SUPERUSER_PASSWORD="strong-password-123!",
+                _env_file=None,
             )
 
             assert settings.ENV == "production"
@@ -316,6 +333,6 @@ class TestDatabaseURLValidation:
             },
             clear=True,
         ):
-            settings = Settings()
+            settings = Settings(_env_file=None)
             assert "127.0.0.1" in settings.DATABASE_URL
             assert "localhost" not in settings.DATABASE_URL

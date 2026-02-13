@@ -360,6 +360,7 @@ def reset_broadcast_globals():
     analytics._broadcast_running = False
 
 
+@pytest.mark.asyncio
 @patch("app.api.v1.endpoints.analytics.broadcast_analytics_loop")
 @patch("app.api.v1.endpoints.analytics.asyncio.create_task")
 @patch("app.api.v1.endpoints.analytics.logger")
@@ -379,7 +380,8 @@ async def test_start_broadcast_task(mock_logger, mock_create_task, mock_broadcas
     mock_logger.warning.assert_called_with("Analytics broadcast task already running")
 
 
-@patch("app.api.v1.endpoints.analytics.asyncio.wait_for")
+@pytest.mark.asyncio
+@patch("app.api.v1.endpoints.analytics.asyncio.wait_for", new_callable=AsyncMock)
 @patch("app.api.v1.endpoints.analytics.logger")
 async def test_stop_broadcast_task(mock_logger, mock_wait_for):
     from app.api.v1.endpoints import analytics
@@ -400,7 +402,8 @@ async def test_stop_broadcast_task(mock_logger, mock_wait_for):
     mock_logger.info.assert_called_with("Analytics broadcast task stopped")
 
 
-@patch("app.api.v1.endpoints.analytics.asyncio.wait_for")
+@pytest.mark.asyncio
+@patch("app.api.v1.endpoints.analytics.asyncio.wait_for", new_callable=AsyncMock)
 @patch("app.api.v1.endpoints.analytics.logger")
 async def test_stop_broadcast_task_timeout(mock_logger, mock_wait_for):
     from app.api.v1.endpoints import analytics
@@ -419,7 +422,8 @@ async def test_stop_broadcast_task_timeout(mock_logger, mock_wait_for):
     mock_logger.info.assert_called_with("Analytics broadcast task stopped")
 
 
-@patch("app.api.v1.endpoints.analytics.asyncio.wait_for")
+@pytest.mark.asyncio
+@patch("app.api.v1.endpoints.analytics.asyncio.wait_for", new_callable=AsyncMock)
 @patch("app.api.v1.endpoints.analytics.logger")
 async def test_stop_broadcast_task_general_exception(mock_logger, mock_wait_for):
     from app.api.v1.endpoints import analytics
@@ -438,6 +442,7 @@ async def test_stop_broadcast_task_general_exception(mock_logger, mock_wait_for)
     mock_logger.info.assert_called_with("Analytics broadcast task stopped")
 
 
+@pytest.mark.asyncio
 @patch("app.api.v1.endpoints.analytics.asyncio.sleep", new_callable=AsyncMock)
 @patch("app.api.v1.endpoints.analytics.get_session_factory")
 @patch("app.api.v1.endpoints.analytics.SettingsService")
@@ -488,6 +493,7 @@ async def test_broadcast_analytics_loop(
     assert mock_manager.emit_advanced_analytics_stats.called
 
 
+@pytest.mark.asyncio
 @patch("app.api.v1.endpoints.analytics.asyncio.sleep", new_callable=AsyncMock)
 @patch("app.api.v1.endpoints.analytics.get_session_factory")
 @patch("app.api.v1.endpoints.analytics.SettingsService")

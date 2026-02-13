@@ -76,7 +76,7 @@ async def test_transcribe_file_timeout(audio_service, mock_client):
 
     # Mock time.time to advance by 0.06 on each call to ensure loop terminates
     # The while loop calls time.time() at line 95.
-    with patch("time.time", side_effect=[100.0, 100.0, 100.15, 100.2, 100.3]):
+    with patch("time.time", side_effect=[100.0, 100.0, 100.05, 100.1, 100.15, 100.2]):
         with patch("asyncio.to_thread", AsyncMock(side_effect=to_thread_side_effect)):
             with patch("asyncio.sleep", AsyncMock()):
                 with patch(

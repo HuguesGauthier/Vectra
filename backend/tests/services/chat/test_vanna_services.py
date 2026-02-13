@@ -106,7 +106,7 @@ def test_submit_prompt_list(vanna_service, mock_llm):
 
 
 @patch("app.services.chat.vanna_services.settings")
-@patch("pyodbc.connect")
+@patch("app.services.chat.vanna_services.pyodbc.connect")
 def test_run_sql(mock_connect, mock_settings, vanna_service):
     # Configure mock settings
     mock_settings.DB_HOST = "localhost"
@@ -127,8 +127,14 @@ def test_run_sql(mock_connect, mock_settings, vanna_service):
         mock_conn.close.assert_called_once()
 
 
+@patch("app.services.chat.vanna_services.settings")
 @patch("pandas.read_sql")
-def test_submit_question_happy_path(mock_read_sql, vanna_service, mock_llm):
+def test_submit_question_happy_path(mock_read_sql, mock_settings, vanna_service, mock_llm):
+    # Configure mock settings
+    mock_settings.DB_HOST = "localhost"
+    mock_settings.DB_USER = "sa"
+    mock_settings.DB_PASSWORD = "password"
+    mock_settings.DB_NAME = "testdb"
     # Mock pandas read_sql to return a dummy df
     mock_read_sql.return_value = pd.DataFrame({"id": [1]})
 

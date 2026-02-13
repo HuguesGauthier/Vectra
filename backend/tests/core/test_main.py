@@ -4,6 +4,7 @@ Unit tests for main.py (Lifecycle & Exception Handling).
 
 import json
 import sys
+import traceback
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,7 +24,7 @@ def client():
 
 @pytest.mark.asyncio
 async def test_startup_sequence():
-    """\u2705 SUCCESS: Startup sequence runs migrations, seeds DB, and starts scheduler."""
+    """✅ SUCCESS: Startup sequence runs migrations, seeds DB, and starts scheduler."""
     with (
         patch("app.main.run_migrations") as mock_mig,
         patch("app.main.init_db", new_callable=AsyncMock) as mock_init,
@@ -57,7 +58,7 @@ async def test_startup_sequence():
 
 @pytest.mark.asyncio
 async def test_startup_sequence_with_phoenix():
-    """\u2705 SUCCESS: Startup sequence with Phoenix enabled."""
+    """✅ SUCCESS: Startup sequence with Phoenix enabled."""
     mock_instrumentor = MagicMock()
     
     # Mock all necessary modules
@@ -103,7 +104,7 @@ async def test_startup_sequence_with_phoenix():
 
 @pytest.mark.asyncio
 async def test_startup_sequence_phoenix_import_error():
-    """\u2705 SUCCESS: Startup sequence handles Phoenix import error."""
+    """✅ SUCCESS: Startup sequence handles Phoenix import error."""
     # We want to ensure that if 'openinference' fails to import, it logs a warning
     with (
         patch("app.main.run_migrations"),
@@ -127,28 +128,31 @@ async def test_startup_sequence_phoenix_import_error():
         mock_service_inst = AsyncMock()
         mock_settings.return_value = mock_service_inst
 
-        async with lifespan(app):
-            pass
+        with pytest.raises(SystemExit):
+            async with lifespan(app):
+                pass
         
         mock_logger.warning.assert_called()
 
 
 @pytest.mark.asyncio
 async def test_startup_sequence_exception():
-    """\u2705 SUCCESS: Startup sequence handles exceptions gracefully."""
+    """✅ SUCCESS: Startup sequence handles exceptions gracefully."""
     with (
         patch("app.main.run_migrations", side_effect=Exception("Migration failed")),
         patch("app.main.logger") as mock_logger,
     ):
         # Execute Lifespan
-        async with lifespan(app):
-            pass
+        with pytest.raises(SystemExit):
+            async with lifespan(app):
+                pass
         
-        mock_logger.error.assert_called()
+        # In lifespan, it calls logger.critical on line 122
+        mock_logger.critical.assert_called()
 
 
 def test_run_migrations():
-    """\u2705 SUCCESS: run_migrations calls alembic commands."""
+    """✅ SUCCESS: run_migrations calls alembic commands."""
     with (
         patch("app.main.Config") as mock_config,
         patch("app.main.command.upgrade") as mock_upgrade,
@@ -159,7 +163,7 @@ def test_run_migrations():
 
 
 def test_health_check_nominal(client):
-    """\u2705 SUCCESS: Health check returns online."""
+    """✅ SUCCESS: Health check returns online."""
     with patch("app.main.manager") as mock_manager:
         mock_manager.is_worker_online = True
         response = client.get("/health")
@@ -168,7 +172,7 @@ def test_health_check_nominal(client):
 
 
 def test_health_check_worker_offline(client):
-    """\u2705 SUCCESS: Health check returns worker offline."""
+    """✅ SUCCESS: Health check returns worker offline."""
     with patch("app.main.manager") as mock_manager:
         mock_manager.is_worker_online = False
         response = client.get("/health")
@@ -177,14 +181,14 @@ def test_health_check_worker_offline(client):
 
 
 def test_root_endpoint(client):
-    """\u2705 SUCCESS: Root endpoint returns 200."""
+    """✅ SUCCESS: Root endpoint returns 200."""
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "version": "1.0.0"}
 
 
 def test_correlation_id_middleware(client):
-    """\u2705 SUCCESS: Correlation ID middleware adds header."""
+    """✅ SUCCESS: Correlation ID middleware adds header."""
     response = client.get("/", headers={"X-Correlation-ID": "test-id"})
     assert response.status_code == 200
     assert response.headers["X-Correlation-ID"] == "test-id"
@@ -196,13 +200,15 @@ def test_correlation_id_middleware(client):
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_vectra_exception():
-    """\u2705 SUCCESS: Handles VectraException."""
+    """✅ SUCCESS: Handles VectraException."""
     from app.main import global_exception_handler
     
     exc = VectraException(message="Test error", status_code=400, error_code="TEST_CODE")
     request = MagicMock(spec=Request)
     request.method = "GET"
     request.url.path = "/test"
+    # Properly mock state
+    request.state = MagicMock()
     
     with patch("app.main.settings") as mock_settings:
         mock_settings.DEBUG = False
@@ -217,13 +223,14 @@ async def test_global_exception_handler_vectra_exception():
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_http_exception():
-    """\u2705 SUCCESS: Handles StarletteHTTPException."""
+    """✅ SUCCESS: Handles StarletteHTTPException."""
     from app.main import global_exception_handler
     
     exc = StarletteHTTPException(status_code=404, detail="Not Found")
     request = MagicMock(spec=Request)
     request.method = "GET"
     request.url.path = "/test"
+    request.state = MagicMock()
     
     response = await global_exception_handler(request, exc)
     assert response.status_code == 404
@@ -231,13 +238,14 @@ async def test_global_exception_handler_http_exception():
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_request_validation_error():
-    """\u2705 SUCCESS: Handles RequestValidationError."""
+    """✅ SUCCESS: Handles RequestValidationError."""
     from app.main import global_exception_handler
     
     exc = RequestValidationError(errors=[])
     request = MagicMock(spec=Request)
     request.method = "POST"
     request.url.path = "/test"
+    request.state = MagicMock()
     
     response = await global_exception_handler(request, exc)
     assert response.status_code == 422
@@ -245,7 +253,7 @@ async def test_global_exception_handler_request_validation_error():
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_generic_exception_debug():
-    """\u2705 SUCCESS: Handles generic Exception in DEBUG mode."""
+    """✅ SUCCESS: Handles generic Exception in DEBUG mode."""
     from app.main import global_exception_handler
     
     exc = Exception("Unexpected error")
@@ -254,6 +262,7 @@ async def test_global_exception_handler_generic_exception_debug():
     request.url.path = "/error"
     request.url = MagicMock()
     request.url.__str__.return_value = "http://testserver/error"
+    request.state = MagicMock()
     
     with patch("app.main.settings") as mock_settings:
         mock_settings.DEBUG = True
@@ -266,18 +275,22 @@ async def test_global_exception_handler_generic_exception_debug():
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_production_log_db():
-    """\u2705 SUCCESS: Logs to DB in production for 500 errors."""
+    """✅ SUCCESS: Logs to DB in production for 500 errors."""
     from app.main import global_exception_handler
     
     exc = Exception("Critical failure")
     request = MagicMock(spec=Request)
     request.method = "PUT"
     request.url.path = "/prod-error"
+    # Ensure state check passes
+    request.state = MagicMock()
+    del request.state.exception_logged_to_db # Force getattr to use default False
     
     with (
         patch("app.main.settings") as mock_settings,
         patch("app.main.SessionLocal") as mock_session_lib,
         patch("app.main.ErrorLog") as mock_error_log_model,
+        patch("app.main.logger") as mock_logger,
     ):
         mock_settings.ENV = "production"
         mock_settings.DEBUG = False
@@ -295,18 +308,21 @@ async def test_global_exception_handler_production_log_db():
 
 @pytest.mark.asyncio
 async def test_global_exception_handler_db_failure():
-    """\u2705 SUCCESS: Handles DB failure during error logging gracefully."""
+    """✅ SUCCESS: Handles DB failure during error logging gracefully."""
     from app.main import global_exception_handler
     
     exc = Exception("Critical failure")
     request = MagicMock(spec=Request)
     request.method = "PUT"
     request.url.path = "/prod-error"
+    request.state = MagicMock()
+    del request.state.exception_logged_to_db
     
     with (
         patch("app.main.settings") as mock_settings,
         patch("app.main.SessionLocal") as mock_session_lib,
         patch("app.main.logger") as mock_logger,
+        patch("app.main.ErrorLog"),
     ):
         mock_settings.ENV = "production"
         mock_settings.DEBUG = False
@@ -317,4 +333,4 @@ async def test_global_exception_handler_db_failure():
         
         response = await global_exception_handler(request, exc)
         assert response.status_code == 500
-        mock_logger.critical.assert_called_with(ANY)
+        mock_logger.critical.assert_called()

@@ -8,13 +8,17 @@ from app.core.exceptions import VectraException, EntityNotFound, FunctionalError
 async def mock_global_exception_handler(request: Request, exc: Exception):
     status_code = getattr(exc, "status_code", 500)
     error_code = getattr(exc, "error_code", "INTERNAL_SERVER_ERROR")
-    # Handle VectraException message attribute
+    # Handle VectraException message attribute or str(exc)
     message = getattr(exc, "message", str(exc))
 
     if isinstance(exc, (StarletteHTTPException, RequestValidationError)):
         status_code = getattr(exc, "status_code", 422)
         # HTTP exceptions use 'detail'
-        message = getattr(exc, "detail", str(exc))
+        detail = getattr(exc, "detail", None)
+        if detail:
+            message = str(detail)
+        else:
+            message = str(exc)
         error_code = f"HTTP_{status_code}"
 
     # Default to 500 for generic exceptions if status is 500

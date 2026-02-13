@@ -37,9 +37,11 @@ def test_cache_lru_eviction(cache):
 
     for i in range(3):
         cache.set_engine(ids[i][0], ids[i][1], f"engine_{i}")
+        time.sleep(0.01)
 
     # Access the first one to make it most recent
     cache.get_engine(ids[0][0], ids[0][1])
+    time.sleep(0.01)
 
     # Add 4th one, should evict the 2nd one (index 1) which is LRU
     cache.set_engine(ids[3][0], ids[3][1], "engine_3")

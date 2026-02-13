@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from app.core import database
 from app.core.exceptions import TechnicalError
 
-
 @pytest.fixture(autouse=True)
 async def cleanup_database_module():
     """Reset the singleton state before and after each test."""
@@ -18,7 +17,8 @@ async def cleanup_database_module():
 class TestDatabaseLazyLoading:
     """Test singleton and lazy loading mechanics."""
 
-    def test_get_engine_creates_singleton(self):
+    @pytest.mark.asyncio
+    async def test_get_engine_creates_singleton(self):
         """get_engine should create and return a singleton engine."""
         with patch("app.core.database.create_async_engine") as mock_create:
             with patch("app.core.database.get_settings") as mock_get_settings:
@@ -39,7 +39,8 @@ class TestDatabaseLazyLoading:
             assert engine2 is engine1
             mock_create.assert_called_once()  # Still only called once
 
-    def test_get_session_factory_initializes_engine(self):
+    @pytest.mark.asyncio
+    async def test_get_session_factory_initializes_engine(self):
         """get_session_factory should trigger engine creation if needed."""
         with patch("app.core.database.get_engine") as mock_get_engine:
             mock_engine = AsyncMock(spec=AsyncEngine)
@@ -50,7 +51,8 @@ class TestDatabaseLazyLoading:
             assert factory is not None
             mock_get_engine.assert_called_once()
 
-    def test_lazy_loading_preserves_import_speed(self):
+    @pytest.mark.asyncio
+    async def test_lazy_loading_preserves_import_speed(self):
         """Importing database module should NOT create engine."""
         # This test is implicit since we are running it, but strictly speaking
         # we check the global variable is None at start of test due to fixture
@@ -61,7 +63,8 @@ class TestDatabaseLazyLoading:
 class TestDatabaseErrorHandling:
     """Test error scenarios."""
 
-    def test_engine_creation_failure_raises_technical_error(self):
+    @pytest.mark.asyncio
+    async def test_engine_creation_failure_raises_technical_error(self):
         """Failure to create engine should raise TechnicalError."""
         with patch("app.core.database.create_async_engine") as mock_create:
             mock_create.side_effect = Exception("Connection refused")
@@ -71,7 +74,8 @@ class TestDatabaseErrorHandling:
 
             assert "Database Configuration Error" in str(exc_info.value)
 
-    def test_engine_validation_checks_driver(self):
+    @pytest.mark.asyncio
+    async def test_engine_validation_checks_driver(self):
         """Should raise TechnicalError if asyncpg is missing for postgres."""
         with (
             patch("app.core.database.get_settings") as mock_get_settings,

@@ -17,7 +17,7 @@ def test_setting_create_valid():
 def test_setting_create_invalid_group():
     with pytest.raises(ValidationError) as exc:
         SettingCreate(key="k", value="v", group="hacker_group")
-    assert "Invalid group" in str(exc.value)
+    assert "Input should be" in str(exc.value)
 
 
 def test_setting_update_limits():

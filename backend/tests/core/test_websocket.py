@@ -9,7 +9,6 @@ from fastapi import WebSocket
 
 from app.core.websocket import Websocket
 
-
 @pytest.fixture(autouse=True)
 async def cleanup_manager():
     """Ensure the singleton manager state is clean."""

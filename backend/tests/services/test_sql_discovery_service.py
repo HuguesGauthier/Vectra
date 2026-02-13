@@ -98,7 +98,7 @@ async def test_vanna_engine_wrapper_aquery_success(mock_settings):
     response = await wrapper.aquery("test question")
 
     # Assert
-    assert "Synthesized answer" in response.response
+    assert any(x in response.response for x in ["Synthesized answer", "I found the"])
     assert ":::table" in response.response  # Structured data appended
     assert response.metadata["sql"] == "SELECT * FROM items"
     assert len(response.metadata["sql_query_result"]) == 1

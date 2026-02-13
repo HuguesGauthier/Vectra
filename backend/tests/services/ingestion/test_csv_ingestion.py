@@ -1,19 +1,12 @@
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
-
-import pandas as pd
 import pytest
 
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
-import importlib
-import app.services.ingestion_service
-
-importlib.reload(app.services.ingestion_service)
 from app.services.ingestion_service import IngestionService
-
 
 @pytest.fixture
 def mock_db_session():
@@ -22,29 +15,44 @@ def mock_db_session():
     mock_session.__aexit__.return_value = None
     mock_session.commit = AsyncMock()
     mock_session.refresh = AsyncMock()
+    mock_session.begin_nested = AsyncMock()
     return mock_session
-
 
 @pytest.fixture
 def mock_connector_repo():
     return AsyncMock()
 
-
 @pytest.fixture
 def mock_doc_repo():
     return AsyncMock()
 
+@pytest.fixture
+def mock_schema_service():
+    return AsyncMock()
 
 @pytest.fixture
-def ingestion_service(mock_db_session, mock_connector_repo, mock_doc_repo):
-    service = IngestionService(mock_db_session)
+def ingestion_service(mock_db_session, mock_connector_repo, mock_doc_repo, mock_schema_service):
+    service = IngestionService(
+        mock_db_session,
+        schema_service=mock_schema_service
+    )
     service.connector_repo = mock_connector_repo
     service.doc_repo = mock_doc_repo
     return service
 
+@pytest.mark.asyncio
+async def test_analyze_and_map_csv_delegation(ingestion_service, mock_schema_service):
+    # Setup
+    doc_id = uuid4()
+    
+    # Run
+    await ingestion_service.analyze_and_map_csv(doc_id)
+    
+    # Verify delegation
+    mock_schema_service.analyze_and_map_csv.assert_called_once_with(doc_id)
 
 @pytest.mark.asyncio
-async def test_analyze_and_map_csv_success(ingestion_service, mock_connector_repo, mock_doc_repo):
+async def test_process_single_document_csv_success(ingestion_service, mock_connector_repo, mock_doc_repo):
     # Setup Mocks
     doc_id = uuid4()
     connector_id = uuid4()
@@ -57,62 +65,27 @@ async def test_analyze_and_map_csv_success(ingestion_service, mock_connector_rep
 
     mock_connector = MagicMock(spec=Connector)
     mock_connector.id = connector_id
+    mock_connector.connector_type = "local_file"
     mock_connector.configuration = {"path": "/tmp"}
 
     mock_doc_repo.get_by_id.return_value = mock_doc
     mock_connector_repo.get_by_id.return_value = mock_connector
 
-    # Mock Settings and LLM
     with (
         patch("app.services.settings_service.SettingsService.load_cache", new_callable=AsyncMock),
-        patch(
-            "app.services.settings_service.SettingsService.get_value", new_callable=AsyncMock, return_value="fake_key"
-        ),
-        patch("app.services.ingestion_service.IngestionService._check_file_exists", return_value=True),
-        patch("pandas.read_csv") as mock_read_csv,
-        patch("app.services.ingestion_service.GoogleGenAI") as MockLLM,
-        patch("app.services.ingestion_service.manager.emit_document_update", new_callable=AsyncMock),
+        patch("app.services.ingestion_service.IngestionService._file_exists", return_value=True),
+        patch("app.services.ingestion_service.IngestionOrchestrator", spec=True) as mock_orch_cls,
+        patch("app.services.ingestion_service.manager", new_callable=AsyncMock),
     ):
-
-        # Setup Pandas
-        mock_df = pd.DataFrame({"OldCol": [1, 2], "Desc": ["A", "B"]})
-        mock_read_csv.return_value = mock_df
-
-        # Setup LLM
-        mock_llm_instance = MockLLM.return_value
-        mock_response_obj = MagicMock()
-        mock_response_obj.text = json.dumps(
-            {
-                "renaming_map": {"OldCol": "new_col", "Desc": "description"},
-                "primary_id_col": "new_col",
-                "payload_cols": ["new_col"],
-                "content_cols": ["description"],
-            }
-        )
-        mock_llm_instance.acomplete = AsyncMock(return_value=mock_response_obj)
-
-        # Run
-        await ingestion_service.analyze_and_map_csv(doc_id)
-
-        # Verify
-        mock_doc_repo.update.assert_called_once()
-        update_args = mock_doc_repo.update.call_args[0][1]
-        assert "file_metadata" in update_args
-        assert update_args["file_metadata"]["ai_schema"]["renaming_map"]["OldCol"] == "new_col"
-        assert update_args["status"] == DocStatus.INDEXING
-
-
-@pytest.mark.asyncio
-async def test_process_csv_data_success(ingestion_service, mock_connector_repo, mock_doc_repo):
-    # Setup Mocks
-    doc_id = uuid4()
-
-    with patch("app.services.ingestion.orchestrator.IngestionOrchestrator", spec=True) as mock_orch_cls:
         mock_orch = mock_orch_cls.return_value
+        # setup_pipeline is called for all docs and returns 6 values
+        mock_orch.setup_pipeline = AsyncMock(return_value=(
+            MagicMock(), MagicMock(), 50, 5, MagicMock(), MagicMock()
+        ))
         mock_orch.ingest_csv_document = AsyncMock()
-
+        
         # Run
-        await ingestion_service.process_csv_data(doc_id)
+        await ingestion_service.process_single_document(doc_id)
 
-        # Verify delegates to orchestrator
+        # Verify delegates to orchestrator for CSV
         mock_orch.ingest_csv_document.assert_called_once_with(doc_id)

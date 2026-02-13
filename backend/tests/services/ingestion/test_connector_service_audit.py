@@ -61,10 +61,11 @@ async def test_security_prevent_arbitrary_file_deletion(service):
     update_payload = ConnectorUpdate(configuration={"path": new_path})
 
     # Mock OS functions to simulate file existence
-    # Mock OS functions to simulate file existence
     with (
         patch("app.services.connector_service.ConnectorService._validate_folder_path", new_callable=AsyncMock),
         patch("app.services.connector_service.os.path.exists", return_value=True),
+        patch("app.services.connector_service.os.path.isfile", return_value=True),
+        patch("app.services.connector_service.os.path.isdir", return_value=True),
         patch("app.services.connector_service.os.remove") as mock_remove,
     ):
 
@@ -103,6 +104,8 @@ async def test_security_allow_managed_file_deletion(service):
     with (
         patch("app.services.connector_service.ConnectorService._validate_folder_path", new_callable=AsyncMock),
         patch("app.services.connector_service.os.path.exists", return_value=True),
+        patch("app.services.connector_service.os.path.isfile", return_value=True),
+        patch("app.services.connector_service.os.path.isdir", return_value=True),
         patch("app.services.connector_service.os.remove") as mock_remove,
     ):
 
@@ -150,7 +153,8 @@ async def test_cron_priority(service):
     service.connector_repo.create.return_value = mock_connector
 
     with (
-        patch("app.services.connector_service.ConnectorService._validate_folder_path", new_callable=AsyncMock),
+        patch.object(service, "_validate_file_path", new_callable=AsyncMock),
+        patch.object(service, "_validate_folder_path", new_callable=AsyncMock),
         patch("app.services.connector_service.manager", new_callable=AsyncMock),
     ):
         await service.create_connector(payload)

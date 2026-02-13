@@ -1,14 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
+import asyncio
 
-from app.core.exceptions import ExternalDependencyError
-import importlib
-import app.services.vector_service
-
-importlib.reload(app.services.vector_service)
 from app.services.vector_service import VectorService
-
 
 @pytest.mark.asyncio
 async def test_get_embedding_model_provider_selection():
@@ -21,18 +15,28 @@ async def test_get_embedding_model_provider_selection():
         "openai_embedding_model": "text-embedding-3-small",
     }.get(k, d)
 
+    # Ensure a fresh service and CLEAR GLOBAL CACHE
     service = VectorService(settings_service=mock_settings)
+    VectorService._model_cache = {} 
 
-    print("DEBUG: Patching GeminiEmbedding...")
-    # Test Gemini (Default)
-    with patch("llama_index.embeddings.gemini.GeminiEmbedding") as MockGemini:
+    # Test Gemini
+    with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
+        mock_thread.return_value = MagicMock()
         await service.get_embedding_model(provider="gemini")
-        MockGemini.assert_called_once()
+        
+        assert mock_thread.called, "asyncio.to_thread was not called for Gemini"
+        args, kwargs = mock_thread.call_args
+        assert "GeminiEmbedding" in str(args[0])
 
     # Test OpenAI Explicit
-    with patch("llama_index.embeddings.openai.OpenAIEmbedding") as MockOpenAI:
+    VectorService._model_cache = {} # Clear again
+    with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
+        mock_thread.return_value = MagicMock()
         await service.get_embedding_model(provider="openai")
-        MockOpenAI.assert_called_once()
+        
+        assert mock_thread.called, "asyncio.to_thread was not called for OpenAI"
+        args, kwargs = mock_thread.call_args
+        assert "OpenAIEmbedding" in str(args[0])
 
 
 @pytest.mark.asyncio
@@ -45,21 +49,14 @@ async def test_get_query_engine_passes_embed_model():
     service.get_async_qdrant_client = MagicMock()
     service.get_collection_name = AsyncMock(return_value="test_collection")
     service.get_embedding_model = AsyncMock(return_value="mock_embed_model")
+    VectorService._model_cache = {} 
 
-    print("DEBUG: Patching QdrantVectorStore...")
     with (
         patch("llama_index.vector_stores.qdrant.QdrantVectorStore"),
         patch("llama_index.core.VectorStoreIndex") as MockIndex,
     ):
-
         MockIndex.from_vector_store.return_value.as_query_engine.return_value = "mock_engine"
-
-        # Call with provider
         await service.get_query_engine(provider="openai")
-
-        # Verify get_embedding_model called with correct provider
         service.get_embedding_model.assert_called_with(provider="openai")
-
-        # Verify from_vector_store receives embed_model
         args, kwargs = MockIndex.from_vector_store.call_args
         assert kwargs["embed_model"] == "mock_embed_model"
