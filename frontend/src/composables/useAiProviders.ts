@@ -5,6 +5,7 @@ import { api } from 'boot/axios';
 import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
 import localLogo from 'src/assets/local_logo.svg';
+import cohereLogo from 'src/assets/cohere.png';
 import type { ProviderOption } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
@@ -137,7 +138,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       .filter((p) => p.type === 'rerank')
       .map((p) => {
         let logo = localLogo;
-        if (p.id === 'cohere') logo = localLogo; // Generic logo for now or cohere specifically if added
+        if (p.id === 'cohere') logo = cohereLogo;
         if (p.id === 'local') logo = localLogo;
 
         return {

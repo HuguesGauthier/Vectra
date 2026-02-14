@@ -97,6 +97,10 @@
                 :providers="aiProviders"
                 :selectable="true"
                 class="full-width"
+                show-config-button
+                :config-label="$t('configure')"
+                :config-tooltip="$t('advancedIndexingSettings')"
+                @configure="showAdvancedSettings = true"
               />
             </q-step>
 
@@ -108,18 +112,16 @@
               :done="subStep > 2"
             >
               <SmartExtractionConfig v-model="smartExtractionEnabled" />
-
-              <q-stepper-navigation>
-                <q-btn
-                  flat
-                  @click="subStep = 1"
-                  color="primary"
-                  :label="$t('back')"
-                  class="q-ml-sm"
-                />
-              </q-stepper-navigation>
             </q-step>
           </q-stepper>
+
+           <!-- Advanced Settings Dialog -->
+          <AdvancedIndexingSettings
+            v-model:isOpen="showAdvancedSettings"
+            :chunk-size="connectorData.configuration?.chunk_size"
+            :chunk-overlap="connectorData.configuration?.chunk_overlap"
+            @update="handleAdvancedSettingsUpdate"
+          />
         </div>
 
         <!-- Step 4: Schedule (Moved from Step 5) -->
@@ -254,6 +256,7 @@ import FolderForm from './forms/FolderForm.vue';
 import SqlForm from './forms/SqlForm.vue';
 import ConnectorFileForm from './forms/ConnectorFileForm.vue';
 import SmartExtractionConfig from './fields/SmartExtractionConfig.vue';
+import AdvancedIndexingSettings from './dialogs/AdvancedIndexingSettings.vue';
 import { useDialog } from 'src/composables/useDialog';
 import { connectorService } from 'src/services/connectorService';
 // import AppTooltip from 'src/components/common/AppTooltip.vue';
@@ -293,6 +296,7 @@ const connectorData = ref<Connector>(new Connector()); // Active connector being
 
 // Smart Metadata Extraction
 const smartExtractionEnabled = ref(false);
+const showAdvancedSettings = ref(false);
 
 const settingsMap = ref<Record<string, string>>({});
 
@@ -584,6 +588,17 @@ async function loadSettings() {
   } catch (e) {
     console.error('Failed to load settings for providers check', e);
   }
+}
+
+function handleAdvancedSettingsUpdate(payload: {
+  chunkSize: number;
+  chunkOverlap: number;
+}) {
+  if (!connectorData.value.configuration) {
+    connectorData.value.configuration = {};
+  }
+  connectorData.value.configuration.chunk_size = payload.chunkSize;
+  connectorData.value.configuration.chunk_overlap = payload.chunkOverlap;
 }
 </script>
 
