@@ -1,6 +1,6 @@
 <template>
-  <q-dialog v-model="isOpen" persistent position="right" maximized>
-    <q-card style="width: 50vh; background-color: var(--q-fifth)">
+  <q-dialog v-model="isOpen" persistent>
+    <q-card style="width: 500px; max-width: 90vw; background-color: var(--q-fifth)">
       <q-card-section>
         <div class="text-h6">{{ isEditing ? $t('editUser') : $t('addUser') }}</div>
       </q-card-section>
