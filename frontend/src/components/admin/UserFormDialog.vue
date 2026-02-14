@@ -12,11 +12,7 @@
             <q-avatar size="100px" :color="formData.avatar_url ? 'transparent' : 'grey-7'">
               <img
                 v-if="formData.avatar_url"
-                :src="
-                  formData.avatar_url.startsWith('data:')
-                    ? formData.avatar_url
-                    : `http://localhost:8000/api/v1${formData.avatar_url}`
-                "
+                :src="getAvatarUrl(formData.avatar_url)"
                 :style="{
                   objectFit: 'cover',
                   objectPosition: `center ${formData.avatar_vertical_position}%`,
@@ -134,7 +130,7 @@
 
           <div class="row justify-end q-mt-md q-gutter-x-sm">
             <q-btn :label="$t('cancel')" color="grey" flat @click="handleCancel" />
-            <q-btn :label="$t('save')" type="submit" color="accent" unelevated />
+            <q-btn :label="$t('save')" type="submit" color="accent" unelevated :loading="loading" />
           </div>
         </q-form>
       </q-card-section>
@@ -143,10 +139,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { type QForm } from 'quasar';
 import { api } from 'boot/axios';
+import { useNotification } from 'src/composables/useNotification';
 import AppTooltip from 'components/common/AppTooltip.vue';
 
 // --- TYPES ---
@@ -197,6 +194,8 @@ const emit = defineEmits<{
 
 // --- STATE ---
 const { t } = useI18n();
+const { notifyBackendError } = useNotification();
+const loading = ref(false);
 
 const formData = ref<UserFormData>({
   id: '',
@@ -312,6 +311,17 @@ function removeAvatar() {
   avatarFile.value = null; // This should trigger the q-file to clear/reset
 }
 
+const getAvatarUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('data:')) return path;
+
+  const baseUrl = api.defaults.baseURL || '';
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${cleanBase}${cleanPath}`;
+};
+
 // Drag to position avatar
 let isDragging = false;
 let startY = 0;
@@ -330,7 +340,8 @@ function startDrag(e: MouseEvent | TouchEvent) {
   document.addEventListener('touchmove', onDrag);
   document.addEventListener('touchend', stopDrag);
 
-  e.preventDefault();
+  // Consider preventDefault only if not tapping (simple enhancement, safe to leave as is)
+  // e.preventDefault();
 }
 
 function onDrag(e: MouseEvent | TouchEvent) {
@@ -358,12 +369,18 @@ function stopDrag() {
   document.removeEventListener('touchend', stopDrag);
 }
 
+// Clean up listeners on destroy to prevent memory leaks (P0 Fix)
+onUnmounted(() => {
+  stopDrag();
+});
+
 async function handleSubmit() {
   if (!formRef.value) return;
 
   const valid = await formRef.value.validate();
   if (!valid) return;
 
+  loading.value = true;
   try {
     let avatarUrl = formData.value.avatar_url || '';
 
@@ -400,6 +417,9 @@ async function handleSubmit() {
     emit('save', dataToSave);
   } catch (error) {
     console.error('Failed to submit form:', error);
+    notifyBackendError(error, t('validationError'));
+  } finally {
+    loading.value = false;
   }
 }
 

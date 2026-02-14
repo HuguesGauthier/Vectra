@@ -39,7 +39,7 @@
             >
               <img
                 v-if="props.row.avatar_url"
-                :src="`http://localhost:8000/api/v1${props.row.avatar_url}`"
+                :src="getAvatarUrl(props.row.avatar_url)"
                 :alt="props.row.email"
                 :style="{
                   objectFit: 'cover',
@@ -224,6 +224,18 @@ const columns: QTableColumn[] = [
 
 // --- FUNCTIONS ---
 
+const getAvatarUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('data:')) return path;
+
+  // Use config base URL (e.g. /api/v1) or fallback
+  const baseUrl = api.defaults.baseURL || '';
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${cleanBase}${cleanPath}`;
+};
+
 const fetchUsers = async () => {
   loading.value = true;
   try {
@@ -270,6 +282,7 @@ const handleSave = async (data: Record<string, unknown>) => {
         first_name: data.first_name,
         last_name: data.last_name,
         avatar_vertical_position: data.avatar_vertical_position,
+        avatar_url: data.avatar_url,
       });
 
       // Upload avatar for new user if provided
@@ -291,7 +304,8 @@ const handleSave = async (data: Record<string, unknown>) => {
           }
         } catch (avatarError) {
           console.error('Failed to upload avatar for new user:', avatarError);
-          // Don't fail the whole operation if avatar upload fails
+          // Silent fail on avatar is acceptable here to avoid rolling back user creation
+          // But ideally we'd warn the user.
         }
       }
 
