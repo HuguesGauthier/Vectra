@@ -83,7 +83,7 @@
               :done="subStep > 1"
             >
               <div class="row q-col-gutter-lg justify-center">
-                <EmbeddingSelection
+                <ProviderSelection
                   v-model="selectedProvider"
                   :providers="aiProviders"
                   :selectable="true"
@@ -251,7 +251,7 @@ import { connectorService } from 'src/services/connectorService';
 import ConnectorTypeStep from './ConnectorTypeStep.vue';
 import { settingsService } from 'src/services/settingsService';
 import ScheduleOptions from './ScheduleOptions.vue';
-import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
+import ProviderSelection from 'src/components/common/ProviderSelection.vue';
 import { useAiProviders } from 'src/composables/useAiProviders';
 
 // --- DEFINITIONS ---

@@ -7,7 +7,7 @@
             class="selection-card cursor-pointer full-height q-pa-md"
             :class="{ selected: localData.model === model.value }"
             v-ripple
-            @click="localData.model = model.value"
+            @click="localData.model = model.value || ''"
           >
             <q-card-section class="column items-center text-center">
               <q-avatar size="60px" :color="model.color" text-color="white" class="q-mb-md">
@@ -112,7 +112,7 @@ const aiModels = computed(() => {
       };
     }
     return {
-      value: provider.value,
+      value: provider.value || '',
       label: provider.label,
       description: '',
       icon: 'psychology',

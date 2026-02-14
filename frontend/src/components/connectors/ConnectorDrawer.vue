@@ -81,7 +81,7 @@
                 {{ $t('selectVectorizationEngineDesc') }}
               </div>
 
-              <EmbeddingSelection
+              <ProviderSelection
                 v-model="indexationConfig.ai_provider"
                 :providers="embeddingProviderOptions"
                 :disable-config="isEditing"
@@ -171,7 +171,7 @@ import type { Connector } from 'src/models/Connector';
 import { ScheduleType } from 'src/models/enums';
 import { useDialog } from 'src/composables/useDialog';
 import { useAiProviders } from 'src/composables/useAiProviders';
-import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
+import ProviderSelection from 'src/components/common/ProviderSelection.vue';
 
 // Field components
 import ConfigurationGeneralFields from './fields/ConfigurationGeneralFields.vue';

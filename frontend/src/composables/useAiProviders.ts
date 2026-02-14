@@ -82,19 +82,54 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description: description || undefined,
           badge: p.id === 'local' || p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'local' || p.id === 'ollama' ? 'warning' : 'info',
-          disabled: !p.configured,
+          disabled: false,
         };
       });
   });
 
-  const chatProviderOptions = computed(() => {
+  const chatProviderOptions = computed<ProviderOption[]>(() => {
+    // Helper to safely get setting value
+    const getSetting = (key: string) => {
+      if (!settings) return '';
+      // Handle both Ref and direct object
+      const s = isRef(settings) ? settings.value : settings;
+      return s[key] || '';
+    };
+
     return providers.value
       .filter((p) => p.type === 'chat')
-      .map((p) => ({
-        label: p.name,
-        value: p.id,
-        disable: !p.configured, // Disable if not configured
-      }));
+      .map((p) => {
+        let logo = localLogo;
+        if (p.id === 'gemini') logo = geminiLogo;
+        if (p.id === 'openai') logo = openaiLogo;
+        if (p.id === 'mistral') logo = localLogo; // Mistral AI (Cloud) - maybe need a logo? Use local for now or generic?
+        if (p.id === 'ollama') logo = localLogo;
+
+        // Custom Description
+        let description = '';
+        if (p.id === 'gemini' && getSetting('gemini_chat_model')) {
+          description = `${t('modelLabel')}: ${getSetting('gemini_chat_model')}`;
+        } else if (p.id === 'openai' && getSetting('openai_chat_model')) {
+          description = `${t('modelLabel')}: ${getSetting('openai_chat_model')}`;
+        } else if (p.id === 'mistral' && getSetting('mistral_chat_model')) {
+          description = `${t('modelLabel')}: ${getSetting('mistral_chat_model')}`;
+        } else if (p.id === 'ollama' && getSetting('ollama_chat_model')) {
+          description = `${t('modelLabel')}: ${getSetting('ollama_chat_model')}`;
+        }
+
+        return {
+          id: p.id,
+          name: p.name,
+          value: p.id,
+          label: p.name,
+          logo: logo,
+          tagline: p.description || undefined,
+          description: description || undefined,
+          badge: p.id === 'ollama' ? t('private') : t('public'),
+          badgeColor: p.id === 'ollama' ? 'warning' : 'info',
+          disabled: false,
+        };
+      });
   });
 
   /**
@@ -103,7 +138,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
   const getChatProviderLabel = (value: string | undefined): string => {
     if (!value) return '';
     const option = chatProviderOptions.value.find(
-      (opt) => opt.value.toLowerCase() === value.toLowerCase(),
+      (opt) => opt.value?.toLowerCase() === value.toLowerCase(),
     );
     return option?.label || value;
   };

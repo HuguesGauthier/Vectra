@@ -1,6 +1,6 @@
 <template>
-  <div class="row q-col-gutter-lg justify-center">
-    <div v-for="provider in providers" :key="provider.id" class="col-12 col-md-4">
+  <div class="row q-col-gutter-lg justify-start">
+    <div v-for="provider in providers" :key="provider.id" :class="gridCols">
       <q-card
         flat
         class="selection-card full-height column justify-between"
@@ -8,10 +8,11 @@
           selected: selectable && modelValue === provider.id,
           disabled: selectable && provider.disabled,
           selectable: selectable,
+          'q-pa-sm': compact,
         }"
         v-ripple="selectable && !provider.disabled"
         @click="selectable && !provider.disabled ? handleSelect(provider.id) : null"
-        style="min-height: 280px"
+        :style="{ minHeight: compact ? '160px' : '280px' }"
       >
         <div v-if="selectable && modelValue === provider.id" class="selected-overlay">
           <q-icon name="check_circle" color="accent" size="32px" />
@@ -21,9 +22,15 @@
           {{ notConfiguredMessage }}
         </AppTooltip>
 
-        <q-card-section class="col-grow column items-center text-center q-pt-lg">
-          <div class="q-mb-md relative-position">
-            <img :src="provider.logo" style="width: 64px; height: 64px" />
+        <q-card-section
+          class="col-grow column items-center text-center"
+          :class="compact ? 'q-pt-sm' : 'q-pt-lg'"
+        >
+          <div :class="compact ? 'q-mb-sm' : 'q-mb-md'" class="relative-position">
+            <img
+              :src="provider.logo"
+              :style="{ width: compact ? '48px' : '64px', height: compact ? '48px' : '64px' }"
+            />
             <q-badge
               v-if="provider.badge"
               floating
@@ -36,15 +43,26 @@
             </q-badge>
           </div>
 
-          <div class="text-h6 text-weight-bold q-mb-xs">{{ provider.name }}</div>
-          <div class="text-caption q-mb-md">{{ provider.tagline }}</div>
+          <div
+            class="text-weight-bold"
+            :class="compact ? 'text-subtitle1 q-mb-xs' : 'text-h6 q-mb-xs'"
+          >
+            {{ provider.name }}
+          </div>
+          <div class="text-caption" :class="compact ? 'q-mb-sm' : 'q-mb-md'">
+            {{ provider.tagline }}
+          </div>
 
-          <div class="text-body2 full-width">
+          <div v-if="!compact" class="text-body2 full-width">
             {{ provider.description }}
           </div>
         </q-card-section>
 
-        <div class="row justify-center q-pb-md" v-if="showConfigButton">
+        <div
+          class="row justify-center"
+          :class="compact ? 'q-pb-sm' : 'q-pb-md'"
+          v-if="showConfigButton"
+        >
           <q-btn
             flat
             no-caps
@@ -101,6 +119,14 @@ const props = defineProps({
   selectable: {
     type: Boolean,
     default: true,
+  },
+  compact: {
+    type: Boolean,
+    default: false,
+  },
+  gridCols: {
+    type: String,
+    default: 'col-12 col-md-4',
   },
 });
 

@@ -1,6 +1,6 @@
 <template>
   <q-page class="bg-primary q-pa-lg">
-    <q-form @submit="saveSettings" no-error-focus>
+    <q-form no-error-focus>
       <!-- Hidden username to satisfy browser heuristics for password forms -->
       <input
         type="text"
@@ -27,7 +27,7 @@
           <q-spinner size="40px" color="accent" />
         </div>
 
-        <div v-else style="max-width: 800px; margin-bottom: 80px">
+        <div v-else class="full-width q-mb-xl">
           <q-tabs
             v-model="tab"
             dense
@@ -44,7 +44,6 @@
             <template v-if="authStore.isAdmin">
               <q-tab name="embedding" :label="$t('embeddingEngine')" />
               <q-tab name="chat" :label="$t('chatEngine')" />
-              <q-tab name="system" :label="$t('system')" />
             </template>
           </q-tabs>
 
@@ -88,13 +87,15 @@
                 <div class="col-12">
                   <!-- Embedding Provider Selection -->
                   <div class="q-mb-md">
-                    <EmbeddingSelection
+                    <ProviderSelection
                       v-model="models.embedding_provider"
                       :providers="embeddingProviderOptions"
                       show-config-button
                       :config-label="$t('configure')"
                       :config-tooltip="$t('configureProvider')"
                       :selectable="false"
+                      :compact="true"
+                      grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openEmbeddingConfig"
                     />
                   </div>
@@ -115,231 +116,35 @@
             <q-tab-panel name="chat" class="q-px-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
-                  <q-banner v-if="hasChanges" rounded class="bg-warning text-dark q-mb-md">
-                    <template v-slot:avatar>
-                      <q-icon name="warning" />
-                    </template>
-                    {{ $t('restartRequiredInfo') }}
-                  </q-banner>
-
-                  <q-banner rounded class="bg-info text-white q-mb-md" dense>
-                    <template v-slot:avatar>
-                      <q-icon name="mdi-chat-processing" />
-                    </template>
-                    {{ $t('chatModelHint') }}
-                  </q-banner>
-
                   <!-- Chat Provider Selection -->
-                  <q-card flat bordered class="bg-secondary q-mb-md">
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('chatProvider') }}
-                      </div>
-                      <q-select
-                        v-model="models.gen_ai_provider"
-                        :options="chatProviderOptions"
-                        outlined
-                        dense
-                        color="accent"
-                        emit-value
-                        map-options
-                      />
-                    </q-card-section>
-                  </q-card>
+                  <div class="q-mb-md">
+                    <ProviderSelection
+                      v-model="models.gen_ai_provider"
+                      :providers="chatProviderOptions"
+                      show-config-button
+                      :config-label="$t('configure')"
+                      :config-tooltip="$t('configureProvider')"
+                      :selectable="false"
+                      :compact="true"
+                      grid-cols="col-12 col-sm-6 col-md-3"
+                      @configure="openChatConfig"
+                    />
+                  </div>
 
-                  <!-- Gemini Chat Config -->
-                  <q-card
-                    v-if="models.gen_ai_provider === 'gemini'"
-                    flat
-                    bordered
-                    class="bg-secondary"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('geminiConfiguration') }}
-                      </div>
-                      <q-input
-                        v-model="models.gemini_api_key"
-                        :label="$t('apiKey')"
-                        outlined
-                        dense
-                        type="password"
-                        autocomplete="new-password"
-                      />
-                      <q-input
-                        v-model="models.gemini_chat_model"
-                        :label="$t('chatModel')"
-                        outlined
-                        dense
-                        :hint="$t('chatModelHintGemini')"
-                      />
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- OpenAI Chat Config -->
-                  <q-card
-                    v-if="models.gen_ai_provider === 'openai'"
-                    flat
-                    bordered
-                    class="bg-secondary"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('openaiConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.openai_api_key"
-                          :label="$t('apiKey')"
-                          outlined
-                          dense
-                          type="password"
-                          autocomplete="new-password"
-                        />
-                        <q-input
-                          v-model="models.openai_chat_model"
-                          :label="$t('chatModel')"
-                          outlined
-                          dense
-                          :hint="$t('chatModelHintOpenAI')"
-                        />
-                      </div>
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- Mistral Chat Config -->
-                  <q-card
-                    v-if="models.gen_ai_provider === 'mistral'"
-                    flat
-                    bordered
-                    class="bg-secondary"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('mistralConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.mistral_api_key"
-                          :label="$t('apiKey')"
-                          outlined
-                          dense
-                          type="password"
-                          autocomplete="new-password"
-                        />
-                        <q-input
-                          v-model="models.mistral_chat_model"
-                          :label="$t('chatModel')"
-                          outlined
-                          dense
-                        />
-                      </div>
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- Ollama Chat Config -->
-                  <q-card
-                    v-if="models.gen_ai_provider === 'ollama'"
-                    flat
-                    bordered
-                    class="bg-secondary"
-                  >
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('ollamaConfiguration') }}
-                      </div>
-                      <div class="column q-gutter-y-md">
-                        <q-input
-                          v-model="models.ollama_base_url"
-                          :label="$t('baseUrl')"
-                          outlined
-                          dense
-                          :hint="$t('baseUrlHint')"
-                        />
-                        <q-input
-                          v-model="models.ollama_chat_model"
-                          :label="$t('chatModel')"
-                          outlined
-                          dense
-                        />
-                      </div>
-                    </q-card-section>
-                  </q-card>
-
-                  <!-- Parameters -->
-                  <q-card flat bordered class="bg-secondary q-mt-md">
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('parameters') }}
-                      </div>
-                      <div class="row q-col-gutter-md">
-                        <div class="col-6">
-                          <q-input
-                            v-model="models.ai_temperature"
-                            :label="$t('temperature')"
-                            outlined
-                            dense
-                            type="number"
-                            step="0.1"
-                          />
-                        </div>
-                        <div class="col-6">
-                          <q-input
-                            v-model="models.ai_top_k"
-                            :label="$t('topK')"
-                            outlined
-                            dense
-                            type="number"
-                          />
-                        </div>
-                      </div>
-                    </q-card-section>
-                  </q-card>
-                </div>
-              </div>
-            </q-tab-panel>
-
-            <!-- System Tab -->
-            <q-tab-panel name="system" class="q-px-none">
-              <div class="row q-col-gutter-md">
-                <div class="col-12">
-                  <q-card flat bordered class="bg-secondary">
-                    <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
-                        {{ $t('network') }}
-                      </div>
-                      <q-input
-                        v-model="models.system_proxy"
-                        :label="$t('httpProxy')"
-                        outlined
-                        dense
-                        placeholder="http://user:pass@host:port"
-                        :hint="$t('proxyHint')"
-                      />
-                    </q-card-section>
-                  </q-card>
+                  <!-- Chat Configuration Dialog -->
+                  <ChatConfigurationDialog
+                    v-model:isOpen="showChatConfig"
+                    :provider-id="configChatProviderId"
+                    :provider-name="configChatProviderName"
+                    :models="models"
+                    @save="handleConfigSave"
+                  />
                 </div>
               </div>
             </q-tab-panel>
           </q-tab-panels>
         </div>
       </div>
-
-      <!-- Footer (Fixed at bottom) -->
-      <q-page-sticky position="bottom" expand :offset="[0, 0]" style="z-index: 100">
-        <div class="full-width bg-secondary q-pa-md border-top row justify-end items-center">
-          <q-btn
-            color="accent"
-            :label="$t('saveChanges')"
-            unelevated
-            :disable="saving || !authStore.isAdmin"
-            type="submit"
-            text-color="grey-3"
-            no-ripple
-            v-if="authStore.isAdmin"
-          />
-        </div>
-      </q-page-sticky>
     </q-form>
   </q-page>
 </template>
@@ -355,8 +160,9 @@ import { useTheme } from 'src/composables/useTheme'; // Added import
 import { useQuasar } from 'quasar';
 import type { Setting } from 'src/models/Setting';
 import CardSelection from 'src/components/common/CardSelection.vue';
-import EmbeddingSelection from 'src/components/common/EmbeddingSelection.vue';
+import ProviderSelection from 'src/components/common/ProviderSelection.vue';
 import EmbeddingConfigurationDialog from 'src/components/dialogs/EmbeddingConfigurationDialog.vue';
+import ChatConfigurationDialog from 'src/components/dialogs/ChatConfigurationDialog.vue';
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -373,9 +179,7 @@ const { themePreference, setParams } = useTheme(); // Added usage
 // --- STATE ---
 
 const loading = ref(true);
-const saving = ref(false);
 const tab = ref('general');
-const hasChanges = ref(false);
 
 // Local state model
 const models = reactive<Record<string, string>>({
@@ -422,13 +226,20 @@ const configProviderName = computed(() => {
   return provider ? provider.name : '';
 });
 
+const showChatConfig = ref(false);
+const configChatProviderId = ref('');
+const configChatProviderName = computed(() => {
+  const provider = chatProviderOptions.value.find((p) => p.id === configChatProviderId.value);
+  return provider ? provider.name : '';
+});
+
 // --- COMPUTED ---
 
 const languageOptions = computed(() => [
   {
     label: t('langEnglish'),
     value: 'en-US',
-    icon: 'translate',
+    icon: 'language',
     description: 'English',
   },
   {
@@ -524,79 +335,108 @@ async function loadSettings() {
         models[s.key] = s.value;
       }
     });
-
-    // FORCE GEMINI - REMOVED
-    // models.embedding_provider = 'gemini';
   } finally {
     loading.value = false;
   }
 }
 
-async function saveSettings() {
-  if (!authStore.isAdmin) return; // Prevent saving for non-admins
+// Replaced global save with specific save function
+async function saveSpecificSettings(updatedSettings: Record<string, string>) {
+  if (!authStore.isAdmin) return;
   try {
-    saving.value = true;
     const updates = [];
 
-    // Determine what changed
-    for (const [key, value] of Object.entries(models)) {
+    for (const [key, value] of Object.entries(updatedSettings)) {
       const original = originalSettings.find((s) => s.key === key);
 
-      // If no original, or value changed
-      // Special check for secrets: if value is ********, don't update unless changed
+      // Determine group/secret if new, or use existing metadata
+      let group = 'general';
+      let isSecret = false;
+
       if (original) {
-        if (original.is_secret && value === '********') {
-          continue; // No change
-        }
-        if (original.value !== value) {
-          updates.push({
-            key,
-            value,
-            group: original.group,
-            is_secret: original.is_secret,
-          });
+        group = original.group;
+        isSecret = original.is_secret;
+        // Don't update secrets if value is masked and hasn't changed
+        if (isSecret && value === '********') {
+          continue;
         }
       } else {
-        // New setting (shouldn't happen often if seeded)
-        // Infer group/secret
-        const isSecret = key.includes('api_key');
-        const group = key.startsWith('ai') || key.includes('embedding') ? 'ai' : 'general';
-        updates.push({
-          key,
-          value,
-          group,
-          is_secret: isSecret,
-        });
+        // Infer for new settings
+        isSecret = key.includes('api_key');
+        group = key.startsWith('ai') || key.includes('embedding') ? 'ai' : 'general';
       }
+
+      updates.push({
+        key,
+        value,
+        group,
+        is_secret: isSecret,
+      });
     }
 
     if (updates.length > 0) {
       await settingsService.updateBatch(updates);
-      notifySuccess(t('settingsSaved'));
-      await loadSettings(); // Reload to get masks
-      hasChanges.value = false;
-    } else {
-      notifySuccess(t('noChanges'));
+      // We don't notify for every auto-save to avoid spamming, unless it's a manual action
+      // But for dialog saves, we might want to.
+      // For now, let's just save silently for auto-save, and maybe notify for dialogs if passed a flag?
+      // Simpler: just save.
+
+      // Update original settings to reflect new state to avoid redundant saves
+      updates.forEach((update) => {
+        const index = originalSettings.findIndex((s) => s.key === update.key);
+        if (index !== -1 && originalSettings[index]) {
+          originalSettings[index].value = update.value;
+        } else {
+          originalSettings.push(update as Setting);
+        }
+      });
     }
-  } finally {
-    saving.value = false;
+  } catch (e) {
+    console.error('Failed to save settings', e);
   }
 }
 
 function openEmbeddingConfig(providerId: string) {
   configProviderId.value = providerId;
-  // If clicking configure on a provider that isn't selected, select it?
-  // Probably yes for better UX, or keep it independent.
-  // Let's select it for now.
   models.embedding_provider = providerId;
   showEmbeddingConfig.value = true;
 }
 
-function handleConfigSave(updatedModels: Record<string, string>) {
+function openChatConfig(providerId: string) {
+  configChatProviderId.value = providerId;
+  models.gen_ai_provider = providerId;
+  showChatConfig.value = true;
+}
+
+async function handleConfigSave(updatedModels: Record<string, string>) {
   // Merge updates back into main models
   Object.assign(models, updatedModels);
-  hasChanges.value = true;
+
+  // Persist immediately
+  await saveSpecificSettings(updatedModels);
+  notifySuccess(t('settingsSaved'));
+  showEmbeddingConfig.value = false;
+  showChatConfig.value = false;
 }
+
+// Auto-save watchers for General Settings using watch
+watch(
+  () => models.ui_dark_mode,
+  (newVal) => {
+    if (newVal) {
+      void saveSpecificSettings({ ui_dark_mode: newVal });
+    }
+  },
+);
+
+watch(
+  () => models.app_language,
+  (newVal) => {
+    if (newVal) {
+      void saveSpecificSettings({ app_language: newVal });
+    }
+  },
+);
 </script>
 <style scoped>
 /* Modern Tabs Styling */
