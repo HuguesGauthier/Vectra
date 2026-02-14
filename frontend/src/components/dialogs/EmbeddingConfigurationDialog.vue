@@ -101,6 +101,36 @@
               hint="ex. http://localhost:11434"
             />
           </template>
+
+          <!-- Ollama Configuration -->
+          <template v-if="providerId === 'ollama'">
+            <div class="text-subtitle2 q-mb-sm">{{ $t('embeddingEngine') }}</div>
+            <q-input
+              v-model="internalModels.ollama_base_url"
+              :label="$t('baseUrl')"
+              outlined
+              dense
+              hint="ex. http://localhost:11434"
+            />
+            <q-input
+              v-model="internalModels.ollama_embedding_model"
+              :label="$t('modelName')"
+              outlined
+              dense
+              hint="ex. bge-m3, nomic-embed-text"
+            />
+
+            <q-separator class="q-my-md" />
+
+            <div class="text-subtitle2 q-mb-sm">{{ $t('smartExtractionTitle') }} (Ollama)</div>
+            <q-input
+              v-model="internalModels.local_extraction_model"
+              label="Extraction Model"
+              outlined
+              dense
+              hint="ex. mistral, llama3, gemma, phi"
+            />
+          </template>
         </div>
       </q-card-section>
 

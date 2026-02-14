@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def _mask_secrets(settings: list) -> list:
     """Helper to mask secret values for API response."""
     for s in settings:
-        if s.is_secret:
+        if s.is_secret and s.value:
             s.value = "********"
     return settings
 

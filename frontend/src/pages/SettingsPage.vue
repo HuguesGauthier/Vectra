@@ -403,6 +403,7 @@ const models = reactive<Record<string, string>>({
   mistral_chat_model: 'mistral-large-latest',
   ollama_base_url: 'http://localhost:11434',
   ollama_chat_model: 'mistral',
+  ollama_embedding_model: 'bge-m3',
 
   // Shared Parameters
   ai_temperature: '0.2',
