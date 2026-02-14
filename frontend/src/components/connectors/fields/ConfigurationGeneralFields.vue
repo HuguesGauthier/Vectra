@@ -8,6 +8,7 @@
       :label="$t('name')"
       color="white"
       standout
+      autofocus
       :rules="[(val) => !!val || $t('fieldRequired')]"
     />
 

@@ -88,7 +88,7 @@
               >
                 <div
                   class="text-weight-bold cursor-pointer hover-underline"
-                  @click="openDocumentsDialog(props.row)"
+                  @click="openDrawerViaDataSource(props.row)"
                 >
                   {{ props.row.name }}
                 </div>

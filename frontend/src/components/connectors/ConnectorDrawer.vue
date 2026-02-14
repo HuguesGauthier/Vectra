@@ -1,6 +1,6 @@
 <template>
-  <q-dialog v-model="isOpen" maximized position="right">
-    <q-card class="bg-primary text-grey-5 column full-height" style="min-width: 50vw">
+  <q-dialog v-model="isOpen">
+    <q-card class="bg-primary text-grey-5 column full-height" style="min-width: 55vw">
       <!-- Header -->
       <div class="q-pa-md bg-secondary border-bottom row items-center justify-between">
         <div class="text-h6">
@@ -39,10 +39,11 @@
               <q-tabs
                 v-model="configSubTab"
                 vertical
-                class="text-grey-5 bg-secondary"
+                no-caps
+                class="bg-primary"
                 active-color="accent"
                 indicator-color="accent"
-                style="min-width: 200px"
+                style="min-width: 100px"
               >
                 <q-tab name="general" icon="info" :label="$t('generalInfo')" />
                 <q-tab name="connection" icon="dns" :label="$t('connectionDetails')" />

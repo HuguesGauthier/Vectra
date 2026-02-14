@@ -292,6 +292,7 @@ export default {
   localEmbeddings: 'Local Embeddings',
   localEmbeddingsDesc: 'Model: HuggingFace / Ollama',
   engineNotConfigured: 'Engine not configured (See Settings)',
+  notConfigured: 'Not configured',
   modelDeprecationWarning:
     'Warning: Cloud AI models may be deprecated over time. Ensure you select a stable model to avoid re-vectorization.',
 

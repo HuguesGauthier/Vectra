@@ -288,6 +288,7 @@ export default {
   localEmbeddings: 'Embeddings Locaux',
   localEmbeddingsDesc: 'Privé & Sécurisé',
   engineNotConfigured: 'Moteur non configuré (Voir Paramètres)',
+  notConfigured: 'Non configuré',
   modelDeprecationWarning:
     'Attention : Les modèles IA cloud peuvent être obsolètes avec le temps. Assurez-vous de choisir un modèle stable pour éviter de devoir re-vectoriser.',
 

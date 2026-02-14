@@ -2,19 +2,47 @@
   <div class="row justify-center max-width-container">
     <div class="col-12 col-md-10">
       <div class="row q-col-gutter-lg justify-center">
-        <div v-for="model in aiModels" :key="model.value" class="col-12 col-sm-6 col-md-4">
+        <div v-for="model in aiModels" :key="model.value" class="col-12 col-sm-6 col-md-3">
           <q-card
-            class="selection-card cursor-pointer full-height q-pa-md"
-            :class="{ selected: localData.model === model.value }"
-            v-ripple
-            @click="localData.model = model.value || ''"
+            class="selection-card full-height q-pa-md"
+            :class="{
+              selected: localData.model === model.value,
+              'disabled-card': model.disabled,
+              'cursor-pointer': !model.disabled,
+            }"
+            v-ripple="!model.disabled"
+            @click="!model.disabled && (localData.model = model.value || '')"
           >
-            <q-card-section class="column items-center text-center">
-              <q-avatar size="60px" :color="model.color" text-color="white" class="q-mb-md">
-                <q-icon :name="model.icon" />
+            <q-card-section class="column items-center text-center q-pa-sm">
+              <q-avatar
+                size="48px"
+                :color="model.disabled ? 'grey-8' : model.color"
+                text-color="white"
+                class="q-mb-sm"
+              >
+                <q-icon :name="model.icon" size="24px" />
               </q-avatar>
-              <div class="text-h6">{{ model.label }}</div>
-              <div class="text-caption q-mt-sm">{{ model.description }}</div>
+              <div
+                class="text-subtitle1 text-weight-bold"
+                :class="{ 'text-grey-6': model.disabled }"
+              >
+                {{ model.label }}
+              </div>
+              <div
+                class="text-caption"
+                :class="{ 'text-grey-7': model.disabled }"
+                style="line-height: 1.2; font-size: 0.75rem"
+              >
+                {{ model.description }}
+              </div>
+
+              <!-- Not Configured Badge -->
+              <div v-if="model.disabled" class="q-mt-sm">
+                <q-badge color="grey-9" text-color="grey-4" class="q-pa-xs">
+                  <q-icon name="lock" size="10px" class="q-mr-xs" />
+                  <span style="font-size: 0.7rem">{{ $t('notConfigured') }}</span>
+                </q-badge>
+              </div>
 
               <q-btn
                 v-if="localData.model === model.value"
@@ -46,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAiProviders } from 'src/composables/useAiProviders';
 import type { Assistant } from 'src/services/assistantService';
@@ -75,9 +103,16 @@ const localData = computed({
   set: (val) => emit('update:modelValue', val),
 });
 
+onMounted(() => {
+  // Set Ollama as default if no model is selected
+  if (!localData.value.model) {
+    localData.value.model = 'ollama';
+  }
+});
+
 // AI Models - map from centralized chat providers
 const aiModels = computed(() => {
-  return chatProviderOptions.value.map((provider) => {
+  const models = chatProviderOptions.value.map((provider) => {
     if (provider.value === 'gemini') {
       return {
         value: provider.value,
@@ -85,6 +120,7 @@ const aiModels = computed(() => {
         description: t('geminiDesc'),
         icon: 'auto_awesome',
         color: 'blue-6',
+        disabled: provider.disabled,
       };
     } else if (provider.value === 'openai') {
       return {
@@ -93,6 +129,7 @@ const aiModels = computed(() => {
         description: t('openaiDesc'),
         icon: 'smart_toy',
         color: 'green-6',
+        disabled: provider.disabled,
       };
     } else if (provider.value === 'mistral') {
       return {
@@ -101,6 +138,7 @@ const aiModels = computed(() => {
         description: t('mistralDesc'),
         icon: 'air',
         color: 'orange-10', // Mistral branding is often warm
+        disabled: provider.disabled,
       };
     } else if (provider.value === 'ollama') {
       return {
@@ -109,6 +147,7 @@ const aiModels = computed(() => {
         description: t('mistralLocalDesc'),
         icon: 'terminal',
         color: 'blue-grey-8',
+        disabled: provider.disabled,
       };
     }
     return {
@@ -117,7 +156,15 @@ const aiModels = computed(() => {
       description: '',
       icon: 'psychology',
       color: 'grey-6',
+      disabled: provider.disabled,
     };
+  });
+
+  // Sort to put Ollama first
+  return models.sort((a, b) => {
+    if (a.value === 'ollama') return -1;
+    if (b.value === 'ollama') return 1;
+    return 0;
   });
 });
 </script>
@@ -140,6 +187,13 @@ const aiModels = computed(() => {
 .selection-card.selected {
   border-color: var(--q-accent);
   background: var(--q-secondary);
+}
+
+.disabled-card {
+  opacity: 0.6;
+  filter: grayscale(0.8);
+  cursor: not-allowed !important;
+  border-style: dashed;
 }
 
 .selected-overlay {

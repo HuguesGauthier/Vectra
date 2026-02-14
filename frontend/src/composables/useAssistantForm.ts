@@ -28,7 +28,7 @@ export function useAssistantForm(initialData?: Partial<Assistant>) {
     description: '',
     avatar_bg_color: '#E08E45',
     instructions: '',
-    model: 'gemini',
+    model: 'ollama',
     use_reranker: false,
 
     top_k_retrieval: 25,

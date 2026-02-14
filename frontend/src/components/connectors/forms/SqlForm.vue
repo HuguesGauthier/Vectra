@@ -21,6 +21,7 @@
             color="accent"
             bg-color="secondary"
             lazy-rules
+            autofocus
             :rules="[(val) => !!val || $t('fieldRequired')]"
             class="q-mb-md"
           />
