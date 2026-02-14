@@ -327,23 +327,11 @@
         </AppTable>
       </div>
 
-      <!-- Drawer -->
-      <ConnectorDrawer
-        v-if="selectedType"
-        v-model="isDrawerOpen"
-        :connector-type="selectedType"
-        :data="
-          theConnectors.editingConnector ||
-          new Connector({ connector_type: mapUiTypeToBackend(selectedType) })
-        "
-        :title="drawerTitle"
-        :loading="isSaving"
-        @save="onConnectorSaved"
-      />
-
-      <AddConnectorStepper
+      <ConnectorStepper
         v-model:isOpen="isStepperOpen"
         :loading="isSaving"
+        :is-edit="isEditMode"
+        :initial-data="theConnectors.editingConnector"
         @save="onConnectorSaved"
       />
     </div>
@@ -358,8 +346,7 @@ import { useI18n } from 'vue-i18n';
 import { useNotification } from 'src/composables/useNotification';
 import { Connector, getScheduleLabel, type ConnectorSavePayload } from 'src/models/Connector';
 import { ConnectorStatus, ConnectorType } from 'src/models/enums';
-import ConnectorDrawer from 'src/components/connectors/ConnectorDrawer.vue';
-import AddConnectorStepper from 'src/components/connectors/AddConnectorStepper.vue';
+import ConnectorStepper from 'src/components/connectors/ConnectorStepper.vue';
 import AppTooltip from 'components/common/AppTooltip.vue';
 import AppTable from 'components/common/AppTable.vue';
 import { useConnectorStore } from 'src/stores/ConnectorStore';
@@ -396,8 +383,9 @@ const theConnectors = reactive({
 });
 
 // UI state
+// UI state
 const isStepperOpen = ref(false);
-const isDrawerOpen = ref(false);
+const isEditMode = ref(false);
 // isSaving handled by composable
 const selectedType = ref<string>('');
 const filter = ref('');
@@ -614,14 +602,7 @@ const connectorTypes = computed<UiConnectorType[]>(() => [
   },
 ]);
 
-// Dynamic title for the drawer based on selection
-const drawerTitle = computed(() => {
-  const type = connectorTypes.value.find((t) => t.id === selectedType.value);
-  const typeName = type ? type.name : 'Connector';
-  return theConnectors.selected
-    ? t('editConnector', { type: theConnectors.selected.name })
-    : t('addConnector', { type: typeName });
-});
+// Drawer title removed as it is handled inside Stepper now
 
 // --- WATCHERS ---
 
@@ -633,12 +614,6 @@ onMounted(async () => {
 });
 
 // --- FUNCTIONS ---
-
-function mapUiTypeToBackend(uiType: string): ConnectorType {
-  if (uiType === 'file') return ConnectorType.LOCAL_FILE;
-  if (uiType === 'folder') return ConnectorType.LOCAL_FOLDER;
-  return uiType as unknown as ConnectorType;
-}
 
 function mapBackendToUiType(connector: Connector): string {
   if (connector.connector_type === ConnectorType.LOCAL_FOLDER) return 'folder';
@@ -668,7 +643,12 @@ function openDrawerViaDataSource(source: Connector) {
   if (source.configuration) {
     theConnectors.editingConnector.configuration = JSON.parse(JSON.stringify(source.configuration));
   }
-  isDrawerOpen.value = true;
+  // Ensure config is also cloned
+  if (source.configuration) {
+    theConnectors.editingConnector.configuration = JSON.parse(JSON.stringify(source.configuration));
+  }
+  isEditMode.value = true;
+  isStepperOpen.value = true;
 }
 
 /**
@@ -690,6 +670,7 @@ function openTypeSelection() {
 
   // connectorTypeFilter.value = '';
   // isTypeSelectionOpen.value = true;
+  isEditMode.value = false;
   isStepperOpen.value = true;
 }
 
@@ -700,7 +681,6 @@ function openTypeSelection() {
  */
 async function onConnectorSaved(payload: ConnectorSavePayload) {
   await handleSaveConnector(payload, theConnectors.selected, () => {
-    isDrawerOpen.value = false;
     isStepperOpen.value = false;
   });
 }

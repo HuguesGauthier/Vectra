@@ -4,7 +4,11 @@
       <!-- Header -->
       <div class="q-pa-md bg-primary border-bottom row items-center justify-between">
         <div class="text-h6 text-weight-bold">
-          {{ $t('addConnector', { type: '' }).replace('  ', ' ') }}
+          {{
+            isEdit
+              ? $t('editConnector', { type: connectorData.name })
+              : $t('addConnector', { type: '' }).replace('  ', ' ')
+          }}
         </div>
         <q-btn flat round dense icon="close" @click="handleClose" />
       </div>
@@ -22,6 +26,7 @@
           flat
           dense
           class="bg-transparent"
+          :header-nav="isEdit"
         >
           <q-step
             :name="1"
@@ -44,7 +49,11 @@
       <!-- Content Area -->
       <div class="col scroll q-pl-lg q-pr-lg relative-position bg-primary hide-scrollbar">
         <!-- Step 1: Connector Type Selection -->
-        <ConnectorTypeStep v-if="step === 1" v-model="selectedType" />
+        <ConnectorTypeStep v-if="step === 1 && !isEdit" v-model="selectedType" />
+        <div v-else-if="step === 1 && isEdit" class="q-pa-md text-center">
+          <div class="text-h6">Type: {{ selectedType }}</div>
+          <div class="text-subtitle2 text-grey-6">Cannot change type during edit.</div>
+        </div>
 
         <!-- Step 2: Specific Configuration (Moved from Step 3) -->
         <div v-if="step === 2" class="row justify-center">
@@ -58,6 +67,7 @@
               hide-schedule
               hide-actions
               :loading="loading"
+              :is-edit="isEdit"
               @cancel="step = 1"
             />
           </div>
@@ -225,7 +235,7 @@
         <q-btn
           v-else
           color="positive"
-          :label="$t('save')"
+          :label="isEdit ? $t('update') : $t('save')"
           icon="check"
           :loading="loading"
           @click="handleSave"
@@ -255,8 +265,13 @@ import { useAiProviders } from 'src/composables/useAiProviders';
 
 // --- DEFINITIONS ---
 defineOptions({
-  name: 'AddConnectorStepper',
+  name: 'ConnectorStepper',
 });
+
+const props = defineProps<{
+  isEdit?: boolean;
+  initialData?: Connector | null;
+}>();
 
 const loading = defineModel<boolean>('loading', { default: false });
 const isOpen = defineModel<boolean>('isOpen', { required: true });
@@ -335,7 +350,8 @@ watch([step, selectedType], () => {
   if (step.value === 2) {
     const backendType = selectedType.value as ConnectorType;
 
-    if (connectorData.value.connector_type !== backendType) {
+    // Only reset if type changed or purely new
+    if (connectorData.value.connector_type !== backendType && !props.isEdit) {
       connectorData.value = new Connector({ connector_type: backendType });
     }
   }
@@ -354,6 +370,11 @@ watch(
     if (val) {
       // Check settings every time dialog opens to ensure enabled/disabled states are fresh
       void loadSettings();
+      if (props.isEdit && props.initialData) {
+        initializeEditMode();
+      } else {
+        resetState();
+      }
     } else {
       setTimeout(resetState, 300);
     }
@@ -393,10 +414,51 @@ watch(aclMode, (newMode) => {
 
 function resetState() {
   step.value = 1;
+  subStep.value = 1;
   selectedType.value = '';
   selectedProvider.value = '';
   aclMode.value = 'public';
+  smartExtractionEnabled.value = false;
   connectorData.value = new Connector();
+}
+
+function initializeEditMode() {
+  if (!props.initialData) return;
+
+  // Clone data to avoid mutating prop directly
+  connectorData.value = new Connector(props.initialData);
+  // Deep clone config
+  if (props.initialData.configuration) {
+    connectorData.value.configuration = JSON.parse(JSON.stringify(props.initialData.configuration));
+  }
+
+  selectedType.value = mapBackendToUiType(connectorData.value);
+
+  // Setup Provider
+  selectedProvider.value = connectorData.value.configuration?.ai_provider || 'gemini';
+
+  // Setup ACL
+  const acl = connectorData.value.configuration?.connector_acl || [];
+  if (acl.includes('public') && acl.length === 1) {
+    aclMode.value = 'public';
+  } else {
+    aclMode.value = 'restricted';
+  }
+
+  // Smart Extraction
+  smartExtractionEnabled.value =
+    connectorData.value.configuration?.indexing_config?.use_smart_extraction || false;
+
+  // Skip to step 2 directly? Or stay at 1?
+  // User requested "header navigable", and presumably we start at step 1 (Type) or Step 2 (Config).
+  // Use step 2 as type is fixed.
+  step.value = 2;
+}
+
+function mapBackendToUiType(connector: Connector): string {
+  if (connector.connector_type === ConnectorType.LOCAL_FOLDER) return 'local_folder';
+  if (connector.connector_type === ConnectorType.LOCAL_FILE) return 'local_file';
+  return connector.connector_type;
 }
 
 function handleClose() {
