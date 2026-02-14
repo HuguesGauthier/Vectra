@@ -82,13 +82,12 @@
               icon="settings_input_component"
               :done="subStep > 1"
             >
-              <div class="row q-col-gutter-lg justify-center">
-                <ProviderSelection
-                  v-model="selectedProvider"
-                  :providers="aiProviders"
-                  :selectable="true"
-                />
-              </div>
+              <ProviderSelection
+                v-model="selectedProvider"
+                :providers="aiProviders"
+                :selectable="true"
+                class="full-width"
+              />
             </q-step>
 
             <!-- Sub-Step 2: Smart Extraction -->

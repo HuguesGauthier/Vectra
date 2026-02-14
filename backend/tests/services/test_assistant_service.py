@@ -43,6 +43,7 @@ def create_mock_assistant_model(assistant_id=None):
     mock.instructions = "Instructions"
     mock.model = AIModel.GEMINI
     mock.use_reranker = False
+    mock.rerank_provider = "cohere"
     mock.top_k_retrieval = 25
     mock.top_n_rerank = 5
     mock.retrieval_similarity_cutoff = 0.5

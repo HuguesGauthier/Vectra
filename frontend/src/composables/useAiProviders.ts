@@ -132,6 +132,29 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       });
   });
 
+  const rerankProviderOptions = computed<ProviderOption[]>(() => {
+    return providers.value
+      .filter((p) => p.type === 'rerank')
+      .map((p) => {
+        let logo = localLogo;
+        if (p.id === 'cohere') logo = localLogo; // Generic logo for now or cohere specifically if added
+        if (p.id === 'local') logo = localLogo;
+
+        return {
+          id: p.id,
+          name: p.name,
+          value: p.id,
+          label: p.name,
+          logo: logo,
+          tagline: p.description || undefined,
+          description: undefined,
+          badge: p.id === 'local' ? t('private') : t('public'),
+          badgeColor: p.id === 'local' ? 'warning' : 'info',
+          disabled: !p.configured,
+        };
+      });
+  });
+
   /**
    * Get the display label for a chat provider value
    */
@@ -153,13 +176,24 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
     return (option as any)?.label || value;
   };
 
+  /**
+   * Get the display label for a rerank provider value
+   */
+  const getRerankProviderLabel = (value: string | undefined): string => {
+    if (!value) return '';
+    const option = rerankProviderOptions.value.find((opt) => opt.value === value);
+    return option?.label || value;
+  };
+
   return {
     providers,
     isLoading,
     fetchProviders,
     embeddingProviderOptions,
     chatProviderOptions,
+    rerankProviderOptions,
     getChatProviderLabel,
     getEmbeddingProviderLabel,
+    getRerankProviderLabel,
   };
 }

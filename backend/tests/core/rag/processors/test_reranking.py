@@ -10,6 +10,8 @@ from llama_index.core.schema import NodeWithScore, TextNode
 def mock_ctx():
     assistant = MagicMock()
     assistant.use_reranker = True
+    assistant.rerank_provider = "cohere"
+    assistant.top_k_retrieval = 3
     assistant.top_n_rerank = 2
     assistant.similarity_cutoff = 0.5
 
@@ -27,6 +29,7 @@ def mock_ctx():
         llm=None,
         embed_model=None,
         search_strategy=None,
+        settings_service=AsyncMock(),
         retrieved_nodes=nodes,
     )
 
@@ -34,7 +37,8 @@ def mock_ctx():
 @pytest.mark.asyncio
 async def test_reranking_happy_path(mock_ctx):
     processor = RerankingProcessor()
-    processor.client = AsyncMock()
+    processor.cohere_client = AsyncMock()
+    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
 
     # Mock Cohere response
     mock_result = MagicMock()
@@ -42,7 +46,7 @@ async def test_reranking_happy_path(mock_ctx):
         MagicMock(index=1, relevance_score=0.9),  # doc2
         MagicMock(index=0, relevance_score=0.85),  # doc1
     ]
-    processor.client.rerank.return_value = mock_result
+    processor.cohere_client.rerank.return_value = mock_result
 
     events = []
     async for event in processor.process(mock_ctx):
@@ -78,8 +82,9 @@ async def test_reranking_disabled(mock_ctx):
 @pytest.mark.asyncio
 async def test_reranking_fail_open_on_timeout(mock_ctx):
     processor = RerankingProcessor()
-    processor.client = AsyncMock()
-    processor.client.rerank.side_effect = asyncio.TimeoutError()
+    processor.cohere_client = AsyncMock()
+    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
+    processor.cohere_client.rerank.side_effect = asyncio.TimeoutError()
 
     events = []
     async for event in processor.process(mock_ctx):
@@ -94,7 +99,8 @@ async def test_reranking_fail_open_on_timeout(mock_ctx):
 @pytest.mark.asyncio
 async def test_reranking_cutoff_filtering(mock_ctx):
     processor = RerankingProcessor()
-    processor.client = AsyncMock()
+    processor.cohere_client = AsyncMock()
+    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
 
     # Mock Cohere response: one above cutoff, one below
     mock_result = MagicMock()
@@ -102,7 +108,7 @@ async def test_reranking_cutoff_filtering(mock_ctx):
         MagicMock(index=0, relevance_score=0.9),  # Above (0.5)
         MagicMock(index=1, relevance_score=0.3),  # Below (0.5)
     ]
-    processor.client.rerank.return_value = mock_result
+    processor.cohere_client.rerank.return_value = mock_result
 
     async for _ in processor.process(mock_ctx):
         pass

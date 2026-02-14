@@ -72,6 +72,7 @@ class AssistantBase(SQLModel):
     model: AIModel = Field(default=DEFAULT_MODEL)
 
     use_reranker: bool = Field(default=False)
+    rerank_provider: str = Field(default="cohere")
 
     top_k_retrieval: int = Field(default=DEFAULT_TOP_K, ge=MIN_TOP_K, le=MAX_TOP_K)
     top_n_rerank: int = Field(default=DEFAULT_TOP_N, ge=MIN_TOP_N, le=MAX_TOP_N)
@@ -138,6 +139,7 @@ class AssistantUpdate(SQLModel):
     instructions: Optional[str] = Field(None, min_length=1)
     model: Optional[AIModel] = None
     use_reranker: Optional[bool] = None
+    rerank_provider: Optional[str] = None
     top_k_retrieval: Optional[int] = Field(None, ge=MIN_TOP_K, le=MAX_TOP_K)
     top_n_rerank: Optional[int] = Field(None, ge=MIN_TOP_N, le=MAX_TOP_N)
     retrieval_similarity_cutoff: Optional[float] = Field(None, ge=0.0, le=1.0)

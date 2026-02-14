@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     ENABLE_TRENDING: bool = True  # Toggle trending analysis in ChatPipeline
     LOG_RETENTION_DAYS: int = 30  # Days to keep error logs
 
+    # Reranker Configuration
+    RERANKER_PROVIDER: Literal["cohere", "local"] = "cohere"
+    LOCAL_RERANK_MODEL: str = "BAAI/bge-reranker-base"
+
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"
     FIRST_SUPERUSER_PASSWORD: Optional[str] = None

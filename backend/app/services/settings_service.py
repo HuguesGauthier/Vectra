@@ -53,6 +53,8 @@ class SettingsService:
         "local_extraction_url": "http://localhost:11434",
         "analytics_cost_per_1k_tokens": "0.0001",
         "analytics_minutes_saved_per_doc": "5.0",
+        "rerank_provider": "cohere",
+        "local_rerank_model": "BAAI/bge-reranker-base",
     }
 
     def __init__(self, db: Optional[AsyncSession] = None):
@@ -136,6 +138,8 @@ class SettingsService:
             "local_extraction_model": env_settings.LOCAL_EXTRACTION_MODEL,
             "local_extraction_url": env_settings.LOCAL_EXTRACTION_URL,
             "qdrant_api_key": env_settings.QDRANT_API_KEY,
+            "rerank_provider": env_settings.RERANKER_PROVIDER,
+            "local_rerank_model": env_settings.LOCAL_RERANK_MODEL,
         }
         return env_map.get(key)
 

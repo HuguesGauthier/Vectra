@@ -66,6 +66,9 @@ class Assistant(AssistantBase, table=True):
     # Re-applying sa_column because they were removed from AssistantBase for decoupling
     instructions: str = Field(default=DEFAULT_INSTRUCTIONS, sa_column=Column(Text, nullable=False))
     use_reranker: bool = Field(default=False, sa_column=Column(Boolean, server_default=text("false"), nullable=False))
+    rerank_provider: str = Field(
+        default="cohere", sa_column=Column(Text, server_default=text("'cohere'"), nullable=False)
+    )
     top_k_retrieval: int = Field(
         default=DEFAULT_TOP_K, sa_column=Column(Integer, server_default=text(str(DEFAULT_TOP_K)), nullable=False)
     )

@@ -30,6 +30,7 @@ export function useAssistantForm(initialData?: Partial<Assistant>) {
     instructions: '',
     model: 'ollama',
     use_reranker: false,
+    rerank_provider: 'local',
 
     top_k_retrieval: 25,
     top_n_rerank: 5,

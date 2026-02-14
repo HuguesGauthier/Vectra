@@ -12,7 +12,7 @@
         }"
         v-ripple="selectable && !provider.disabled"
         @click="selectable && !provider.disabled ? handleSelect(provider.id) : null"
-        :style="{ minHeight: compact ? '160px' : '280px' }"
+        :style="{ minHeight: compact ? '120px' : '180px' }"
       >
         <div v-if="selectable && modelValue === provider.id" class="selected-overlay">
           <q-icon name="check_circle" color="accent" size="32px" />
@@ -126,7 +126,7 @@ const props = defineProps({
   },
   gridCols: {
     type: String,
-    default: 'col-12 col-md-4',
+    default: 'col-12 col-sm-6 col-md-4 col-lg-3',
   },
 });
 

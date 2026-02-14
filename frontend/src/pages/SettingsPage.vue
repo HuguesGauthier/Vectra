@@ -43,6 +43,7 @@
             <q-tab name="general" :label="$t('general')" />
             <template v-if="authStore.isAdmin">
               <q-tab name="embedding" :label="$t('embeddingEngine')" />
+              <q-tab name="rerank" :label="$t('rerankEngine')" />
               <q-tab name="chat" :label="$t('chatEngine')" />
             </template>
           </q-tabs>
@@ -112,6 +113,37 @@
               </div>
             </q-tab-panel>
 
+            <!-- Rerank Engine Tab -->
+            <q-tab-panel name="rerank" class="q-px-none">
+              <div class="row q-col-gutter-md">
+                <div class="col-12">
+                  <!-- Rerank Provider Selection -->
+                  <div class="q-mb-md">
+                    <ProviderSelection
+                      v-model="models.rerank_provider"
+                      :providers="rerankProviderOptions"
+                      show-config-button
+                      :config-label="$t('configure')"
+                      :config-tooltip="$t('configureProvider')"
+                      :selectable="false"
+                      :compact="true"
+                      grid-cols="col-12 col-sm-6 col-md-3"
+                      @configure="openRerankConfig"
+                    />
+                  </div>
+
+                  <!-- Rerank Configuration Dialog -->
+                  <RerankConfigurationDialog
+                    v-model:isOpen="showRerankConfig"
+                    :provider-id="configRerankProviderId"
+                    :provider-name="configRerankProviderName"
+                    :models="models"
+                    @save="handleConfigSave"
+                  />
+                </div>
+              </div>
+            </q-tab-panel>
+
             <!-- Chat/Generation Tab -->
             <q-tab-panel name="chat" class="q-px-none">
               <div class="row q-col-gutter-md">
@@ -163,6 +195,7 @@ import CardSelection from 'src/components/common/CardSelection.vue';
 import ProviderSelection from 'src/components/common/ProviderSelection.vue';
 import EmbeddingConfigurationDialog from 'src/components/dialogs/EmbeddingConfigurationDialog.vue';
 import ChatConfigurationDialog from 'src/components/dialogs/ChatConfigurationDialog.vue';
+import RerankConfigurationDialog from 'src/components/dialogs/RerankConfigurationDialog.vue';
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -209,6 +242,11 @@ const models = reactive<Record<string, string>>({
   ollama_chat_model: 'mistral',
   ollama_embedding_model: 'bge-m3',
 
+  // Rerank Settings
+  rerank_provider: 'cohere',
+  cohere_api_key: '',
+  local_rerank_model: 'BAAI/bge-reranker-base',
+
   // Shared Parameters
   ai_temperature: '0.2',
   ai_top_k: '5',
@@ -230,6 +268,13 @@ const showChatConfig = ref(false);
 const configChatProviderId = ref('');
 const configChatProviderName = computed(() => {
   const provider = chatProviderOptions.value.find((p) => p.id === configChatProviderId.value);
+  return provider ? provider.name : '';
+});
+
+const showRerankConfig = ref(false);
+const configRerankProviderId = ref('');
+const configRerankProviderName = computed(() => {
+  const provider = rerankProviderOptions.value.find((p) => p.id === configRerankProviderId.value);
   return provider ? provider.name : '';
 });
 
@@ -272,7 +317,8 @@ const themeOptions = computed(() => [
 ]);
 
 // Import centralized AI provider options
-const { embeddingProviderOptions, chatProviderOptions } = useAiProviders(models);
+const { embeddingProviderOptions, chatProviderOptions, rerankProviderOptions } =
+  useAiProviders(models);
 
 // --- WATCHERS ---
 
@@ -417,6 +463,13 @@ async function handleConfigSave(updatedModels: Record<string, string>) {
   notifySuccess(t('settingsSaved'));
   showEmbeddingConfig.value = false;
   showChatConfig.value = false;
+  showRerankConfig.value = false;
+}
+
+function openRerankConfig(providerId: string) {
+  configRerankProviderId.value = providerId;
+  models.rerank_provider = providerId;
+  showRerankConfig.value = true;
 }
 
 // Auto-save watchers for General Settings using watch

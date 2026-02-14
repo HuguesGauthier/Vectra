@@ -23,6 +23,7 @@ export interface Assistant {
   instructions: string;
   model?: string;
   use_reranker?: boolean;
+  rerank_provider?: string;
 
   top_k_retrieval?: number;
   retrieval_similarity_cutoff?: number;

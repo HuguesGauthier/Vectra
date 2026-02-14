@@ -61,6 +61,18 @@ async def get_providers(
     )
 
     # --- Chat Providers ---
+    # Ollama (Local)
+    providers.append(
+        ProviderInfo(
+            id="ollama",
+            name="Ollama (Local)",
+            type="chat",
+            description="Run models locally",
+            configured=True,
+            is_active=True,
+        )
+    )
+
     # Gemini
     providers.append(
         ProviderInfo(
@@ -97,14 +109,28 @@ async def get_providers(
         )
     )
 
-    # Ollama (Local)
+    # --- Rerank Providers ---
+
+    # Local (FastEmbed)
     providers.append(
         ProviderInfo(
-            id="ollama",
-            name="Ollama (Local)",
-            type="chat",
-            description="Run models locally",
-            configured=True,
+            id="local",
+            name="Local Reranker (FastEmbed)",
+            type="rerank",
+            description="Private & Efficient (CPU)",
+            configured=True,  # FastEmbed is built-in
+            is_active=True,
+        )
+    )
+
+    # Cohere
+    providers.append(
+        ProviderInfo(
+            id="cohere",
+            name="Cohere",
+            type="rerank",
+            description="Industry leader in Reranking",
+            configured=await is_configured("cohere_api_key"),
             is_active=True,
         )
     )

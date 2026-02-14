@@ -293,6 +293,9 @@ export default {
   localEmbeddingsDesc: 'Model: HuggingFace / Ollama',
   engineNotConfigured: 'Engine not configured (See Settings)',
   notConfigured: 'Not configured',
+  rerankEngine: 'Rerank Engine',
+  cohereRerankDesc: 'Recommended for highest precision.',
+  localRerankDesc: 'Runs privately on your CPU using FastEmbed.',
   modelDeprecationWarning:
     'Warning: Cloud AI models may be deprecated over time. Ensure you select a stable model to avoid re-vectorization.',
 
@@ -323,6 +326,8 @@ export default {
   similarityCutoff: 'Minimum Relevance',
   similarityCutoffHint: 'Filters out irrelevant results. Higher = Stricter.',
   configureDesc: 'Configure the specific settings for your data source.',
+  retrievalVolumeAndRelevance: 'Retrieval Volume and Minimum Relevance',
+  precisionBoost: 'Precision Boost',
 
   // Connector Drawer Tabs & Fields
   configuration: 'Configuration',

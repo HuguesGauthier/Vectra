@@ -117,8 +117,38 @@
           </div>
 
           <!-- Step 5: Retrieval Strategy -->
-          <div v-if="step === 5" class="row justify-center">
-            <AssistantRetrievalStep v-model="assistantData" />
+          <div v-if="step === 5">
+            <q-stepper
+              v-model="innerStep"
+              vertical
+              color="accent"
+              active-color="accent"
+              done-color="positive"
+              animated
+              flat
+              class="bg-transparent"
+            >
+              <q-step
+                :name="1"
+                :title="$t('retrievalVolumeAndRelevance')"
+                icon="manage_search"
+                :done="innerStep > 1"
+              >
+                <div class="row justify-center">
+                  <div class="col-12 col-md-10">
+                    <RetrievalParams v-model="assistantData" hide-title section="basic" />
+                  </div>
+                </div>
+              </q-step>
+
+              <q-step :name="2" :title="$t('precisionBoost')" icon="bolt" :done="innerStep > 2">
+                <div class="row justify-center">
+                  <div class="col-12 col-md-10">
+                    <RetrievalParams v-model="assistantData" hide-title section="rerank" />
+                  </div>
+                </div>
+              </q-step>
+            </q-stepper>
           </div>
 
           <!-- Step 3: Personality/Instructions -->
@@ -191,7 +221,7 @@ import AssistantGeneralStep from './steps/AssistantGeneralStep.vue';
 import AssistantKnowledgeStep from './steps/AssistantKnowledgeStep.vue';
 import AssistantPersonalityStep from './steps/AssistantPersonalityStep.vue';
 import AssistantIntelligenceStep from './steps/AssistantIntelligenceStep.vue';
-import AssistantRetrievalStep from './steps/AssistantRetrievalStep.vue';
+import RetrievalParams from './RetrievalParams.vue';
 import AssistantAppearance from './AssistantAppearance.vue';
 import AssistantSecurityStep from './steps/AssistantSecurityStep.vue';
 
@@ -278,13 +308,21 @@ function handleClose() {
 }
 
 function handleBack() {
-  if (step.value === 1) {
+  if (step.value === 1 || step.value === 5) {
     if (innerStep.value > 1) {
       innerStep.value--;
       return;
     }
   }
-  if (step.value > 1) step.value--;
+  if (step.value > 1) {
+    step.value--;
+    // Reset innerStep to max if previous step has sub-steps, or 1
+    if (step.value === 1) {
+      innerStep.value = 3;
+    } else {
+      innerStep.value = 1;
+    }
+  }
 }
 
 async function handleNext() {
@@ -292,6 +330,13 @@ async function handleNext() {
   if (valid) {
     if (step.value === 1) {
       if (innerStep.value < 3) {
+        innerStep.value++;
+        return;
+      }
+    }
+
+    if (step.value === 5) {
+      if (innerStep.value < 2) {
         innerStep.value++;
         return;
       }
@@ -310,6 +355,7 @@ async function handleNext() {
     }
 
     step.value++;
+    innerStep.value = 1; // Reset inner step when moving to a new main step
   }
 }
 
