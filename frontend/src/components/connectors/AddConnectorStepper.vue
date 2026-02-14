@@ -332,7 +332,6 @@ const currentForm = computed<Component | undefined>(() => {
 
 // --- WATCHERS ---
 // Initialize connector data when moving to Step 2 (Configuration)
-// Initialize connector data when moving to Step 2 (Configuration)
 watch([step, selectedType], () => {
   if (step.value === 2) {
     const backendType = selectedType.value as ConnectorType;
@@ -504,16 +503,13 @@ function handleSave() {
     connectorData.value.schedule_type = ScheduleType.MANUAL;
   }
 
-  // Ensure Backend Type (usually already set in Step 2 watcher)
-  let backendType: ConnectorType;
-  if (selectedType.value === 'folder') {
-    backendType = ConnectorType.LOCAL_FOLDER;
-  } else if (selectedType.value === 'file') {
-    backendType = ConnectorType.LOCAL_FILE;
-  } else {
-    backendType = selectedType.value as ConnectorType;
-  }
-  connectorData.value.connector_type = backendType;
+  // Map UI types to backend enums
+  const typeMap: Record<string, ConnectorType> = {
+    folder: ConnectorType.LOCAL_FOLDER,
+    file: ConnectorType.LOCAL_FILE,
+  };
+  connectorData.value.connector_type =
+    typeMap[selectedType.value] || (selectedType.value as ConnectorType);
 
   emit('save', { type: selectedType.value, data: connectorData.value });
 }

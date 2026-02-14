@@ -351,7 +351,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, reactive } from 'vue';
+import { ref, onMounted, computed, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { date, type QTableColumn } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -393,7 +393,6 @@ const theConnectors = reactive({
   // We'll trust the store.connectors is reactive
   selected: null as Connector | null, // Original connector (for list and comparison)
   editingConnector: null as Connector | null, // Copy for the drawer
-  refreshTimer: null as ReturnType<typeof setInterval> | null,
 });
 
 // UI state
@@ -630,13 +629,6 @@ onMounted(async () => {
   // Initial load
   if (connectorStore.connectors.length === 0) {
     await connectorStore.fetchAll();
-  }
-});
-
-onUnmounted(() => {
-  if (theConnectors.refreshTimer) {
-    clearInterval(theConnectors.refreshTimer);
-    theConnectors.refreshTimer = null;
   }
 });
 

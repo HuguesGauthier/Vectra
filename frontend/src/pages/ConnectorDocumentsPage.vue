@@ -237,7 +237,7 @@ const route = useRoute();
 const i18n = useI18n();
 const { t } = i18n;
 const $q = useQuasar();
-const { notifySuccess } = useNotification();
+const { notifySuccess, notifyBackendError } = useNotification();
 const { confirm } = useDialog();
 const connectorStore = useConnectorStore();
 const docStore = useConnectorDocumentStore();
@@ -460,21 +460,17 @@ async function onSaveDocumentConnector() {
     $q.loading.hide();
     const err = e as { response?: { data?: { code?: string } } };
 
-    // console.log('ConnectorDocumentsPage error:', err.response?.data);
-
     // Check for CSV validation errors and reset the form
     if (
       err.response?.data?.code === 'csv_id_column_missing' ||
       err.response?.data?.code === 'csv_id_column_not_unique'
     ) {
-      // console.log('Resetting newDocument due to CSV validation error');
       // Reset the document form to allow user to upload a corrected file
       newDocument.value = { configuration: {} };
-      // Error will be displayed by global interceptor
       return;
     }
 
-    // console.error(e);
+    notifyBackendError(e, t('failedToSaveDocument', 'Failed to save document'));
   }
 }
 
@@ -608,7 +604,6 @@ function handleDocProgress(event: Event) {
 
 function handleDocUpdate(event: Event) {
   const customEvent = event as CustomEvent;
-  console.log('[DEBUG] handleDocUpdate', customEvent.detail);
   const {
     id,
     status,

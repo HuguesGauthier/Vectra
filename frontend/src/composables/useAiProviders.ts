@@ -82,7 +82,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description: description || undefined,
           badge: p.id === 'local' || p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'local' || p.id === 'ollama' ? 'warning' : 'info',
-          disabled: false,
+          disabled: !p.configured,
         };
       });
   });
@@ -127,7 +127,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description: description || undefined,
           badge: p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'ollama' ? 'warning' : 'info',
-          disabled: false,
+          disabled: !p.configured,
         };
       });
   });
