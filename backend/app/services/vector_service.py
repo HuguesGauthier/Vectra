@@ -128,18 +128,16 @@ class VectorService:
 
         # Map provider to their respective model setting keys
         model_settings_map = {
-            "local": "local_embedding_model",
-            "huggingface": "local_embedding_model",
             "gemini": "gemini_embedding_model",
             "openai": "openai_embedding_model",
+            "ollama": "ollama_embedding_model",
         }
 
         # Default model names if settings are not configured
         default_models = {
-            "local": "BAAI/bge-m3",
-            "huggingface": "BAAI/bge-m3",
             "gemini": "models/gemini-embedding-001",
             "openai": "text-embedding-3-small",
+            "ollama": "bge-m3",
         }
 
         setting_key = model_settings_map.get(provider)
@@ -255,7 +253,9 @@ class VectorService:
         provider = provider.lower().strip()
         if "openai" in provider:
             return 1536  # Default for v3-small/ada-002. Larger models handled via config check in callers if needed.
-        if "local" in provider:
+        if "ollama" in provider:
+            # Default to 1024 for bge-m3, but this might vary by model (e.g. nomic is 768)
+            # Ideally we'd check the model name, but for now we align with the default bge-m3.
             return 1024
         return DEFAULT_EMBEDDING_DIM  # Gemini/Default
 
@@ -268,8 +268,7 @@ class VectorService:
         collection_map = {
             "openai": "openai_collection",
             "gemini": "gemini_collection",
-            "local": "local_collection",
-            "huggingface": "local_collection",
+            "ollama": "ollama_collection",
         }
 
         return collection_map.get(provider, "gemini_collection")

@@ -3,10 +3,17 @@ import os
 import secrets
 import sys
 import threading
-from typing import Literal, Optional
+from typing import Literal, Optional, Type, Tuple
 
 from pydantic import ValidationError, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+    PydanticBaseSettingsSource,
+    YamlConfigSettingsSource,
+    JsonConfigSettingsSource,
+    TomlConfigSettingsSource,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +61,15 @@ class Settings(BaseSettings):
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     # Embedding Configuration
-    EMBEDDING_PROVIDER: Literal["local", "openai", "gemini"] = "gemini"
+    EMBEDDING_PROVIDER: Literal["local", "openai", "gemini", "ollama"] = "ollama"
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
     GEMINI_TRANSCRIPTION_MODEL: str = "gemini-1.5-flash-latest"
     GEMINI_CHAT_MODEL: str = "gemini-1.5-flash-latest"
+
+    # Ollama Configuration
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_EMBEDDING_MODEL: str = "bge-m3"  # User requested default
+
     LOCAL_EXTRACTION_MODEL: Optional[str] = "mistral"
     LOCAL_EXTRACTION_URL: str = "http://localhost:11434"
 
@@ -77,6 +89,27 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        """
+        Enforce 'Strict .env' mode:
+        Ignore system environment variables (env_settings) to prevent
+        global Windows variables (like OPENAI_API_KEY) from leaking into the app.
+        """
+        return (
+            init_settings,
+            dotenv_settings,
+            # env_settings, # <--- DISABLED: Do not read from OS Environment
+            file_secret_settings,
+        )
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -191,6 +224,9 @@ class Settings(BaseSettings):
 
         if self.EMBEDDING_PROVIDER == "openai" and not self.OPENAI_API_KEY:
             raise ValueError("EMBEDDING_PROVIDER 'openai' requires OPENAI_API_KEY")
+
+        if self.EMBEDDING_PROVIDER == "ollama" and not self.OLLAMA_BASE_URL:
+            raise ValueError("EMBEDDING_PROVIDER 'ollama' requires OLLAMA_BASE_URL")
 
         return self
 

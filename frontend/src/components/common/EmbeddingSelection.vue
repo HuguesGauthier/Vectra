@@ -65,19 +65,9 @@
 </template>
 
 <script setup lang="ts">
-import type { PropType } from 'vue';
+import { type PropType } from 'vue';
 import AppTooltip from 'src/components/common/AppTooltip.vue';
-
-export interface ProviderOption {
-  id: string;
-  name: string;
-  tagline?: string;
-  description?: string;
-  logo: string;
-  badge?: string;
-  badgeColor?: string;
-  disabled?: boolean;
-}
+import type { ProviderOption } from 'src/models/ProviderOption';
 
 const props = defineProps({
   modelValue: {

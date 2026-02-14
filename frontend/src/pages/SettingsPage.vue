@@ -473,7 +473,8 @@ watch(
       // Persist to localStorage for boot/refresh
       localStorage.setItem('app_language', newVal);
       // Also update Quasar lang pack if needed
-      import(`quasar/lang/${newVal === 'en-US' ? 'en-US' : newVal}`)
+      // Also update Quasar lang pack if needed
+      import(/* @vite-ignore */ `quasar/lang/${newVal === 'en-US' ? 'en-US' : newVal}`)
         .then((lang) => {
           $q.lang.set(lang.default);
         })

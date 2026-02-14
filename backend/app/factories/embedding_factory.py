@@ -38,39 +38,15 @@ class EmbeddingProviderFactory:
             return await EmbeddingProviderFactory._create_gemini_embedding(
                 settings_service, batch_size=batch_size or 10, **options
             )
-        elif provider in ["local", "huggingface"]:
-            return await EmbeddingProviderFactory._create_local_embedding(
+        elif provider == "ollama":
+            return await EmbeddingProviderFactory._create_ollama_embedding(
                 settings_service, batch_size=batch_size or 10, **options
             )
         else:
-            logger.warning(f"Unknown provider '{provider}', defaulting to Gemini")
-            return await EmbeddingProviderFactory._create_gemini_embedding(
+            logger.warning(f"Unknown provider '{provider}', defaulting to Ollama")
+            return await EmbeddingProviderFactory._create_ollama_embedding(
                 settings_service, batch_size=batch_size or 10, **options
             )
-
-    @staticmethod
-    async def _create_local_embedding(
-        settings_service: SettingsService, batch_size: int, **options: Any
-    ) -> BaseEmbedding:
-        """Create HuggingFace local embedding model."""
-        try:
-            from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-        except ImportError:
-            raise ExternalDependencyError("Local provider requires `llama-index-embeddings-huggingface`")
-
-        model_name = await settings_service.get_value("local_embedding_model") or "BAAI/bge-m3"
-
-        logger.info(f"🔹 Creating Local Embedding | Model: {model_name} | Batch: {batch_size}")
-
-        # Fix for "Cannot copy out of meta tensor" error
-        # AVOID model_kwargs here as it can trigger meta-device loading in some transformers versions
-        return await asyncio.to_thread(
-            HuggingFaceEmbedding,
-            model_name=model_name,
-            trust_remote_code=True,
-            embed_batch_size=batch_size,
-            device="cpu",
-        )
 
     @staticmethod
     async def _create_gemini_embedding(
@@ -122,5 +98,27 @@ class EmbeddingProviderFactory:
             OpenAIEmbedding,
             model=model_name,
             api_key=api_key,
+            embed_batch_size=batch_size,
+        )
+
+    @staticmethod
+    async def _create_ollama_embedding(
+        settings_service: SettingsService, batch_size: int, **options: Any
+    ) -> BaseEmbedding:
+        """Create Ollama embedding model."""
+        try:
+            from llama_index.embeddings.ollama import OllamaEmbedding
+        except ImportError:
+            raise ExternalDependencyError("Ollama provider requires `llama-index-embeddings-ollama`")
+
+        base_url = await settings_service.get_value("ollama_base_url") or "http://localhost:11434"
+        model_name = await settings_service.get_value("ollama_embedding_model") or "bge-m3"
+
+        logger.info(f"🔹 Creating Ollama Embedding | URL: {base_url} | Model: {model_name} | Batch: {batch_size}")
+
+        return await asyncio.to_thread(
+            OllamaEmbedding,
+            model_name=model_name,
+            base_url=base_url,
             embed_batch_size=batch_size,
         )

@@ -1,0 +1,112 @@
+from typing import Annotated, Any, List
+
+from fastapi import APIRouter, Depends
+
+from app.schemas.provider import ProviderInfo
+from app.services.settings_service import SettingsService, get_settings_service
+
+router = APIRouter()
+
+
+@router.get("/", response_model=List[ProviderInfo])
+async def get_providers(
+    service: Annotated[SettingsService, Depends(get_settings_service)],
+) -> Any:
+    """
+    Retrieve the list of supported providers and their configuration status.
+    This allows the frontend to dynamically display available options.
+    """
+    providers = []
+
+    # Helper to check if key exists (in DB or Env via SettingsService fallback)
+    async def is_configured(key: str) -> bool:
+        val = await service.get_value(key)
+        return bool(val and val.strip())
+
+    # --- Embedding Providers ---
+    # Ollama
+    providers.append(
+        ProviderInfo(
+            id="ollama",
+            name="Ollama (Local)",
+            type="embedding",
+            description="GPU Accelerated & Efficient",
+            configured=await is_configured("ollama_base_url") or True,  # Default is configured (localhost)
+            is_active=True,
+        )
+    )
+
+    # Gemini
+    providers.append(
+        ProviderInfo(
+            id="gemini",
+            name="Google Gemini",
+            type="embedding",
+            description="Google DeepMind",
+            configured=await is_configured("gemini_api_key"),
+            is_active=True,
+        )
+    )
+
+    # OpenAI
+    providers.append(
+        ProviderInfo(
+            id="openai",
+            name="OpenAI",
+            type="embedding",
+            description="Standard Industry Model",
+            configured=await is_configured("openai_api_key"),
+            is_active=True,
+        )
+    )
+
+    # --- Chat Providers ---
+    # Gemini
+    providers.append(
+        ProviderInfo(
+            id="gemini",
+            name="Google Gemini",
+            type="chat",
+            description="Google DeepMind",
+            configured=await is_configured("gemini_api_key"),
+            is_active=True,
+        )
+    )
+
+    # OpenAI
+    providers.append(
+        ProviderInfo(
+            id="openai",
+            name="OpenAI",
+            type="chat",
+            description="GPT-4 / GPT-3.5",
+            configured=await is_configured("openai_api_key"),
+            is_active=True,
+        )
+    )
+
+    # Mistral
+    providers.append(
+        ProviderInfo(
+            id="mistral",
+            name="Mistral AI",
+            type="chat",
+            description="European Champion",
+            configured=await is_configured("mistral_api_key"),
+            is_active=True,
+        )
+    )
+
+    # Ollama (Local)
+    providers.append(
+        ProviderInfo(
+            id="ollama",
+            name="Ollama (Local)",
+            type="chat",
+            description="Run models locally",
+            configured=True,
+            is_active=True,
+        )
+    )
+
+    return providers

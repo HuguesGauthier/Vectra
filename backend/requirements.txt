@@ -45,9 +45,9 @@ llama-index-llms-ollama
 llama-index-llms-openai-like
 
 # LlamaIndex Embeddings
-llama-index-embeddings-gemini==0.4.1
-llama-index-embeddings-openai==0.5.1
-llama-index-embeddings-huggingface==0.6.1
+llama-index-embeddings-gemini
+llama-index-embeddings-openai
+llama-index-embeddings-ollama
 
 # LlamaIndex Readers
 llama-index-readers-file==0.5.5
