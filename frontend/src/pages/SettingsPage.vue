@@ -461,7 +461,7 @@ const themeOptions = computed(() => [
 ]);
 
 // Import centralized AI provider options
-const { embeddingProviderOptions, chatProviderOptions } = useAiProviders();
+const { embeddingProviderOptions, chatProviderOptions } = useAiProviders(models);
 
 // --- WATCHERS ---
 
