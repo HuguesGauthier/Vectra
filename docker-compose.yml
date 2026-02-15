@@ -157,6 +157,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
+      - ./scripts/start_ollama.sh:/start_ollama.sh
+    entrypoint: ["/bin/bash", "/start_ollama.sh"]
     deploy:
       resources:
         reservations:

@@ -161,8 +161,13 @@ const avatars = computed(() => {
   if (props.assistant) {
     let src = '';
 
-    if (props.assistant.avatar_image) {
-      src = assistantService.getAvatarUrl(props.assistant.id);
+    if (blobAvatarUrl.value) {
+      src = blobAvatarUrl.value;
+    } else if (props.assistant.avatar_image) {
+      // Fallback/Loading state: keep empty or show placeholder?
+      // For DeepChat, empty src might show nothing.
+      // We wait for blob.
+      src = '';
     } else {
       // Generate fallback for assistant
       const name = props.assistant.name || 'AI';
@@ -193,6 +198,36 @@ const avatars = computed(() => {
   }
 
   return config;
+});
+
+const blobAvatarUrl = ref<string | null>(null);
+
+watch(
+  [() => props.assistant?.id, () => props.assistant?.avatar_image],
+  async ([newId, newImage]) => {
+    // Cleanup old
+    if (blobAvatarUrl.value) {
+      URL.revokeObjectURL(blobAvatarUrl.value);
+      blobAvatarUrl.value = null;
+    }
+
+    if (newId && newImage) {
+      try {
+        const blob = await assistantService.getAvatarBlob(newId);
+        blobAvatarUrl.value = URL.createObjectURL(blob);
+      } catch (e) {
+        console.error('DeepChatWrapper: Failed to load avatar blob', e);
+      }
+    }
+  },
+  { immediate: true },
+);
+
+// Cleanup on unmount
+onUnmounted(() => {
+  if (blobAvatarUrl.value) {
+    URL.revokeObjectURL(blobAvatarUrl.value);
+  }
 });
 
 watch(

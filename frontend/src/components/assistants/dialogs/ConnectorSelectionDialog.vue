@@ -196,7 +196,7 @@ function getProviderLogo(conn: Connector) {
   const provider = (conn.configuration?.ai_provider as string) || 'local';
   if (provider === 'openai') return openaiLogo;
   if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local') return localLogo;
+  if (provider === 'local' || provider === 'ollama') return localLogo;
   return localLogo;
 }
 

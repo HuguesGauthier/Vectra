@@ -10,16 +10,16 @@
       </div>
 
       <!-- Stepper Header -->
-      <div class="bg-primary border-bottom">
+      <div class="bg-primary border-bottom q-py-xs">
         <q-stepper
           v-model="step"
           ref="stepper"
           color="accent"
-          alternative-labels
           active-color="accent"
           done-color="positive"
           animated
           flat
+          dense
           class="bg-transparent"
           :header-nav="isEdit"
         >
@@ -73,28 +73,39 @@
         <q-form ref="formRef" class="full-height" @submit.prevent>
           <!-- Step 1: General Information -->
           <div v-show="step === 1">
-            <q-tabs
+            <!-- Vertical Stepper for Step 1 -->
+            <q-stepper
               v-model="innerStep"
-              dense
-              align="justify"
-              class="q-mb-md"
+              vertical
+              color="accent"
               active-color="accent"
-              indicator-color="accent"
-              narrow-indicator
+              done-color="positive"
+              animated
+              flat
+              class="bg-transparent"
+              :header-nav="true"
             >
-              <q-tab :name="1" :label="$t('stepGeneral')" icon="badge" />
-              <q-tab :name="2" :label="$t('appearance')" icon="palette" />
-              <q-tab :name="3" :label="$t('security')" icon="security" />
-            </q-tabs>
+              <!-- 1.1 General Information -->
+              <q-step
+                :name="1"
+                :title="$t('generalInfo') || 'General Information'"
+                icon="badge"
+                :done="innerStep > 1"
+              >
+                <div class="q-pl-lg">
+                  <AssistantGeneralStep v-model="assistantData" />
+                </div>
+              </q-step>
 
-            <q-tab-panels v-model="innerStep" animated class="bg-transparent">
-              <q-tab-panel :name="1" class="q-pa-none">
-                <AssistantGeneralStep v-model="assistantData" />
-              </q-tab-panel>
-
-              <q-tab-panel :name="2" class="q-pa-none">
-                <div class="row justify-center">
-                  <div class="col-12 col-md-10">
+              <!-- 1.2 Appearance -->
+              <q-step
+                :name="2"
+                :title="$t('appearance')"
+                icon="palette"
+                :done="innerStep > 2"
+              >
+                <div class="row justify-center q-pl-lg">
+                  <div class="col-12 col-md-11">
                     <AssistantAppearance
                       :name="assistantData.name || ''"
                       :bg-color="assistantData.avatar_bg_color || ''"
@@ -112,16 +123,22 @@
                     />
                   </div>
                 </div>
-              </q-tab-panel>
-
-              <q-tab-panel :name="3" class="q-pa-none">
-                <div class="row justify-center">
+              </q-step>
+              
+              <!-- 1.3 Security -->
+              <q-step
+                :name="3"
+                :title="$t('security')"
+                icon="security"
+                :done="innerStep > 3"
+              >
+                <div class="row justify-center q-pl-lg">
                   <div class="col-12 col-md-10">
                     <AssistantSecurityStep v-model="assistantData" />
                   </div>
                 </div>
-              </q-tab-panel>
-            </q-tab-panels>
+              </q-step>
+            </q-stepper>
           </div>
 
           <!-- Step 2: Knowledge Base -->
@@ -201,59 +218,64 @@
 
       <!-- Footer Actions -->
       <div class="q-pa-md bg-primary border-top row justify-between items-center">
-        <!-- Left Side: Back Button (Only in Create Mode or if not first step?) -->
-        <div>
+        <!-- Spacer? Or Back button? -->
+         <div>
+          <!-- Back Button (Left side for consistency with prev implementation or empty?) 
+               User asked "where is the next back button", implying they want it.
+               Previously I put it on the Right. Let's put ONE Back button on the LEFT as standard.
+          -->
           <q-btn
-            v-if="!isEdit && step > 1"
+            v-if="step > 1 || (step === 1 && innerStep > 1)" 
             flat
             color="grey-5"
-            :label="$t('back')"
+            :label="$t('back')" 
             icon="arrow_back"
             @click="handleBack"
           />
-        </div>
+         </div>
 
-        <!-- Right Side: Navigation & Save -->
-        <div class="row q-gutter-sm">
-          <!-- Create Mode Navigation -->
-          <template v-if="!isEdit">
-            <q-btn
-              v-if="step < 6"
+         <!-- Right Side: Navigation & Save -->
+          <div class="row q-gutter-sm">
+            <!-- Save / Create Actions -->
+             <template v-if="!isEdit">
+              <q-btn
+                v-if="step === 6"
+                color="positive"
+                :label="$t('createAssistant')"
+                icon="check"
+                :loading="loading"
+                :disable="
+                  !assistantData.linked_connector_ids ||
+                  assistantData.linked_connector_ids.length === 0
+                "
+                @click="handleSave"
+              />
+            </template>
+            <template v-else>
+               <!-- In Edit Mode, always show Save, maybe Cancel too -->
+               <q-btn
+                :label="$t('cancel')"
+                flat
+                color="grey-5"
+                @click="handleClose"
+              />
+              <q-btn
+                color="accent"
+                :label="$t('save')"
+                :loading="loading"
+                @click="handleSave"
+              />
+            </template>
+
+            <!-- Next Button -->
+             <q-btn
+              v-if="shouldShowNext"
               color="accent"
               :label="$t('next')"
               icon-right="arrow_forward"
               @click="handleNext"
             />
-            <q-btn
-              v-else
-              color="positive"
-              :label="$t('createAssistant')"
-              icon="check"
-              :loading="loading"
-              :disable="
-                !assistantData.linked_connector_ids ||
-                assistantData.linked_connector_ids.length === 0
-              "
-              @click="handleSave"
-            />
-          </template>
-
-          <!-- Edit Mode Actions -->
-          <template v-else>
-            <q-btn
-              :label="$t('cancel')"
-              flat
-              color="grey-5"
-              @click="handleClose"
-            />
-            <q-btn
-              color="accent"
-              :label="$t('save')"
-              :loading="loading"
-              @click="handleSave"
-            />
-          </template>
-        </div>
+          </div>
       </div>
     </q-card>
   </q-dialog>
@@ -347,8 +369,20 @@ watch(isOpen, async (val) => {
     await nextTick();
     formRef.value?.resetValidation();
     await loadConnectors();
+    
+    // Capture initial state for dirty checking
+    initialStateJSON.value = JSON.stringify(assistantData.value);
   }
 });
+
+const initialStateJSON = ref('');
+
+// --- FUNCTIONS ---
+
+function hasUnsavedChanges(): boolean {
+  if (!isEdit.value && step.value === 1 && !assistantData.value.name) return false;
+  return JSON.stringify(assistantData.value) !== initialStateJSON.value;
+}
 
 // --- FUNCTIONS ---
 
@@ -362,10 +396,7 @@ function resetState() {
 }
 
 function handleClose() {
-
-  // Compare with initial state if needed for "Unsaved Changes" (Simplified here)
-  
-  if (isEdit.value || step.value > 1 || assistantData.value.name) {
+  if (hasUnsavedChanges()) {
      confirm({
       title: t('unsavedChanges'),
       message: t('unsavedChangesMessage'),
@@ -380,7 +411,20 @@ function handleClose() {
   }
 }
 
+const shouldShowNext = computed(() => {
+  if (step.value === 6) return false; // Last step always hides Next
+  return true;
+});
+
 function handleBack() {
+  // If we are in Step 1 (General), handle inner vertical steps
+  if (step.value === 1) {
+    if (innerStep.value > 1) {
+      innerStep.value--;
+      return; // Stay in Step 1, just go back one sub-step
+    }
+  }
+
   if (step.value > 1) {
     step.value--;
   }
@@ -390,6 +434,15 @@ async function handleNext() {
   const valid = await formRef.value?.validate();
   
   if (valid) {
+    // Step 1 Vertical Navigation
+    if (step.value === 1) {
+      if (innerStep.value < 3) { // 3 sub-steps (General, Appearance, Security)
+        innerStep.value++;
+        return;
+      }
+      // If innerStep is 3, we proceed to Step 2 (Knowledge)
+    }
+
     // Custom Validations
     if (step.value === 2) { // Knowledge
       if (

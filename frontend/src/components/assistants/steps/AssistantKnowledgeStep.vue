@@ -231,11 +231,11 @@ function getConnectorConfig(type: string) {
 }
 
 function getProviderLogo(conn: Connector) {
-  const provider = (conn.configuration?.ai_provider as string) || 'local';
+  const provider = (conn.configuration?.ai_provider as string) || 'gemini';
   if (provider === 'openai') return openaiLogo;
   if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local') return localLogo;
-  return localLogo;
+  if (provider === 'local' || provider === 'ollama') return localLogo;
+  return geminiLogo;
 }
 
 function openSelector() {

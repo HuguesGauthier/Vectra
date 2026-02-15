@@ -868,6 +868,7 @@ function getProviderLogo(connector: Connector): string {
     case 'openai':
       return openaiLogo;
     case 'local':
+    case 'ollama':
       return localLogo;
     case 'gemini':
     default:

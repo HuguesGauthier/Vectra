@@ -46,22 +46,11 @@
             <q-tr :props="props">
               <!-- Avatar Column -->
               <q-td key="avatar" :props="props">
-                <q-avatar
+                <AssistantAvatar
+                  :assistant="props.row"
                   size="sm"
-                  :style="getAvatarStyle(props.row)"
-                  :text-color="props.row.avatar_text_color || 'white'"
-                >
-                  <img
-                    v-if="shouldShowAvatar(props.row)"
-                    :src="getAvatarUrl(props.row)"
-                    @error="handleAvatarError(props.row.id)"
-                    style="object-fit: cover"
-                    :style="{
-                      objectPosition: `center ${props.row.avatar_vertical_position ?? 50}%`,
-                    }"
-                  />
-                  <q-icon v-else name="psychology" />
-                </q-avatar>
+                  :refreshKey="theAssistants.avatarRefreshKey"
+                />
               </q-td>
 
               <!-- Name Column -->
@@ -194,7 +183,7 @@ import { type QTableColumn, Notify } from 'quasar';
 import { useNotification } from 'src/composables/useNotification';
 import { assistantService, type Assistant } from 'src/services/assistantService';
 import { connectorService, type Connector } from 'src/services/connectorService';
-import AssistantStepper from 'components/assistants/AssistantStepper.vue';
+import AssistantAvatar from 'components/assistants/AssistantAvatar.vue';
 import AppTooltip from 'components/common/AppTooltip.vue';
 import AppTable from 'components/common/AppTable.vue';
 import { useDialog } from 'src/composables/useDialog';
@@ -217,9 +206,6 @@ const theAssistants = reactive({
   avatarRefreshKey: Date.now(),
 });
 
-// Track IDs of assistants whose avatar failed to load
-const failedAvatarIds = reactive(new Set<string>());
-
 const connectors = ref<Connector[]>([]);
 const loading = ref(true);
 const filter = ref('');
@@ -227,7 +213,7 @@ const filter = ref('');
 // Stepper state
 const isStepperOpen = ref(false); // For both Create & Edit
 const editingAssistant = ref<Assistant | null>(null);
-const saving = ref(false); // Separate loading state for save operations
+const saving = ref(false); // separate loading state for save operations
 
 // --- COMPUTED ---
 
@@ -312,7 +298,6 @@ onMounted(async () => {
  */
 async function loadData() {
   loading.value = true;
-  failedAvatarIds.clear(); // Reset failure state on reload
   try {
     const [assistantsData, connectorsData] = await Promise.all([
       assistantService.getAll(),
@@ -331,76 +316,6 @@ async function loadData() {
     loading.value = false;
   }
 }
-
-// --- AVATAR HELPERS ---
-
-function handleAvatarError(id: string) {
-  failedAvatarIds.add(id);
-}
-
-function shouldShowAvatar(row: Assistant): boolean {
-  return !!row.avatar_image && !failedAvatarIds.has(row.id);
-}
-
-function getAvatarUrl(row: Assistant): string {
-  return `${assistantService.getAvatarUrl(row.id)}?t=${theAssistants.avatarRefreshKey}`;
-}
-
-function getAvatarStyle(row: Assistant) {
-  // If we have an image and it hasn't failed, we don't need background color
-  if (row.avatar_image && !failedAvatarIds.has(row.id)) {
-    return {};
-  }
-
-  // Fallback to background color
-  const bgColor = row.avatar_bg_color;
-  if (!bgColor) return {};
-
-  // Check if it's a CSS variable or named color (not starting with # or rgb)
-  // Quasar colors are handled by 'color' prop usually, but here we can force style if needed.
-  // The original logic was complex. We can simplify:
-  // If it's a hex/rgb, use backgroundColor.
-  if (bgColor.startsWith('#') || bgColor.startsWith('rgb')) {
-    return { backgroundColor: bgColor };
-  }
-  
-  // If it's a class/variable (like 'primary', 'teal'), q-avatar 'color' prop mainly handles it,
-  // but if we pass it to :style it might not work as expected unless it's a var.
-  // The original code tried to be smart about this.
-  // Let's trust QAvatar :color prop for named colors and :style for hex.
-  // Return empty style if it's a named color, the :color prop will take over.
-  return {};
-}
-
-// NOTE: We also need to bind :color properly.
-// In the template, I kept logic simple but we can move color logic here too?
-// Actually, QAvatar :color expects a Quasar palette name OR nothing.
-// If we pass a hex to :color, it won't work. We must use style.
-// So let's revisit the template binding.
-// I updated the template to call `getAvatarStyle` which handles `backgroundColor`.
-// But what about the `color` prop?
-// The template previously had:
-// :color="... ? props.row.avatar_bg_color : undefined"
-// We should probably rely on style for everything if possible or keep logic.
-// Simplification:
-// Always use style for background color if available.
-// But Quasar `color` prop sets `bg-<color>`.
-// Let's keeping it simple:
-// If hex => style: { backgroundColor: ... }
-// If named => class or color prop.
-// To handle both cleanly without complex template logic:
-// I'll assume `avatar_bg_color` can be anything.
-// If it starts with #/rgb -> style.
-// Else -> color prop.
-// Wait, `getAvatarStyle` as written above returns { backgroundColor } for hex/rgb.
-// But we need to conditionally bind `color` prop.
-// Using a separate helper `getAvatarColorProp`?
-
-// Let's refine the template to reuse this logic:
-// :style="getAvatarStyle(props.row)"
-// :color="getAvatarColorProp(props.row)"
-
-// --- END AVATAR HELPERS ---
 
 /**
  * Helper to get the list of connectors for an assistant.

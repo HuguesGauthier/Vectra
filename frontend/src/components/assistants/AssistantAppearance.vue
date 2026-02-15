@@ -330,17 +330,36 @@ const localAvatarPositionY = ref(50);
 const localAvatarUrl = ref<string | null>(null);
 
 const hasAvatar = computed(() => !!props.avatarImage || !!localAvatarUrl.value);
+const blobAvatarUrl = ref<string | null>(null);
+
 const avatarUrl = computed(() => {
   if (localAvatarUrl.value) return localAvatarUrl.value;
-
-  if (props.avatarImage && props.assistantId) {
-    // Add timestamp to bypass cache
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _monitor = avatarRefreshKey.value; // Force dependency
-    return `${assistantService.getAvatarUrl(props.assistantId)}?t=${Date.now()}`;
-  }
-  return null;
+  return blobAvatarUrl.value;
 });
+
+// Watcher to fetch blob from backend
+watch(
+  [() => props.assistantId, () => props.avatarImage, avatarRefreshKey],
+  async ([newId, newImage]) => {
+    // 1. Revoke old URL
+    if (blobAvatarUrl.value) {
+      URL.revokeObjectURL(blobAvatarUrl.value);
+      blobAvatarUrl.value = null;
+    }
+
+    // 2. Fetch new
+    if (newId && newImage) {
+      try {
+        const blob = await assistantService.getAvatarBlob(newId);
+        blobAvatarUrl.value = URL.createObjectURL(blob);
+      } catch (e) {
+        console.error('Failed to load avatar blob', e);
+        blobAvatarUrl.value = null;
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // Drag to position avatar
 const isDragging = ref(false);
@@ -521,6 +540,10 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', stopDrag);
   document.removeEventListener('touchmove', onDrag);
   document.removeEventListener('touchend', stopDrag);
+
+  if (blobAvatarUrl.value) {
+    URL.revokeObjectURL(blobAvatarUrl.value);
+  }
 });
 </script>
 

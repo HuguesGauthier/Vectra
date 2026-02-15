@@ -92,4 +92,12 @@ export const assistantService = {
   getAvatarUrl(id: string): string {
     return `${api.defaults.baseURL}${API_PATH}/${id}/avatar`;
   },
+
+  async getAvatarBlob(id: string): Promise<Blob> {
+    const response = await api.get(`${API_PATH}/${id}/avatar`, {
+      responseType: 'blob',
+      params: { t: Date.now() },
+    });
+    return response.data;
+  },
 };

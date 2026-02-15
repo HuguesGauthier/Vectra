@@ -572,6 +572,13 @@ class ConnectorService:
 
             logger.info(f"BACKGROUND ACL UPDATED | Connector: {connector_id}")
         except Exception as e:
+            # P0: Ignore 404/Not Found errors. This happens if the connector is new and hasn't been vectorized yet.
+            # The collection (or points) don't exist, so there's nothing to update. Safe to ignore.
+            error_msg = str(e).lower()
+            if "not found" in error_msg or "doesn't exist" in error_msg or "404" in error_msg:
+                logger.debug(f"BACKGROUND ACL SKIPPED | Connector: {connector_id} | Collection not found (Not vectorized yet)")
+                return
+
             logger.error(f"BACKGROUND ACL FAIL | Connector: {connector_id} | Error: {e}")
 
     async def _safe_delete_vectors(self, connector_id: UUID, config: dict):

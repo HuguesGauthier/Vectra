@@ -48,33 +48,11 @@
         >
           <q-card-section class="col column items-center justify-center q-pa-lg">
             <!-- Avatar Icon -->
-            <q-avatar
-              :color="
-                assistant.avatar_bg_color &&
-                !assistant.avatar_bg_color.startsWith('#') &&
-                !assistant.avatar_bg_color.startsWith('rgb')
-                  ? assistant.avatar_bg_color
-                  : undefined
-              "
-              :style="
-                assistant.avatar_bg_color &&
-                (assistant.avatar_bg_color.startsWith('#') ||
-                  assistant.avatar_bg_color.startsWith('rgb'))
-                  ? { backgroundColor: assistant.avatar_bg_color }
-                  : {}
-              "
-              :text-color="assistant.avatar_text_color || 'white'"
+            <AssistantAvatar
+              :assistant="assistant"
               size="80px"
               class="q-mb-md"
-            >
-              <img
-                v-if="assistant.avatar_image"
-                :src="assistantService.getAvatarUrl(assistant.id)"
-                style="object-fit: cover"
-                :style="{ objectPosition: `center ${assistant.avatar_vertical_position ?? 50}%` }"
-              />
-              <q-icon v-else name="psychology" />
-            </q-avatar>
+            />
 
             <!-- Assistant Name -->
             <div class="text-h5 text-weight-bold text-white q-mb-xs">{{ assistant.name }}</div>
@@ -157,6 +135,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { assistantService, type Assistant } from 'src/services/assistantService';
+import AssistantAvatar from 'components/assistants/AssistantAvatar.vue';
 
 defineOptions({
   name: 'ChatSelectionPage',

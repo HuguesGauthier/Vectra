@@ -212,7 +212,7 @@
         <div v-else></div>
         <!-- Spacer -->
 
-        <div v-if="step < 5" class="row items-center">
+        <div v-if="step < 5" class="row items-center q-gutter-sm">
           <q-btn
             v-if="
               step === 2 &&
@@ -226,6 +226,22 @@
             class="q-mr-sm"
             @click="activeForm.onTestConnection?.()"
           />
+          
+          <template v-if="isEdit">
+             <q-btn
+                :label="$t('cancel')"
+                flat
+                color="grey-5"
+                @click="handleClose"
+              />
+              <q-btn
+                color="accent"
+                :label="$t('save')"
+                :loading="loading"
+                @click="handleSave"
+              />
+          </template>
+          
           <q-btn
             color="accent"
             :label="$t('next')"
@@ -234,14 +250,22 @@
             @click="handleNext"
           />
         </div>
-        <q-btn
-          v-else
-          color="positive"
-          :label="isEdit ? $t('update') : $t('save')"
-          icon="check"
-          :loading="loading"
-          @click="handleSave"
-        />
+        <div v-else class="row items-center q-gutter-sm">
+           <template v-if="isEdit">
+             <q-btn
+                :label="$t('cancel')"
+                flat
+                color="grey-5"
+                @click="handleClose"
+              />
+          </template>
+           <q-btn
+            color="accent"
+            :label="$t('save')"
+            :loading="loading"
+            @click="handleSave"
+          />
+        </div>
       </div>
     </q-card>
   </q-dialog>
@@ -457,6 +481,23 @@ function initializeEditMode() {
   // User requested "header navigable", and presumably we start at step 1 (Type) or Step 2 (Config).
   // Use step 2 as type is fixed.
   step.value = 2;
+
+  // Capture initial state
+  initialStateJSON.value = JSON.stringify(connectorData.value);
+}
+
+const initialStateJSON = ref('');
+
+function hasUnsavedChanges(): boolean {
+  // If not edit mode and step > 1, assume likely changes if user entered data
+  // But strict comparison is better. 
+  // For create mode, we can stick to step > 1 check OR compare with empty default.
+  // Let's rely on JSON comparison even for create if we captured "empty" state.
+  // Although simplify: Edit mode -> compare JSON. Create mode -> step > 1.
+  if (props.isEdit) {
+    return JSON.stringify(connectorData.value) !== initialStateJSON.value;
+  }
+  return step.value > 1;
 }
 
 function mapBackendToUiType(connector: Connector): string {
@@ -466,8 +507,8 @@ function mapBackendToUiType(connector: Connector): string {
 }
 
 function handleClose() {
-  // Check for unsaved changes if the user has started the process (step > 1)
-  if (step.value > 1) {
+  // Check for unsaved changes
+  if (hasUnsavedChanges()) {
     confirm({
       title: t('unsavedChanges'),
       message: t('unsavedChangesMessage'),
@@ -483,6 +524,8 @@ function handleClose() {
     });
     return;
   }
+  
+  // No changes or safe to close
   isOpen.value = false;
 }
 
