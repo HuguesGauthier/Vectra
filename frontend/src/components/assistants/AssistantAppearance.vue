@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { assistantService } from 'src/services/assistantService';
@@ -470,7 +470,6 @@ const previewBubbleStyle = computed(() => {
   };
 });
 // Drag to position avatar
-// (Variables moved to top scope)
 
 function startDrag(e: MouseEvent | TouchEvent) {
   if (!hasAvatar.value) return;
@@ -516,6 +515,13 @@ function stopDrag() {
   // Commit the final position
   emit('update:avatarPositionY', localAvatarPositionY.value);
 }
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchmove', onDrag);
+  document.removeEventListener('touchend', stopDrag);
+});
 </script>
 
 <style scoped>
