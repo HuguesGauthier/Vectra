@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from llama_index.core import PromptTemplate
 from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.callbacks import CallbackManager
+from llama_index.core.schema import QueryBundle
 
 from app.core.prompts import REWRITE_QUESTION_PROMPT
 from app.services.chat.callbacks import StreamingCallbackHandler
@@ -299,7 +300,7 @@ class AgenticProcessor(BaseChatProcessor):
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.RUNNING,
                 ctx.language,
-                label="Engine Initialization",
+                label=None,
                 payload={"is_substep": True},
             )
             start_init = time.time()
@@ -310,7 +311,7 @@ class AgenticProcessor(BaseChatProcessor):
                 StepStatus.COMPLETED,
                 ctx.language,
                 duration=dur_init,
-                label="Engine Initialization",
+                label=None,
                 payload={"is_substep": True},
             )
 
@@ -331,7 +332,14 @@ class AgenticProcessor(BaseChatProcessor):
             start_query = time.time()
 
             # Run the blocking query() call in a thread to avoid blocking the event loop
-            router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
+            # P0 OPTIMIZATION: Reuse the embedding from cache lookup if it exists and matches
+            if ctx.question_embedding and ctx.message == ctx.original_message:
+                logger.info("🚀 [AgenticProcessor] Reusing pre-computed embedding via QueryBundle")
+                query_bundle = QueryBundle(query_str=ctx.message, embedding=ctx.question_embedding)
+                router_task = asyncio.create_task(asyncio.to_thread(engine.query, query_bundle))
+            else:
+                router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
+
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
             # C. Consume Events
@@ -358,6 +366,11 @@ class AgenticProcessor(BaseChatProcessor):
                 ctx.language,
                 duration=dur_query,
                 payload={"is_substep": True},
+            )
+
+            # Record metric for persistence
+            self._record_router_metric(
+                ctx, PipelineStepType.QUERY_EXECUTION, "Query Execution", dur_query, {"is_substep": True}
             )
 
             # D. Handle Results
@@ -411,7 +424,11 @@ class AgenticProcessor(BaseChatProcessor):
             yield queue.get_nowait()
 
     async def _compute_background_embedding(self, ctx: ChatContext) -> None:
-        """Computes query embedding in background for analytics/cache."""
+        """Computes query embedding in background for analytics/cache (if not already present)."""
+        if ctx.question_embedding:
+            logger.debug("[AgenticProcessor] Skipping background embedding: already present.")
+            return
+
         try:
             # CRITICAL FIX: Use the embedding provider from the connector, not global default
             # The assistant's connectors determine which embedding provider to use

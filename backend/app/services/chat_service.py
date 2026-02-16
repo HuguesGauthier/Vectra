@@ -172,6 +172,16 @@ class ChatService:
                 PipelineStepType.COMPLETED, StepStatus.COMPLETED, language, duration=total_duration
             )
 
+            # Record completion metric so it appears in the sequence
+            ctx.metrics.record_completed_step(
+                step_type=PipelineStepType.COMPLETED,
+                label=None,  # Frontend handles translation
+                duration=total_duration,
+            )
+
+            # 4. Finalize Metadata (Capture all steps including completion)
+            await self._finalize_message_metadata(ctx)
+
         except Exception as e:
             # Catch-all for top-level safety to prevent stream disconnection
             yield self._handle_pipeline_error(session_id, e)
@@ -296,6 +306,58 @@ class ChatService:
         """Logs the critical error and returns a friendly JSON error message."""
         logger.error(ERR_CRITICAL_PIPELINE, session_id, error, exc_info=True)
         return json.dumps({"type": "error", "message": "An unexpected error occurred. Please try again."}) + "\n"
+
+    async def _finalize_message_metadata(self, ctx: ChatContext) -> None:
+        """
+        Updates the persisted message with final metadata (steps, times).
+        This ensures even post-persistence steps (like cache update) are recorded.
+        """
+        if not ctx.assistant_message_id:
+            return
+
+        # 1. Re-collect Steps (Now including Cache Update / Completed)
+        # Initialization is now INCLUDED to match frontend expectations
+        EXCLUDED_STEPS = {"streaming"}
+        steps = []
+        if ctx.metrics:
+            summary = ctx.metrics.get_summary()
+            for s in summary.get("step_breakdown", []):
+                if s.get("step_type") in EXCLUDED_STEPS:
+                    continue
+                s["status"] = "completed"
+                # Keep label and sequence
+                steps.append(s)
+
+        # 2. Re-construct Metadata
+        metadata = {
+            "visualization": ctx.visualization,
+            "sources": ctx.retrieved_sources,
+            "steps": steps,
+            "contentBlocks": ctx.metadata.get("content_blocks", []),
+        }
+
+        # Handle SQL Results
+        if ctx.sql_results:
+            limit_rows = 100
+            metadata["sql_results"] = ctx.sql_results[:limit_rows]
+            metadata["structured_context_type"] = "sql"
+            if len(ctx.sql_results) > limit_rows:
+                metadata["sql_results_truncated"] = True
+
+        # 3. Sanitize
+        try:
+            json.dumps(metadata)
+        except (TypeError, OverflowError):
+            try:
+                metadata = json.loads(json.dumps(metadata, default=str))
+            except Exception:
+                metadata = {}
+
+        # 4. Update
+        try:
+            await self.chat_repository.update_message_metadata(ctx.assistant_message_id, metadata)
+        except Exception as e:
+            logger.warning(f"Final metadata update failed for session {ctx.session_id}: {e}")
 
 
 async def get_chat_service(

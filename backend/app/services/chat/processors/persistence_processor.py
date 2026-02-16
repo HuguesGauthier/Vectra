@@ -127,7 +127,8 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         """Constructs and sanitizes metadata for persistence."""
         # Extract steps from metrics if available
         # Filter out system/infrastructure steps that shouldn't persist
-        EXCLUDED_STEPS = {"completed", "initialization", "streaming"}
+        # Streaming is ephemeral, but Initialization is useful for history
+        EXCLUDED_STEPS = {"streaming"}
 
         steps = []
         if ctx.metrics:
@@ -181,7 +182,7 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
 
         try:
             audit_repo = ChatPostgresRepository(ctx.db)
-            await audit_repo.add_message(
+            ctx.assistant_message_id = await audit_repo.add_message(
                 ctx.session_id,
                 ROLE_ASSISTANT,
                 ctx.full_response_text,
@@ -193,9 +194,16 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
             logger.error(LOG_COLD_FAIL, "AssistantProcessor", e)
 
         duration = round(time.time() - start_time, ROUNDING_PRECISION)
+        self._record_metrics(ctx, duration)
         yield EventFormatter.format(
             PipelineStepType.ASSISTANT_PERSISTENCE, StepStatus.COMPLETED, ctx.language, duration=duration
         )
+
+    def _record_metrics(self, ctx: ChatContext, duration: float) -> None:
+        if ctx.metrics:
+            ctx.metrics.record_completed_step(
+                step_type=PipelineStepType.ASSISTANT_PERSISTENCE, label=LABEL_ASSISTANT, duration=duration
+            )
 
     def _sanitize_metadata(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Ensures metadata is strictly JSON serializable by dumping to str if necessary."""

@@ -173,7 +173,7 @@ class TestChat:
         msg = data["messages"][0]
         assert msg["sources"][0]["type"] == "docx"
         assert msg["sources"][1]["name"] == "test.txt"
-        assert msg["steps"][0]["label"] == "Thought"
+        assert msg["steps"][0]["step_type"] == "thought"
         assert msg["steps"][0]["isSubStep"] is True
         assert msg["visualization"]["series"][0]["data"][0]["y"] == 10.5
         assert msg["visualization"]["series"][0]["data"][1]["y"] == 0.0

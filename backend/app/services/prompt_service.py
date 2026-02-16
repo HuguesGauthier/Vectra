@@ -1,13 +1,12 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 from fastapi import Depends
 from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.llms.google_genai import GoogleGenAI
-
 from app.core.exceptions import ConfigurationError, ExternalDependencyError, TechnicalError
+from app.factories.llm_factory import LLMFactory
 from app.services.settings_service import SettingsService, get_settings_service
 
 logger = logging.getLogger(__name__)
@@ -59,23 +58,38 @@ class PromptService:
                 logger.error(f"Failed to load optimizer prompt: {e}", exc_info=True)
                 raise TechnicalError(f"Could not load system prompt: {e}")
 
-    async def _get_llm_client(self) -> GoogleGenAI:
+    async def _get_llm_client(self) -> Any:
         """
-        Initializes and returns the GoogleGenAI client based on current settings.
+        Initializes and returns an LLM client based on available settings.
+        Try providers in order: Gemini -> OpenAI -> Mistral -> Ollama.
         """
-        api_key = await self.settings_service.get_value("gemini_api_key")
-        if not api_key:
-            raise ConfigurationError("GEMINI_API_KEY is not set")
+        # 1. Try Gemini
+        gemini_key = await self.settings_service.get_value("gemini_api_key")
+        if gemini_key:
+            model = await self.settings_service.get_value("gemini_chat_model")
+            return LLMFactory.create_llm("gemini", model, gemini_key)
 
-        model_name = await self.settings_service.get_value("gemini_chat_model")
-        if not model_name:
-            raise ConfigurationError("gemini_chat_model is not configured in settings")
+        # 2. Try OpenAI
+        openai_key = await self.settings_service.get_value("openai_api_key")
+        if openai_key:
+            model = await self.settings_service.get_value("openai_chat_model", default="gpt-4o-mini")
+            return LLMFactory.create_llm("openai", model, openai_key)
 
-        # Normalize model name for LlamaIndex
-        if not model_name.startswith("models/"):
-            model_name = f"models/{model_name}"
+        # 3. Try Mistral
+        mistral_key = await self.settings_service.get_value("mistral_api_key")
+        if mistral_key:
+            model = await self.settings_service.get_value("mistral_chat_model")
+            return LLMFactory.create_llm("mistral", model, mistral_key)
 
-        return GoogleGenAI(model=model_name, api_key=api_key)
+        # 4. Fallback to Ollama (Always available if configured)
+        ollama_url = await self.settings_service.get_value("ollama_base_url")
+        if ollama_url:
+            model = await self.settings_service.get_value("ollama_chat_model")
+            return LLMFactory.create_llm("ollama", model, api_key=ollama_url)
+
+        raise ConfigurationError(
+            "No LLM provider is configured for prompt optimization. Please set an API key or configure Ollama."
+        )
 
     async def optimize_instruction(self, user_input: str) -> str:
         """
@@ -128,7 +142,7 @@ class PromptService:
         except Exception as e:
             logger.error(f"Prompt optimization failed: {e}", exc_info=True)
             if "API" in str(e) or "quota" in str(e).lower():
-                raise ExternalDependencyError(f"Gemini API Error: {e}")
+                raise ExternalDependencyError(f"LLM API Error: {e}")
             else:
                 raise TechnicalError(f"Failed to optimize instruction: {e}")
 

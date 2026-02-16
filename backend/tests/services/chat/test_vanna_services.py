@@ -33,6 +33,7 @@ def mock_llm():
     llm = MagicMock()
     # Mock chat response
     chat_response = MagicMock()
+    # Mock chat response
     chat_response.message.content = "SELECT * FROM users"
     llm.chat.return_value = chat_response
 
@@ -108,39 +109,55 @@ def test_submit_prompt_list(vanna_service, mock_llm):
 
 
 @patch("app.services.chat.vanna_services.settings")
-@patch("app.services.chat.vanna_services.pyodbc.connect")
-def test_run_sql(mock_connect, mock_settings, vanna_service):
+@patch("sqlalchemy.create_engine")
+def test_run_sql(mock_create_engine, mock_settings, vanna_service):
     # Configure mock settings
     mock_settings.DB_HOST = "localhost"
     mock_settings.DB_USER = "sa"
     mock_settings.DB_PASSWORD = "password"
     mock_settings.DB_NAME = "testdb"
 
+    # Mock engine and connection
+    mock_engine = MagicMock()
     mock_conn = MagicMock()
-    mock_cursor = MagicMock()
-    mock_conn.cursor.return_value = mock_cursor
-    mock_connect.return_value = mock_conn
+    mock_create_engine.return_value = mock_engine
+    mock_engine.connect.return_value.__enter__.return_value = mock_conn
 
     # Mock pandas read_sql
     with patch("pandas.read_sql") as mock_read_sql:
         mock_read_sql.return_value = pd.DataFrame({"id": [1]})
+
+        # Override driver to be a real string to pass regex/replace checks
+        vanna_service.config["driver"] = "ODBC Driver 17 for SQL Server"
+
         df = vanna_service.run_sql("SELECT 1")
         assert len(df) == 1
-        mock_conn.close.assert_called_once()
+        # connection closed automatically by context manager (mocked via __exit__)
+        mock_engine.connect.assert_called_once()
 
 
 @patch("app.services.chat.vanna_services.settings")
-@patch("pandas.read_sql")
-def test_submit_question_happy_path(mock_read_sql, mock_settings, vanna_service, mock_llm):
+def test_submit_question_happy_path(mock_settings, vanna_service, mock_llm):
     # Configure mock settings
     mock_settings.DB_HOST = "localhost"
     mock_settings.DB_USER = "sa"
     mock_settings.DB_PASSWORD = "password"
     mock_settings.DB_NAME = "testdb"
-    # Mock pandas read_sql to return a dummy df
-    mock_read_sql.return_value = pd.DataFrame({"id": [1]})
+
+    # We don't need pandas or read_sql mock because run_sql is mocked
+
+    # Mock LLM response string (JSON)
+    json_response = '{"sql": "SELECT * FROM users", "explanation": "Fetching users"}'
+
+    # Mock submit_prompt directly on instance
+    vanna_service.submit_prompt = MagicMock(return_value=json_response)
+
+    # Mock run_sql directly on instance to bypass DB/pandas
+    vanna_service.run_sql = MagicMock(return_value=pd.DataFrame({"id": [1]}))
 
     result = vanna_service.submit_question("Show users")
+
     assert "sql" in result
-    assert "dataframe" in result
     assert result["sql"] == "SELECT * FROM users"
+    assert "dataframe" in result
+    assert len(result["dataframe"]) == 1

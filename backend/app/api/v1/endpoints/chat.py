@@ -237,9 +237,8 @@ def _format_step(step: Dict[str, Any]) -> Dict[str, Any]:
     """
     # Filter out steps with no label and no meaningful data
     if not step.get("label"):
-        # Try to infer label from step_type
-        stype = step.get("step_type", "unknown")
-        step["label"] = stype.replace("_", " ").title()
+        # Let frontend handle missing labels via i18n
+        pass
 
     # Map nesting metadata (backend 'is_substep' -> frontend 'isSubStep')
     step_meta = step.get("metadata", {})

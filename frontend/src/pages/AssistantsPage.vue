@@ -176,18 +176,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { type QTableColumn, Notify } from 'quasar';
 import { useNotification } from 'src/composables/useNotification';
 import { assistantService, type Assistant } from 'src/services/assistantService';
 import { connectorService, type Connector } from 'src/services/connectorService';
-import AssistantAvatar from 'components/assistants/AssistantAvatar.vue';
-import AppTooltip from 'components/common/AppTooltip.vue';
-import AppTable from 'components/common/AppTable.vue';
+import AssistantAvatar from 'src/components/assistants/AssistantAvatar.vue';
+import AppTooltip from 'src/components/common/AppTooltip.vue';
+import AppTable from 'src/components/common/AppTable.vue';
 import { useDialog } from 'src/composables/useDialog';
 import { useAiProviders } from 'src/composables/useAiProviders';
+
+const AssistantStepper = defineAsyncComponent(
+  () => import('src/components/assistants/AssistantStepper.vue'),
+);
 
 // --- DEFINITIONS ---
 defineOptions({
@@ -366,21 +370,21 @@ async function handleStepperSave(data: Partial<Assistant>, avatarFile?: File | n
   try {
     // If we have an ID, it's an update
     if (data.id) {
-       await assistantService.update(data.id, data);
-       // If avatar file provided during edit
-       if (avatarFile) {
-          try {
-            await assistantService.uploadAvatar(data.id, avatarFile);
-          } catch {
-             notifySuccess(t('assistantUpdatedButAvatarFailed'));
-          }
-       }
-       notifySuccess(t('assistantUpdated'));
-    } 
+      await assistantService.update(data.id, data);
+      // If avatar file provided during edit
+      if (avatarFile) {
+        try {
+          await assistantService.uploadAvatar(data.id, avatarFile);
+        } catch {
+          notifySuccess(t('assistantUpdatedButAvatarFailed'));
+        }
+      }
+      notifySuccess(t('assistantUpdated'));
+    }
     // Otherwise it's a creation
     else {
       const newAssistant = await assistantService.create(data);
-  
+
       // Handle avatar upload if provided
       if (avatarFile) {
         try {
@@ -391,9 +395,9 @@ async function handleStepperSave(data: Partial<Assistant>, avatarFile?: File | n
       }
       notifySuccess(t('assistantCreated'));
     }
-  
+
     isStepperOpen.value = false;
-    theAssistants.avatarRefreshKey = Date.now(); 
+    theAssistants.avatarRefreshKey = Date.now();
     await loadData();
   } catch (error) {
     console.error(error);

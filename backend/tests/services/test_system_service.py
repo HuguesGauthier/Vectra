@@ -84,7 +84,9 @@ async def test_open_file_by_document_id_success(service):
         result = await service.open_file_by_document_id(str(doc_id))
 
         assert result is True
-        mock_open.assert_called_once_with("/tmp/storage/sub/file.txt")
+        mock_open.assert_called_once_with(
+            "/tmp/storage/sub/file.txt", additional_allowed_paths=[Path("/tmp/storage").resolve()]
+        )
 
 
 @pytest.mark.asyncio

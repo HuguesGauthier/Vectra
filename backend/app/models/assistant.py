@@ -107,3 +107,15 @@ class Assistant(AssistantBase, table=True):
     linked_connectors: List["Connector"] = Relationship(
         link_model=AssistantConnectorLink, sa_relationship_kwargs={"lazy": "selectin"}
     )
+
+    @property
+    def is_vectorized(self) -> bool:
+        """
+        Check if the assistant is ready for chat.
+        An assistant is vectorized if all its linked connectors have been vectorized at least once.
+        If no connectors are linked, it's considered vectorized (nothing to retrieve).
+        """
+        if not self.linked_connectors:
+            return True
+
+        return all(c.last_vectorized_at is not None for c in self.linked_connectors)

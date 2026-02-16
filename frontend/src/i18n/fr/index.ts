@@ -176,6 +176,9 @@ export default {
   themeLight: 'Clair',
   langEnglish: 'Anglais',
   langFrench: 'Français',
+  assistantNotVectorized: 'Assistant non vectorisé. Le chat est désactivé.',
+  vectorizeSourcesToEnableChat: 'Veuillez vectoriser les sources de données pour activer le chat.',
+  chatDisabledPlaceholder: 'Chat désactive - Assistant non vectorisé',
 
   chat: 'Discussion',
   systemOverview: "Vue d'ensemble système & Métriques temps réel",
@@ -365,6 +368,9 @@ export default {
   testConnection: 'Tester la connexion',
   addFile: 'Ajouter un fichier',
   fileAlreadyExists: 'Ce fichier a déjà été ajouté à cette source de données.',
+  connectorNameHint: 'Un nom unique pour identifier cette source de données',
+  connectorDescriptionHint:
+    'Une description pour aider les utilisateurs à identifier cette source de données',
 
   // Champs Connecteurs Spécifiques
   sharePoint: 'Microsoft SharePoint',

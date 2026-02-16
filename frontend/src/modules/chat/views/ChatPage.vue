@@ -70,12 +70,27 @@
         <PipelineStepsPanel :steps="lastBotSteps" />
       </div>
 
+      <!-- Warning for non-vectorized assistant -->
+      <div
+        v-if="currentAssistant && currentAssistant.is_vectorized === false"
+        class="q-px-md q-pt-md"
+      >
+        <q-banner dense rounded class="bg-warning text-black">
+          <template #avatar>
+            <q-icon name="warning" color="black" />
+          </template>
+          {{ $t('assistantNotVectorized') }}
+          {{ $t('vectorizeSourcesToEnableChat') }}
+        </q-banner>
+      </div>
+
       <DeepChatWrapper
         ref="deepChatWrapperRef"
         :assistant-id="assistantId"
         :assistant-color="currentAssistant?.avatar_bg_color || ''"
         :assistant="currentAssistant"
         :loading="loading"
+        :disabled="currentAssistant?.is_vectorized === false"
         @message-sent="onMessageSent"
       />
     </template>
@@ -167,12 +182,36 @@ onMounted(async () => {
 
     // Note: initializeSession usually calls loadHistory internally if session exists.
     // We avoid calling loadHistory() explicitly again to prevent double-loading issues.
-    // If you suspect initializeSession does NOT load history on refresh, uncomment below:
-    // await loadHistory();
 
-    // We do NOT manually populate Deep Chat here anymore via forEach.
-    // The watcher on 'messages.value.length' will handle it because
-    // initializeSession/loadHistory updates messages.value, triggering the watcher.
+    // 1. Map all messages to Deep Chat format for batch loading
+    // This is much more robust than individual addMessage calls which can race with watchers
+    if (messages.value.length > 0) {
+      console.log('[ChatPage] Batch loading history:', messages.value.length);
+      const historyPayloads = messages.value
+        .filter((msg) => {
+          // Skip empty placeholder messages
+          if (
+            msg.sender === 'bot' &&
+            !msg.text &&
+            (!msg.contentBlocks || msg.contentBlocks.length === 0) &&
+            !msg.visualization
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .map((msg) => prepareMessagePayload(msg));
+
+      if (deepChatWrapperRef.value) {
+        (deepChatWrapperRef.value as unknown as DeepChatWrapperExposed).setHistory(historyPayloads);
+
+        // Update stream offset to the end of history to prevent re-streaming
+        const last = messages.value[messages.value.length - 1];
+        if (last?.sender === 'bot') {
+          currentStreamOffset.value = last.text?.length || 0;
+        }
+      }
+    }
 
     // Wait for reactivity to process history
     await nextTick();
@@ -217,6 +256,7 @@ const resetStreamingState = () => {
 };
 
 // Watch for assistant changes to prevent state leakage
+// ... existing watchers ...
 watch(
   assistantId,
   (newId, oldId) => {
@@ -233,18 +273,16 @@ watch(
 watch(
   () => messages.value.length,
   (newLen, oldLen) => {
+    // CRITICAL: Skip processing new messages if we are loading history
+    // We handle history via batch loading in onMounted
+    if (isHistoryLoading.value) return;
+
     if (newLen > oldLen) {
       // New message added: reset stream offset
       currentStreamOffset.value = 0;
 
       const newMessages = messages.value.slice(oldLen);
       newMessages.forEach((msg) => {
-        if (msg.sender === 'bot') {
-          // We don't necessarily set isBridgeStreamOpen here because
-          // the computed watcher handles the streaming start.
-          // But strictly speaking, if a bot message appears, we might want to flag it.
-          // However, let's leave stream control to the text watcher to avoid race conditions.
-        }
         processAndAddMessage(msg);
       });
     }
@@ -265,15 +303,9 @@ const lastBotSteps = computed(() => {
 
 // Watch text changes directly - This guarantees reactivity even if array watcher fails
 watch(lastBotMessageText, (newText) => {
-  if (!newText) return;
-
-  // Auto-open bridge if we detect a new message or streaming start
-  if (!isBridgeStreamOpen.value && isActivelyStreaming.value) {
-    if (newText.length < currentStreamOffset.value) {
-      currentStreamOffset.value = 0; // New message
-    }
-    isBridgeStreamOpen.value = true;
-  }
+  // CRITICAL: Only bridge to DeepChat if we are actively streaming a NEW request
+  // AND the bridge is open. History text updates should NOT trigger streamResponse.
+  if (!isActivelyStreaming.value || !isBridgeStreamOpen.value || !newText) return;
 
   if (!deepChatWrapperRef.value) return;
 

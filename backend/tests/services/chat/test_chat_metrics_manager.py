@@ -92,3 +92,33 @@ def test_get_method(metrics_manager):
     metrics_manager["foo"] = "bar"
     assert metrics_manager.get("foo") == "bar"
     assert metrics_manager.get("missing", "default") == "default"
+
+
+def test_nesting_sequence(metrics_manager):
+    span_id_parent = metrics_manager.start_span("agentic", "Agentic Flow")
+
+    # Nested step
+    span_id_child = metrics_manager.start_span("check", "Check")
+    metrics_manager.end_span(span_id_child)
+
+    # Another nested step
+    span_id_child2 = metrics_manager.start_span("run", "Run")
+    metrics_manager.end_span(span_id_child2)
+
+    metrics_manager.end_span(span_id_parent)
+
+    # We expect completion order: Check, Run, Agentic Flow
+    # But sequence order: Agentic Flow (0), Check (1), Run (2)
+    s1 = metrics_manager.completed_steps[0]  # Check
+    s2 = metrics_manager.completed_steps[1]  # Run
+    s3 = metrics_manager.completed_steps[2]  # Agentic Flow
+
+    assert s1.label == "Check"
+    assert s2.label == "Run"
+    assert s3.label == "Agentic Flow"
+
+    assert s3.sequence < s1.sequence
+    assert s3.sequence < s2.sequence
+    assert s3.sequence == 0
+    assert s1.sequence == 1
+    assert s2.sequence == 2

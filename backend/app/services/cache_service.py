@@ -139,7 +139,7 @@ class SemanticCacheService:
         self,
         question: str,
         assistant_id: str,
-        embedding: List[float],
+        embedding: Optional[List[float]] = None,
         min_score: float = settings.SEMANTIC_CACHE_SIMILARITY_THRESHOLD,
     ) -> Optional[Dict[str, Any]]:
         """
@@ -166,7 +166,10 @@ class SemanticCacheService:
         if cached_json:
             return cached_json
 
-        # 2. Semantic Search via Qdrant
+        # 2. Semantic Search via Qdrant (Skip if no embedding provided)
+        if embedding is None:
+            return None
+
         return await self._find_semantic_match(embedding, assistant_id, min_score)
 
     async def _find_exact_match(self, cache_key: str) -> Optional[Dict[str, Any]]:

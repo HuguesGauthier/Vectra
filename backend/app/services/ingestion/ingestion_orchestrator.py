@@ -207,7 +207,7 @@ class IngestionOrchestrator:
 
     # --- GENERIC FILE INGESTION (LlamaIndex Pipeline) ---
 
-    async def setup_pipeline(self, connector: Connector):
+    async def setup_pipeline(self, connector: Connector, disable_extraction: bool = False):
         """
         Setup the LlamaIndex IngestionPipeline for generic files.
         NOW WITH CACHING ENABLED for massive performance/cost savings!
@@ -248,7 +248,7 @@ class IngestionOrchestrator:
             indexing_config = connector.configuration.get("indexing_config", {})
             use_smart_extraction = indexing_config.get("use_smart_extraction", False)
 
-            if use_smart_extraction:
+            if use_smart_extraction and not disable_extraction:
                 logger.info("✨ Smart metadata extraction ENABLED for this connector")
 
                 # Import extractor
@@ -857,8 +857,10 @@ class IngestionOrchestrator:
                 metadata_separator="\n",
             )
 
-            # 4. Run Pipeline
-            pipeline, vector_store, _, workers, _, docstore = await self.setup_pipeline(connector)
+            # 4. Run Pipeline (Disable Smart Extraction for SQL DDL -> We want raw code, not summary)
+            pipeline, vector_store, _, workers, _, docstore = await self.setup_pipeline(
+                connector, disable_extraction=True
+            )
 
             logger.info(f"Computing embeddings for SQL Schema: {view_name}")
 

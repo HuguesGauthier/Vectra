@@ -30,7 +30,21 @@ def mock_context():
     # Metrics for usage
     ctx.user_id = str(uuid4())
     ctx.start_time = 1000.0
-    ctx.metrics = {}
+    # Metrics for usage
+    ctx.user_id = str(uuid4())
+    ctx.start_time = 1000.0
+    ctx.metrics = MagicMock()
+    ctx.metrics.record_completed_step = MagicMock()
+    # ChatMetricsManager.get is a custom method, so MagicMock.get works,
+    # BUT we need to return values or defaults.
+    # The production code uses ctx.metrics.get(key, default)
+    # MagicMock.get return a new mock by default.
+
+    # We need to simulate dict-like behavior for get
+    def mock_get(key, default=None):
+        return default
+
+    ctx.metrics.get.side_effect = mock_get
 
     return ctx
 
@@ -73,6 +87,13 @@ async def test_execute_trending_safe_success(mock_context):
 
         mock_svc.process_user_question.assert_awaited_once()
 
+        # Verify Metrics Recorded
+        mock_context.metrics.record_completed_step.assert_called()
+        call_args = mock_context.metrics.record_completed_step.call_args[1]
+        assert call_args["step_type"] == "trending"
+        assert call_args["label"] == "Analytics"
+        assert call_args["duration"] is not None
+
 
 @pytest.mark.asyncio
 async def test_execute_trending_safe_timeout(mock_context):
@@ -100,14 +121,24 @@ async def test_execute_trending_safe_timeout(mock_context):
 
         # Should not raise exception, just log and finish
 
+        # Verify Metrics Recorded even on timeout
+        mock_context.metrics.record_completed_step.assert_called()
+        call_args = mock_context.metrics.record_completed_step.call_args[1]
+        assert call_args["duration"] == TIMEOUT_TRENDING_ANALYSIS
+
 
 @pytest.mark.asyncio
 async def test_persist_usage_statistics_safe(mock_context):
     processor = TrendingProcessor()
 
     with patch("app.services.chat.processors.trending_processor.UsageRepository"):
-        async def _commit(): pass
-        async def _rollback(): pass
+
+        async def _commit():
+            pass
+
+        async def _rollback():
+            pass
+
         mock_context.db.commit.side_effect = _commit
         mock_context.db.rollback.side_effect = _rollback
         # Ensure add is mocked

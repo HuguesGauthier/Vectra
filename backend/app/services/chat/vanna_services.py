@@ -5,6 +5,10 @@ import re
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+import nest_asyncio
+
+# Patch asyncio to allow nested event loops (fixing RuntimeError in async environments like FastAPI + Pandas/SQLAlchemy)
+nest_asyncio.apply()
 
 try:
     import pyodbc
@@ -227,18 +231,35 @@ class VectraCustomVanna(VannaBase):
         user = params.get("user") or settings.DB_USER
         password = params.get("password") or settings.DB_PASSWORD
         database = params.get("database") or settings.DB_NAME
-        driver = params.get("driver", "{ODBC Driver 17 for SQL Server}")
-        conn_str = f"DRIVER={driver};SERVER={host};DATABASE={database};UID={user};PWD={password}"
+        driver = params.get("driver", "ODBC Driver 17 for SQL Server")
+
+        # Helper to construct SQLAlchemy URL
+        # We use mssql+pyodbc for SQL Server
+        if "ODBC" in driver or "SQL Server" in driver:
+            # Strip curly braces if present (e.g. {ODBC Driver 17 for SQL Server})
+            driver_clean = driver.replace("{", "").replace("}", "")
+            driver_encoded = driver_clean.replace(" ", "+")
+            connection_url = (
+                f"mssql+pyodbc://{user}:{password}@{host}/{database}?driver={driver_encoded}&TrustServerCertificate=yes"
+            )
+        else:
+            # Fallback for others (Postgres/MySQL not fully implemented here yet, but structure allows it)
+            connection_url = f"mssql+pyodbc://{user}:{password}@{host}/{database}?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes"
+
         try:
             # Mask password for logging
             logger.info(f"Vanna executing SQL on {host} (DB: {database})...")
 
-            conn = pyodbc.connect(conn_str)
-            try:
+            # Create Engine (disposable for this call to avoid global state issues in this context,
+            # though caching would be better in production)
+            from sqlalchemy import create_engine
+
+            engine = create_engine(connection_url)
+
+            with engine.connect() as conn:
                 df = pd.read_sql(sql, conn)
                 return df
-            finally:
-                conn.close()
+
         except Exception as e:
             logger.error(f"Vanna SQL Execution failed: {e}")
             raise e
@@ -254,9 +275,10 @@ class VectraCustomVanna(VannaBase):
             return (
                 "RULES FOR SQL SERVER (T-SQL):"
                 "\n1. Do NOT use LIMIT. Always use 'SELECT TOP n' at the start of the query."
-                "\n2. Use T-SQL date functions (e.g. GETDATE(), DATEPART)."
-                "\n3. Use brackets [ ] for column names with spaces or reserved keywords."
-                "\n4. String concatenation uses '+' (not ||)."
+                "\n2. Date functions: Use DATEADD(day, -n, GETDATE()) for recent dates."
+                "\n3. CRITICAL: Do NOT use aliases in the GROUP BY clause. You MUST repeat the full expression."
+                "\n   - WRONG: SELECT DATEPART(yy, Date) as Year ... GROUP BY Year"
+                "\n   - RIGHT: SELECT DATEPART(yy, Date) as Year ... GROUP BY DATEPART(yy, Date)"
             )
 
         elif db_type in ["postgres", "postgresql"]:
@@ -286,7 +308,12 @@ class VectraCustomVanna(VannaBase):
         """
         # 1. Database Context from Config (Dynamic Dialect Injection)
         db_type = self.config.get("type", "").lower()
+        target_schema = self.config.get("schema")
+
         dialect_instruction = f"You are an expert SQL Data Analyst.\n{self._get_dialect_instructions(db_type)}"
+
+        if target_schema:
+            dialect_instruction += f"\nIMPORTANT: The database schema is '{target_schema}'. You MUST prefix ALL table names with '{target_schema}.' (e.g. FROM {target_schema}.TableName)."
 
         # 2. Visualization Context (Multilingual Support)
         viz_instruction = (
@@ -311,10 +338,59 @@ class VectraCustomVanna(VannaBase):
         hallucination_instruction = (
             "\nIMPORTANT: You are restricted to the Database Schema provided in the context."
             "\n- DO NOT assume the existence of tables unless they are explicitly defined in the context."
+            "\n- ALWAYS use the full table name exactly as shown in the DDL, including the schema (e.g. 'schema.table')."
             "\n- If you are unsure which column to use, return a SQL comment asking for clarification."
         )
 
-        return f"{dialect_instruction}\n\n{viz_instruction}\n{safety_instruction}\n{hallucination_instruction}"
+        # 5. Output Format (JSON)
+        # We enforce JSON to robustly handle conversational LLMs (Ollama, etc.)
+        format_instruction = (
+            "\nOUTPUT FORMAT:"
+            "\nYou MUST return a single JSON object. Do not wrap it in markdown block."
+            "\nIMPORTANT: The 'sql' string must be a single line or properly escaped with \\n. Do NOT use actual newlines."
+            "\n{"
+            '\n  "sql": "SELECT ...", '
+            '\n  "explanation": "Brief explanation of the query..."'
+            "\n}"
+            "\nIf you cannot answer, return validation error in the 'explanation' field and null for 'sql'."
+        )
+
+        system_prompt = f"{dialect_instruction}\n\n{viz_instruction}\n{safety_instruction}\n{hallucination_instruction}\n{format_instruction}"
+        logger.info(
+            f"VANNA_SYSTEM_PROMPT | Schema Config: {self.config.get('schema')} | Prompt Preview: {system_prompt[:200]}..."
+        )
+        return system_prompt
+
+    def _extract_json_from_response(self, text: str) -> dict:
+        """
+        Robustly extracts JSON from LLM response.
+        Handles Markdown wrapping (```json ... ```) or raw JSON in text.
+        """
+        try:
+            # 1. Try direct parse
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # 2. Extract from Markdown code block
+        match = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            try:
+                return json.loads(match.group(1).strip())
+            except json.JSONDecodeError:
+                pass
+
+        # 3. Extract from first '{' to last '}'
+        try:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1 and end > start:
+                json_str = text[start : end + 1]
+                return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+
+        return {}
 
     def submit_question(self, question: str, **kwargs) -> dict:
         try:
@@ -333,6 +409,11 @@ class VectraCustomVanna(VannaBase):
             # 2. Construct Prompt with Context
             ddl_context = "\n\n".join(ddl_list)
 
+            target_schema = self.config.get("schema")
+            if target_schema:
+                # REINFORCEMENT: Add explicit schema rule right before the DDL
+                ddl_context = f"IMPORTANT RULE: All tables below are in the '{target_schema}' schema. You MUST use '{target_schema}.TableName' in your SQL.\n\n{ddl_context}"
+
             if not ddl_context:
                 logger.warning("VANNA_QUERY | No DDL context found! automatic hallucination risk.")
 
@@ -345,37 +426,46 @@ class VectraCustomVanna(VannaBase):
             if not llm_response:
                 return {"error": "Empty response from LLM"}
 
-            # 4. Simple Safety Guard
-            cleaned_response = llm_response.strip()
+            # 4. JSON Extraction & Validation
+            parsed_response = self._extract_json_from_response(llm_response)
 
-            if cleaned_response.startswith("```"):
-                lines = cleaned_response.split("\n")
-                if len(lines) >= 3:
-                    cleaned_response = "\n".join(lines[1:-1]).strip()
+            sql = parsed_response.get("sql")
+            explanation = parsed_response.get("explanation")
 
-            cleaned_response = re.sub(r"/\*[\s\S]*?\*/", "", cleaned_response).strip()
+            if not sql:
+                # Fallback: simple text response (likely an error or refinement question)
+                logger.warning(f"VANNA_QUERY | No SQL found in JSON. Response: {llm_response}")
+                return {"sql": None, "dataframe": None, "figure": None, "text": explanation or llm_response}
 
-            valid_prefixes = ("SELECT", "WITH", "SHOW", "DESCRIBE", "--", "/*")
-
-            if not cleaned_response.upper().startswith(valid_prefixes):
-                logger.warning(f"VANNA_QUERY | Response validation failed (Not SQL): {cleaned_response[:50]}...")
-                return {"sql": None, "dataframe": None, "figure": None, "text": llm_response}
+            # Final Cleanup of the extracted SQL
+            sql = re.sub(r"/\*[\s\S]*?\*/", "", sql).strip()
 
             # 5. Execute
-            sql = cleaned_response
             logger.info(f"VANNA_QUERY | Executing SQL: {sql}")
+
+            # Check if it's just a comment (LLM following "return comment on error" instruction)
+            if sql.startswith("--") or sql.startswith("/*"):
+                logger.warning(f"VANNA_QUERY | SQL is a comment (execution skipped): {sql}")
+                return {"sql": None, "dataframe": None, "figure": None, "text": sql.replace("--", "").strip()}
 
             if sql.startswith("-- ERROR:"):
                 return {"sql": sql, "dataframe": None, "figure": None, "text": sql.replace("-- ERROR:", "").strip()}
 
-            df = self.run_sql(sql, **self.conn_params)
+            try:
+                df = self.run_sql(sql, **self.conn_params)
+            except Exception as e:
+                logger.error(f"Vanna submit_question failed: {e}")
+                # Return the error as text so the frontend displays it
+                return {"sql": None, "dataframe": None, "figure": None, "text": f"SQL Execution Error: {str(e)}"}
+
             fig = None
 
-            return {"sql": sql, "dataframe": df, "figure": fig}
+            return {"sql": sql, "dataframe": df, "figure": fig, "text": explanation}
 
         except Exception as e:
             logger.error(f"Vanna submit_question failed: {e}")
-            return {"error": str(e)}
+            # Return the error as text so the frontend displays it
+            return {"sql": None, "dataframe": None, "figure": None, "text": f"SQL Execution Error: {str(e)}"}
 
     # Necessary overrides for VannaBase but we can keep simple
     def system_message(self, message: str) -> Any:

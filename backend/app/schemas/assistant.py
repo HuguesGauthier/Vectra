@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, computed_field
 from sqlmodel import SQLModel
 
 # --- Enums ---
@@ -172,6 +172,7 @@ class ConnectorRef(SQLModel):
 
     id: UUID
     name: str
+    last_vectorized_at: Optional[datetime] = None
 
 
 class AssistantResponse(AssistantBase):
@@ -183,3 +184,11 @@ class AssistantResponse(AssistantBase):
     created_at: datetime
     updated_at: datetime
     linked_connectors: List[ConnectorRef] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def is_vectorized(self) -> bool:
+        """Check if all connectors are vectorized."""
+        if not self.linked_connectors:
+            return True
+        return all(c.last_vectorized_at is not None for c in self.linked_connectors)

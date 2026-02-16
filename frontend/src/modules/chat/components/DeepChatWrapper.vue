@@ -16,6 +16,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, shallowRef, toRaw } from 'vue';
+import { useQuasar } from 'quasar';
+import { useI18n } from 'vue-i18n';
 import { assistantService, type Assistant } from 'src/services/assistantService';
 import { usePublicChatStore } from 'src/stores/publicChatStore';
 import { useAuthStore } from 'src/stores/authStore';
@@ -23,11 +25,14 @@ import { api } from 'boot/axios';
 
 // Define props
 const props = defineProps<{
-  assistantId?: string;
+  assistantId: string;
   assistantColor?: string;
   assistant: Assistant | null;
   loading?: boolean;
+  disabled?: boolean;
 }>();
+
+const { t } = useI18n();
 
 const emit = defineEmits<{
   (e: 'message-sent', message: string): void;
@@ -242,7 +247,7 @@ watch(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const textInput = ref<any>({
-  placeholder: { text: 'Type your message...' },
+  placeholder: { text: t('typeMessage') },
   styles: {
     container: {
       backgroundColor: 'var(--q-fourth)',
@@ -262,6 +267,27 @@ const textInput = ref<any>({
     },
   },
 });
+
+watch(
+  () => props.disabled,
+  (isDisabled) => {
+    textInput.value = {
+      ...textInput.value,
+      disabled: isDisabled,
+      placeholder: {
+        text: isDisabled ? t('chatDisabledPlaceholder') : t('typeMessage'),
+      },
+      styles: {
+        ...textInput.value.styles,
+        container: {
+          ...textInput.value.styles.container,
+          opacity: isDisabled ? 0.6 : 1,
+        },
+      },
+    };
+  },
+  { immediate: true },
+);
 
 const submitButtonStyles = computed(() => ({
   position: 'inside-end',
@@ -577,8 +603,6 @@ onUnmounted(() => {
 
 import ApexCharts, { type ApexOptions } from 'apexcharts';
 
-import { useQuasar } from 'quasar';
-
 const $q = useQuasar();
 
 const hydrateChart = (element: Element, config: ApexOptions & { viz_type?: string }) => {
@@ -841,8 +865,7 @@ const setInputText = (text: string) => {
     // Fallback to the hybrid prop method (though it likely failed before, we keep it as backup)
     const newConfig = {
       ...textInput.value,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      state: { text } as any,
+      state: { text },
     };
     textInput.value = newConfig;
     deepChatRef.value.textInput = newConfig;

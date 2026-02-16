@@ -49,6 +49,7 @@ class VisualizationProcessor(BaseChatProcessor):
             if not should_visualize:
                 logger.info("AI decided no visualization needed")
                 duration = round(time.time() - start_time, 3)
+                self._record_metrics(ctx, duration, {})
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
@@ -65,12 +66,14 @@ class VisualizationProcessor(BaseChatProcessor):
 
             if data_info.row_count == 0:
                 logger.warning("No data extracted - aborting visualization")
+                duration = round(time.time() - start_time, 3)
+                self._record_metrics(ctx, duration, {})
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
                     ctx.language,
                     payload={"status": "skipped_no_data"},
-                    duration=0,
+                    duration=duration,
                 )
                 return
 
@@ -121,12 +124,12 @@ class VisualizationProcessor(BaseChatProcessor):
             return False
 
         # 3. Check for blocking patterns (Negative Signals)
-        # Using context manager or safer access if full_response_text could be None? 
+        # Using context manager or safer access if full_response_text could be None?
         # Type hint says str, but let's be safe.
         response_text = ctx.full_response_text or ""
         blocking_patterns = ["je n'ai trouvé aucun", "no products found", "pas de résultat"]
         response_lower = response_text.lower()
-        
+
         if any(p in response_lower for p in blocking_patterns):
             return False
 
@@ -156,12 +159,42 @@ class VisualizationProcessor(BaseChatProcessor):
 
         # Explicit visualization keywords
         viz_keywords = {
-            "graph", "chart", "visualize", "visualise", "treemap", "pie", "bar",
-            "line", "courbe", "camembert", "histogramme", "graphique", "area",
-            "aire", "surface", "stacked", "empilé", "empile", "funnel",
-            "entonnoir", "pyramide", "scatter", "nuage", "dispersion", "points",
-            "radar", "araignée", "polar", "polaire", "radial", "jauge",
-            "gauge", "heatmap", "chaleur", "slope", "pente"
+            "graph",
+            "chart",
+            "visualize",
+            "visualise",
+            "treemap",
+            "pie",
+            "bar",
+            "line",
+            "courbe",
+            "camembert",
+            "histogramme",
+            "graphique",
+            "area",
+            "aire",
+            "surface",
+            "stacked",
+            "empilé",
+            "empile",
+            "funnel",
+            "entonnoir",
+            "pyramide",
+            "scatter",
+            "nuage",
+            "dispersion",
+            "points",
+            "radar",
+            "araignée",
+            "polar",
+            "polaire",
+            "radial",
+            "jauge",
+            "gauge",
+            "heatmap",
+            "chaleur",
+            "slope",
+            "pente",
         }
 
         # Check for explicit request (Set lookup is O(1))

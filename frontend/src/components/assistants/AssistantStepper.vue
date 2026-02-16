@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="isOpen" persistent>
-    <q-card class="column bg-primary" style="width: 1200px; max-width: 95vw; height: 90vh;">
+    <q-card class="column bg-primary" style="width: 1200px; max-width: 95vw; height: 90vh">
       <!-- Header -->
       <div class="q-pa-md bg-primary border-bottom row items-center justify-between">
         <div class="text-h6 text-weight-bold">
@@ -98,12 +98,7 @@
               </q-step>
 
               <!-- 1.2 Appearance -->
-              <q-step
-                :name="2"
-                :title="$t('appearance')"
-                icon="palette"
-                :done="innerStep > 2"
-              >
+              <q-step :name="2" :title="$t('appearance')" icon="palette" :done="innerStep > 2">
                 <div class="row justify-center q-pl-lg">
                   <div class="col-12 col-md-11">
                     <AssistantAppearance
@@ -124,14 +119,9 @@
                   </div>
                 </div>
               </q-step>
-              
+
               <!-- 1.3 Security -->
-              <q-step
-                :name="3"
-                :title="$t('security')"
-                icon="security"
-                :done="innerStep > 3"
-              >
+              <q-step :name="3" :title="$t('security')" icon="security" :done="innerStep > 3">
                 <div class="row justify-center q-pl-lg">
                   <div class="col-12 col-md-10">
                     <AssistantSecurityStep v-model="assistantData" />
@@ -167,36 +157,36 @@
 
           <!-- Step 5: Retrieval Strategy -->
           <div v-show="step === 5">
-            <q-tabs
+            <q-stepper
               v-model="retrievalStep"
-              dense
-              align="justify"
-              class="q-mb-md"
+              vertical
+              color="accent"
               active-color="accent"
-              indicator-color="accent"
-              narrow-indicator
+              done-color="positive"
+              animated
+              flat
+              class="bg-transparent"
+              :header-nav="true"
             >
-              <q-tab :name="1" :label="$t('retrievalVolumeAndRelevance')" icon="manage_search" />
-              <q-tab :name="2" :label="$t('precisionBoost')" icon="bolt" />
-            </q-tabs>
-
-            <q-tab-panels v-model="retrievalStep" animated class="bg-transparent">
-              <q-tab-panel :name="1" class="q-pa-none">
-                <div class="row justify-center">
-                  <div class="col-12 col-md-10">
-                    <RetrievalParams v-model="assistantData" hide-title section="basic" />
-                  </div>
+              <!-- 5.1 Retrieval Volume & Relevance -->
+              <q-step
+                :name="1"
+                :title="$t('retrievalVolumeAndRelevance')"
+                icon="manage_search"
+                :done="retrievalStep > 1"
+              >
+                <div class="q-pl-lg">
+                  <RetrievalParams v-model="assistantData" hide-title section="basic" />
                 </div>
-              </q-tab-panel>
+              </q-step>
 
-              <q-tab-panel :name="2" class="q-pa-none">
-                <div class="row justify-center">
-                  <div class="col-12 col-md-10">
-                    <RetrievalParams v-model="assistantData" hide-title section="rerank" />
-                  </div>
+              <!-- 5.2 Precision Boost -->
+              <q-step :name="2" :title="$t('precisionBoost')" icon="bolt" :done="retrievalStep > 2">
+                <div class="q-pl-lg">
+                  <RetrievalParams v-model="assistantData" hide-title section="rerank" />
                 </div>
-              </q-tab-panel>
-            </q-tab-panels>
+              </q-step>
+            </q-stepper>
           </div>
 
           <!-- Step 6: Performance -->
@@ -219,63 +209,53 @@
       <!-- Footer Actions -->
       <div class="q-pa-md bg-primary border-top row justify-between items-center">
         <!-- Spacer? Or Back button? -->
-         <div>
+        <div>
           <!-- Back Button (Left side for consistency with prev implementation or empty?) 
                User asked "where is the next back button", implying they want it.
                Previously I put it on the Right. Let's put ONE Back button on the LEFT as standard.
           -->
           <q-btn
-            v-if="step > 1 || (step === 1 && innerStep > 1)" 
+            v-if="step > 1 || (step === 1 && innerStep > 1)"
             flat
             color="grey-5"
-            :label="$t('back')" 
+            :label="$t('back')"
             icon="arrow_back"
             @click="handleBack"
           />
-         </div>
+        </div>
 
-         <!-- Right Side: Navigation & Save -->
-          <div class="row q-gutter-sm">
-            <!-- Save / Create Actions -->
-             <template v-if="!isEdit">
-              <q-btn
-                v-if="step === 6"
-                color="positive"
-                :label="$t('createAssistant')"
-                icon="check"
-                :loading="loading"
-                :disable="
-                  !assistantData.linked_connector_ids ||
-                  assistantData.linked_connector_ids.length === 0
-                "
-                @click="handleSave"
-              />
-            </template>
-            <template v-else>
-               <!-- In Edit Mode, always show Save, maybe Cancel too -->
-               <q-btn
-                :label="$t('cancel')"
-                flat
-                color="grey-5"
-                @click="handleClose"
-              />
-              <q-btn
-                color="accent"
-                :label="$t('save')"
-                :loading="loading"
-                @click="handleSave"
-              />
-            </template>
-
-            <!-- Next Button -->
-             <q-btn
-              v-if="shouldShowNext"
-              color="accent"
-              :label="$t('next')"
-              icon-right="arrow_forward"
-              @click="handleNext"
+        <!-- Right Side: Navigation & Save -->
+        <div class="row q-gutter-sm">
+          <!-- Save / Create Actions -->
+          <template v-if="!isEdit">
+            <q-btn
+              v-if="step === 6"
+              color="positive"
+              :label="$t('createAssistant')"
+              icon="check"
+              :loading="loading"
+              :disable="
+                !assistantData.linked_connector_ids ||
+                assistantData.linked_connector_ids.length === 0
+              "
+              @click="handleSave"
             />
-          </div>
+          </template>
+          <template v-else>
+            <!-- In Edit Mode, always show Save, maybe Cancel too -->
+            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
+            <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
+          </template>
+
+          <!-- Next Button -->
+          <q-btn
+            v-if="shouldShowNext"
+            color="accent"
+            :label="$t('next')"
+            icon-right="arrow_forward"
+            @click="handleNext"
+          />
+        </div>
       </div>
     </q-card>
   </q-dialog>
@@ -365,11 +345,11 @@ watch(isOpen, async (val) => {
         assistantData.value.instructions = t('defaultSystemInstructions');
       }
     }
-    
+
     await nextTick();
     formRef.value?.resetValidation();
     await loadConnectors();
-    
+
     // Capture initial state for dirty checking
     initialStateJSON.value = JSON.stringify(assistantData.value);
   }
@@ -397,7 +377,7 @@ function resetState() {
 
 function handleClose() {
   if (hasUnsavedChanges()) {
-     confirm({
+    confirm({
       title: t('unsavedChanges'),
       message: t('unsavedChangesMessage'),
       confirmLabel: t('discard'),
@@ -417,6 +397,14 @@ const shouldShowNext = computed(() => {
 });
 
 function handleBack() {
+  // Step 5 Vertical Navigation
+  if (step.value === 5) {
+    if (retrievalStep.value > 1) {
+      retrievalStep.value--;
+      return;
+    }
+  }
+
   // If we are in Step 1 (General), handle inner vertical steps
   if (step.value === 1) {
     if (innerStep.value > 1) {
@@ -427,24 +415,43 @@ function handleBack() {
 
   if (step.value > 1) {
     step.value--;
+
+    // Jump to the last sub-step of the previous step if applicable
+    if (step.value === 1) {
+      innerStep.value = 3;
+    } else if (step.value === 5) {
+      retrievalStep.value = 2;
+    }
   }
 }
 
 async function handleNext() {
   const valid = await formRef.value?.validate();
-  
+
   if (valid) {
     // Step 1 Vertical Navigation
     if (step.value === 1) {
-      if (innerStep.value < 3) { // 3 sub-steps (General, Appearance, Security)
+      if (innerStep.value < 3) {
+        // 3 sub-steps (General, Appearance, Security)
         innerStep.value++;
         return;
       }
       // If innerStep is 3, we proceed to Step 2 (Knowledge)
     }
 
+    // Step 5 Vertical Navigation
+    if (step.value === 5) {
+      if (retrievalStep.value < 2) {
+        // 2 sub-steps
+        retrievalStep.value++;
+        return;
+      }
+      // If retrievalStep is 2, we proceed to Step 6
+    }
+
     // Custom Validations
-    if (step.value === 2) { // Knowledge
+    if (step.value === 2) {
+      // Knowledge
       if (
         !assistantData.value.linked_connector_ids ||
         assistantData.value.linked_connector_ids.length === 0
@@ -455,16 +462,23 @@ async function handleNext() {
     }
 
     step.value++;
+
+    // Reset sub-steps for the next multi-step section if we just entered it
+    if (step.value === 1) {
+      innerStep.value = 1;
+    } else if (step.value === 5) {
+      retrievalStep.value = 1;
+    }
   }
 }
 
 async function handleSave() {
   // Validate all before save
   const valid = await formRef.value?.validate();
-  
+
   if (!valid) {
     // If invalid, find which step (basic heuristic or just show error)
-    // In stepper content, we are rendering all steps but v-show. 
+    // In stepper content, we are rendering all steps but v-show.
     // QForm validation will trigger on all inputs.
     return;
   }

@@ -12,6 +12,7 @@ class StepMetric:
     duration: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
+    sequence: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -30,6 +31,7 @@ class ChatMetricsManager:
         self.steps: Dict[str, StepMetric] = {}  # Keyed by step_type or unique ID
         self.completed_steps: List[StepMetric] = []
         self._step_counter: int = 0
+        self._sequence_counter: int = 0
 
         # Aggregates
         self.total_input_tokens: int = 0
@@ -90,6 +92,9 @@ class ChatMetricsManager:
         self._step_counter += 1
 
         self.steps[span_id] = StepMetric(step_type=step_type, label=label, start_time=time.time())
+        # Assign sequence at START to preserve nesting order (Parent < Children)
+        self.steps[span_id].sequence = self._sequence_counter
+        self._sequence_counter += 1
         return span_id
 
     def end_span(self, span_id: str, payload: Optional[Dict] = None, input_tokens: int = 0, output_tokens: int = 0):
@@ -115,6 +120,7 @@ class ChatMetricsManager:
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
 
+        # Sequence is already assigned at start_span
         self.completed_steps.append(step)
         return step
 
@@ -142,12 +148,14 @@ class ChatMetricsManager:
         )
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
+        step.sequence = self._sequence_counter
+        self._sequence_counter += 1
         self.completed_steps.append(step)
 
     def get_summary(self) -> Dict:
         """Return compatible dictionary for existing frontend/API contracts."""
-        # Sort steps by start_time to preserve chronological order
-        sorted_steps = sorted(self.completed_steps, key=lambda x: x.start_time)
+        # Sort steps by sequence to preserve absolute chronological order
+        sorted_steps = sorted(self.completed_steps, key=lambda x: x.sequence)
 
         summary = {
             "total_duration": round(time.time() - self.start_time, 3),
@@ -159,6 +167,7 @@ class ChatMetricsManager:
                     "step_type": s.step_type,
                     "label": s.label,
                     "duration": s.duration,
+                    "sequence": s.sequence,
                     "tokens": {"input": s.input_tokens, "output": s.output_tokens},
                     "metadata": s.metadata,
                 }

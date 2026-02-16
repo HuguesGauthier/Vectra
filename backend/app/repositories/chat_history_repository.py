@@ -128,10 +128,13 @@ class ChatPostgresRepository:
             )
             self.db.add(entry)
             await self.db.commit()
+            await self.db.refresh(entry)
+            return entry.id
 
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Failed to save message audit for {session_id}: {e}")
+            return None
 
     async def get_messages(self, session_id: str) -> List[ChatHistory]:
         """Retrieve full conversation history for a session."""
@@ -144,6 +147,27 @@ class ChatPostgresRepository:
         except Exception as e:
             logger.error(f"Failed to fetch audit history for {session_id}: {e}")
             return []
+
+    async def update_message_metadata(self, message_id: UUID, metadata: Dict[str, Any]) -> bool:
+        """
+        Updates the metadata of a specific message.
+        Used to finalize metrics/steps after the pipeline completes.
+        """
+        try:
+            stmt = select(ChatHistory).where(ChatHistory.id == message_id)
+            result = await self.db.execute(stmt)
+            message = result.scalar_one_or_none()
+
+            if message:
+                # Merge or overwrite? Overwrite is safer for "finalizing"
+                message.metadata_ = metadata
+                await self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update message metadata for {message_id}: {e}")
+            return False
 
     async def clear_history(self, session_id: str) -> bool:
         """Clear Postgres history (e.g. for hard reset)."""

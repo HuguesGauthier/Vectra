@@ -35,12 +35,13 @@ export interface Assistant {
   configuration?: AssistantConfig;
   is_enabled?: boolean;
   user_authentication?: boolean;
+  is_vectorized?: boolean;
   created_at?: string;
   updated_at?: string;
   linked_connector_ids?: string[];
 
   // Full objects for relationship loading
-  linked_connectors?: { id: string; name: string }[];
+  linked_connectors?: { id: string; name: string; last_vectorized_at?: string }[];
 }
 
 export const assistantService = {

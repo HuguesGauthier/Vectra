@@ -178,6 +178,9 @@ export default {
   themeLight: 'Light',
   langEnglish: 'English',
   langFrench: 'Français',
+  assistantNotVectorized: 'Assistant not vectorized. Chat is disabled.',
+  vectorizeSourcesToEnableChat: 'Please vectorize the data sources to enable chat.',
+  chatDisabledPlaceholder: 'Chat disabled - Assistant not vectorized',
 
   chat: 'Chat',
   systemOverview: 'System Overview & Real-time Metrics',
@@ -366,8 +369,7 @@ export default {
   addFile: 'Add File',
   fileAlreadyExists: 'This file has already been added to this data source.',
   connectorNameHint: 'A unique name to identify this data source',
-  connectorDescriptionHint:
-    'A specialized description to help the AI understand when to use this source',
+  connectorDescriptionHint: 'A description to help users identify this data source',
 
   // Specific Connector Fields
   sharePoint: 'Microsoft SharePoint',

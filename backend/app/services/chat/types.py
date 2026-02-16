@@ -97,6 +97,7 @@ class ChatContext:
     full_response_text: str = ""
     retrieved_sources: List[Dict] = field(default_factory=list)
     sql_results: Optional[List] = None  # Raw SQL results (List[Tuple]) for visualization
+    assistant_message_id: Optional[Any] = None  # UUID of the persisted assistant message
 
     # Centralized Metrics Manager
     metrics: Optional["ChatMetricsManager"] = field(default=None)

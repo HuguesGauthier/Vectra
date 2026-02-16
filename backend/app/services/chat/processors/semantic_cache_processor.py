@@ -45,12 +45,6 @@ class SemanticCacheProcessor(BaseChatProcessor):
     async def process(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
         """
         Executes the semantic cache lookup step.
-
-        Args:
-            ctx (ChatContext): The current chat execution context.
-
-        Yields:
-            str: JSON-formatted strings for events or content chunks.
         """
         if self._should_skip(ctx):
             return
@@ -61,36 +55,54 @@ class SemanticCacheProcessor(BaseChatProcessor):
         yield self._emit_start_event(ctx)
 
         try:
-            # 1. Generate Input Embedding (Async Safe)
-            embedding = await self._generate_query_embedding(ctx)
-            ctx.question_embedding = embedding
+            # 1. Stage 1: Fast Exact Match (No embedding required)
+            logger.info("⚡ Stage 1: Checking exact cache match...")
+            cached_res = await ctx.cache_service.get_cached_response(
+                question=ctx.original_message,
+                assistant_id=str(ctx.assistant.id),
+                embedding=None,  # Force exact match skip semantic
+            )
 
-            # 2. Perform Cache Lookup
-            cached_res = await self._execute_cache_lookup(ctx, embedding)
             is_hit = bool(cached_res) and self._is_valid_cache_entry(cached_res)
 
+            # 2. Stage 2: Semantic Match (Requires expensive embedding)
+            if not is_hit:
+                logger.info("🔍 Stage 2: No exact match. Generating expensive embedding...")
+                # Resolve correct provider context
+                provider = self._get_provider(ctx)
+
+                # Generate Input Embedding (12s cost on CPU)
+                embedding = await self._generate_query_embedding(ctx, provider)
+                ctx.question_embedding = embedding
+
+                # Perform Semantic Lookup
+                cached_res = await ctx.cache_service.get_cached_response(
+                    question=ctx.original_message,
+                    assistant_id=str(ctx.assistant.id),
+                    embedding=embedding,
+                    min_score=ctx.assistant.cache_similarity_threshold,
+                )
+                is_hit = bool(cached_res) and self._is_valid_cache_entry(cached_res)
+
             # 3. Handle Hit/Miss Logic
-            if is_hit:
+            if is_hit and cached_res:
                 # Update Context for Short-Circuit
                 ctx.should_stop = True
-                
+
                 # Restore Context Data
                 self._restore_context_data(ctx, cached_res)
-                
+
                 # Stream Response
                 async for chunk in self._stream_cache_hit_response(ctx, cached_res):
                     yield chunk
-            else:
-                 # Miss implies no action needed on stream or context
-                 pass
 
             # 4. Record Metrics & Emit Completion
             duration = self._calculate_duration(start_time)
-            
+
             # Record step with hit status
             ctx.metrics.record_completed_step(
                 step_type=PipelineStepType.CACHE_LOOKUP,
-                label="Cache Lookup",
+                label=None,
                 duration=duration,
                 payload={"hit": is_hit},
             )
@@ -99,6 +111,16 @@ class SemanticCacheProcessor(BaseChatProcessor):
 
         except Exception as e:
             self._handle_lookup_error(ctx, e)
+
+    def _get_provider(self, ctx: ChatContext) -> Optional[str]:
+        """Resolves the embedding provider from the assistant's connectors."""
+        if hasattr(ctx.assistant, "linked_connectors") and ctx.assistant.linked_connectors:
+            for conn in ctx.assistant.linked_connectors:
+                if hasattr(conn, "configuration") and conn.configuration:
+                    provider = conn.configuration.get("ai_provider")
+                    if provider:
+                        return provider
+        return None
 
     # --- Private Helpers: Preconditions & Setup ---
 
@@ -116,50 +138,40 @@ class SemanticCacheProcessor(BaseChatProcessor):
 
     # --- Private Helpers: Core Logic ---
 
-    async def _generate_query_embedding(self, ctx: ChatContext) -> List[float]:
+    async def _generate_query_embedding(self, ctx: ChatContext, provider: Optional[str] = None) -> List[float]:
         """Retrieves the embedding for the user's message in a non-blocking way."""
-        embed_model = await ctx.vector_service.get_embedding_model()
-        
-        # P0 FIX: Offload blocking IO/CPU to thread pool
-        return await asyncio.to_thread(
-            embed_model.get_text_embedding, 
-            ctx.original_message
-        )
+        embed_model = await ctx.vector_service.get_embedding_model(provider=provider)
 
-    async def _execute_cache_lookup(self, ctx: ChatContext, embedding: List[float]) -> Optional[Dict[str, Any]]:
-        """Queries the semantic cache service."""
-        return await ctx.cache_service.get_cached_response(
-            question=ctx.original_message,
-            assistant_id=str(ctx.assistant.id),
-            embedding=embedding,
-            min_score=ctx.assistant.cache_similarity_threshold,
-        )
+        # P0 FIX: Offload blocking IO/CPU to thread pool
+        return await asyncio.to_thread(embed_model.get_text_embedding, ctx.original_message)
 
     # --- Private Helpers: Hit/Miss Processing ---
 
     def _restore_context_data(self, ctx: ChatContext, cached_res: Dict[str, Any]) -> None:
         """Restores SQL results and other context data from cache."""
         logger.info(LOG_CACHE_HIT, ctx.session_id)
-        
+
         # Restore SQL
         sql_results = cached_res.get(KEY_SQL_RESULTS)
         if sql_results:
             ctx.sql_results = sql_results
             logger.info(LOG_SQL_RESTORED, len(sql_results))
-            
+
         # Restore Answer Text in Context
         content = cached_res.get(KEY_RESPONSE, "")
         ctx.full_response_text = content
 
-    async def _stream_cache_hit_response(self, ctx: ChatContext, cached_res: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    async def _stream_cache_hit_response(
+        self, ctx: ChatContext, cached_res: Dict[str, Any]
+    ) -> AsyncGenerator[str, None]:
         """Streams the cached sources and content."""
-        
+
         # 1. Sources
         if KEY_SOURCES in cached_res:
             raw_sources = cached_res[KEY_SOURCES]
             normalized_sources = self._normalize_sources(raw_sources)
             ctx.retrieved_sources = normalized_sources
-            
+
             # Using manual json dump for now as EventFormatter might not handle specific source payloads
             # Review: Consider moving Source payload formatting to EventFormatter in future
             yield json.dumps({"type": TYPE_SOURCES, "data": normalized_sources}, default=str) + "\n"
@@ -206,5 +218,5 @@ class SemanticCacheProcessor(BaseChatProcessor):
     def _handle_lookup_error(self, ctx: ChatContext, error: Exception) -> None:
         """Logs errors without crashing the pipeline (FAIL OPEN)."""
         logger.warning(LOG_CACHE_FAIL, ctx.session_id, error)
-        # We don't yield anything here, just log and continue. 
+        # We don't yield anything here, just log and continue.
         # The pipeline will proceed to the next step since should_stop is False.

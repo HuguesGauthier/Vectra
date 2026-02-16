@@ -134,18 +134,30 @@ class TrendingProcessor(BaseChatProcessor):
             )
 
             dur = round(time.time() - start_time, 3)
+            self._record_metrics(ctx, dur)
             yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=dur)
 
         except asyncio.TimeoutError:
             logger.error(f"Trending Analysis timed out after {TIMEOUT_TRENDING_ANALYSIS}s")
             # Graceful degrade
+            self._record_metrics(ctx, TIMEOUT_TRENDING_ANALYSIS)
             yield EventFormatter.format(
                 PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=TIMEOUT_TRENDING_ANALYSIS
             )
 
         except Exception as e:
             logger.error(f"Trending logic failed: {e}", exc_info=True)
+            self._record_metrics(ctx, 0.0)
             yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=0)
+
+    def _record_metrics(self, ctx: ChatContext, duration: float):
+        """Records telemetry for consistent pipeline display."""
+        if ctx.metrics:
+            ctx.metrics.record_completed_step(
+                step_type=PipelineStepType.TRENDING,
+                label="Analytics",
+                duration=duration,
+            )
 
     # --- Domain Logic: Analytics ---
 
