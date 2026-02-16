@@ -137,9 +137,15 @@ class AgenticProcessor(BaseChatProcessor):
         # P0 FIX: Ensure we have text so PersistenceProcessor saves this turn!
         # Without text, the turn is discarded, breaking the context chain for the NEXT question.
         if ctx.language == "fr":
-            ctx.full_response_text = "Voici la visualisation basée sur les données précédentes."
+            text = "Voici la visualisation basée sur les données précédentes."
         else:
-            ctx.full_response_text = "Here is the visualization based on the previous data."
+            text = "Here is the visualization based on the previous data."
+
+        ctx.full_response_text = text
+        # P0 FIX: Yield tokens so the UI creates a new message bubble instead of merging with the previous one
+        for word in text.split(" "):
+            yield self._format_token(word + " ")
+            await asyncio.sleep(0.02)  # Subtle delay for UX
 
         ctx.metrics.end_span(parent_span_id)
         ctx.should_stop = True  # Ensure we don't run the actual router

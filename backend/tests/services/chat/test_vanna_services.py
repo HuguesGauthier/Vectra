@@ -89,6 +89,9 @@ def test_get_related_ddl(vanna_service):
     ddl = vanna_service.get_related_ddl("How many users?")
     assert len(ddl) == 1
     assert "CREATE TABLE users" in ddl[0]
+    # Verify cleaning (regex check)
+    # If the mock returning CREATE TABLE with COLLATE, it should be cleaned.
+    # In our mock hit.payload = {"content": "CREATE TABLE users (id INT)"}, no COLLATE.
 
 
 def test_submit_prompt_string(vanna_service, mock_llm):
@@ -161,3 +164,84 @@ def test_submit_question_happy_path(mock_settings, vanna_service, mock_llm):
     assert result["sql"] == "SELECT * FROM users"
     assert "dataframe" in result
     assert len(result["dataframe"]) == 1
+
+
+def test_add_question_sql(vanna_service, mock_vector_service):
+    point_id = vanna_service.add_question_sql("What is the total sales?", "SELECT SUM(Total) FROM sales")
+    assert point_id != "error"
+    assert point_id != "skipped"
+
+    # Verify upsert was called
+    mock_vector_service.client.upsert.assert_called_once()
+    args, kwargs = mock_vector_service.client.upsert.call_args
+    assert kwargs["collection_name"] == "test_collection"
+    assert kwargs["points"][0].payload["type"] == "sql_training_pair"
+    assert kwargs["points"][0].payload["sql"] == "SELECT SUM(Total) FROM sales"
+
+
+def test_get_similar_question_sql(vanna_service, mock_vector_service):
+    # Mock query_points to return a training pair
+    training_hit = MagicMock()
+    training_hit.payload = {"type": "sql_training_pair", "question": "past question", "sql": "SELECT * FROM past"}
+    result = MagicMock()
+    result.points = [training_hit]
+    mock_vector_service.client.query_points.return_value = result
+
+    examples = vanna_service.get_similar_question_sql("new question")
+    assert len(examples) == 1
+    assert examples[0]["question"] == "past question"
+    assert examples[0]["sql"] == "SELECT * FROM past"
+
+
+def test_system_instructions_mssql(vanna_service):
+    vanna_service.config["type"] = "mssql"
+    instructions = vanna_service._get_system_instructions()
+    assert "CRITICAL: Do NOT use aliases in WHERE, GROUP BY, HAVING or ORDER BY clauses" in instructions
+    assert "repeat the full expression" in instructions
+
+
+def test_submit_question_auto_learn(vanna_service, mock_llm, mock_vector_service):
+    # Mock successful SQL execution with data
+    json_response = '{"sql": "SELECT * FROM sales", "explanation": "Fetching sales"}'
+    vanna_service.submit_prompt = MagicMock(return_value=json_response)
+    vanna_service.run_sql = MagicMock(return_value=pd.DataFrame({"Total": [100]}))
+
+    # Enable auto-learn
+    vanna_service.config["auto_learn"] = True
+
+    # Spy on add_question_sql
+    vanna_service.add_question_sql = MagicMock(wraps=vanna_service.add_question_sql)
+
+    vanna_service.submit_question("Show sales")
+
+    # Verify add_question_sql was called automatically
+    vanna_service.add_question_sql.assert_called_once_with(question="Show sales", sql="SELECT * FROM sales")
+
+
+def test_submit_question_retry_success(vanna_service, mock_llm):
+    # 1. First response is an invalid SQL (uses alias in WHERE)
+    bad_json = '{"sql": "SELECT DATEPART(yy, d) as Yr FROM t WHERE Yr=2024", "explanation": "Bad SQL"}'
+    # 2. Second response (after error feedback) is a fixed SQL
+    good_json = '{"sql": "SELECT DATEPART(yy, d) as Yr FROM t WHERE DATEPART(yy, d)=2024", "explanation": "Fixed SQL"}'
+
+    # Mock submit_prompt to return bad then good
+    vanna_service.submit_prompt = MagicMock(side_effect=[bad_json, good_json])
+
+    # Mock run_sql to fail the first time then succeed
+    def mock_run_sql(sql, **kwargs):
+        if "WHERE Yr=2024" in sql:
+            raise Exception("Invalid column name 'Yr'")
+        return pd.DataFrame({"Yr": [2024]})
+
+    vanna_service.run_sql = MagicMock(side_effect=mock_run_sql)
+    vanna_service.config["type"] = "mssql"
+
+    result = vanna_service.submit_question("Show year 2024")
+
+    assert result["sql"] == "SELECT DATEPART(yy, d) as Yr FROM t WHERE DATEPART(yy, d)=2024"
+    assert vanna_service.run_sql.call_count == 2
+    assert vanna_service.submit_prompt.call_count == 2
+    # Verify the correction prompt was sent
+    args, _ = vanna_service.submit_prompt.call_args
+    assert "Invalid column name 'Yr'" in args[0]
+    assert "CRITICAL: SQL Server does NOT allow aliases" in args[0]

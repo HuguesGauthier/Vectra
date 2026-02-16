@@ -453,10 +453,15 @@ class ConnectorService:
         if connector.connector_type != ConnectorType.VANNA_SQL:
             return {"success": False, "message": "Training is only available for vanna_sql connectors"}
 
-        # Local import to avoid circular dependency and missing dependency issues
+        # Use centralized Factory to get the correctly configured Vanna Service
         from app.services.chat.vanna_services import VannaServiceFactory
 
-        vanna_svc = await VannaServiceFactory(self.settings_service)
+        vanna_svc = await VannaServiceFactory(
+            self.settings_service,
+            connector_id=connector_id,
+            context_provider=connector.configuration.get("ai_provider"),
+            connector_config=connector.configuration,
+        )
 
         trained_count = 0
         failed_count = 0
@@ -576,7 +581,9 @@ class ConnectorService:
             # The collection (or points) don't exist, so there's nothing to update. Safe to ignore.
             error_msg = str(e).lower()
             if "not found" in error_msg or "doesn't exist" in error_msg or "404" in error_msg:
-                logger.debug(f"BACKGROUND ACL SKIPPED | Connector: {connector_id} | Collection not found (Not vectorized yet)")
+                logger.debug(
+                    f"BACKGROUND ACL SKIPPED | Connector: {connector_id} | Collection not found (Not vectorized yet)"
+                )
                 return
 
             logger.error(f"BACKGROUND ACL FAIL | Connector: {connector_id} | Error: {e}")

@@ -224,7 +224,12 @@ class SQLDiscoveryService:
         query_params = {}
 
         # Heuristic for MSSQL
-        if host and ("\\" in host or str(port) == "1433" or db_type in ["mssql", "sqlserver", "sql-server"]):
+        if host and (
+            "\\" in host
+            or str(port) == "1433"
+            or db_type
+            in ["mssql", "sqlserver", "sql-server", "odbc", "vanna_sql"]  # Include vanna_sql as a hint to check deeper
+        ):
             is_mssql = True
             dialect_driver = "mssql+pytds"
             dialect_key = "mssql"
