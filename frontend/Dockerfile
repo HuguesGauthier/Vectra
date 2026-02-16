@@ -2,8 +2,9 @@
 FROM node:20-alpine as develop-stage
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 COPY . .
+RUN npm run postinstall
 
 # Build stage
 FROM develop-stage as build-stage
