@@ -28,7 +28,7 @@ TIMEOUT_ROUTER_QUERY = 120.0  # Seconds (Long running SQL might take time)
 HISTORY_WINDOW_SIZE = 3
 
 # --- Defaults ---
-DEFAULT_PROVIDER = "gemini"
+# (Removed hardcoded default provider)
 
 # --- Keys & Labels ---
 KEY_SQL_QUERY_RESULT = "sql_query_result"

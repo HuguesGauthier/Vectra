@@ -2,13 +2,11 @@ import asyncio
 import logging
 from typing import Any, AsyncGenerator, Dict, List
 
-import cohere
 from llama_index.core.schema import NodeWithScore
 
 from app.core.rag.processors.base import BaseProcessor
 from app.core.rag.types import PipelineContext, PipelineEvent
 from app.core.rag.utils import estimate_tokens
-from app.core.settings import settings
 
 # Configuration
 TIMEOUT_SECONDS = 10.0  # P0: Avoid infinite hang
@@ -20,29 +18,12 @@ logger = logging.getLogger(__name__)
 
 class RerankingProcessor(BaseProcessor):
     """
-    Processor responsible for re-ordering retrieved nodes using Cohere's Rerank API
-    or a Local reranker (FastEmbed).
+    Processor responsible for re-ordering retrieved nodes using specialized factories.
     Includes Fail-Open logic and Timeouts.
     """
 
     def __init__(self):
         super().__init__()
-        self.cohere_client = None
-        self._local_reranker = None
-
-    async def _get_cohere_client(self, settings_service) -> Any:
-        api_key = await settings_service.get_value("cohere_api_key")
-        if api_key and not self.cohere_client:
-            self.cohere_client = cohere.AsyncClient(api_key=api_key)
-        return self.cohere_client
-
-    def _get_local_reranker(self, model_name: str) -> Any:
-        if not self._local_reranker:
-            from fastembed import TextReranker
-
-            logger.info(f"[RERANK] Initializing Local FastEmbed Reranker with model: {model_name}")
-            self._local_reranker = TextReranker(model_name=model_name)
-        return self._local_reranker
 
     async def process(self, ctx: PipelineContext) -> AsyncGenerator[PipelineEvent, None]:
         # 0. Fast Exit checks
@@ -112,9 +93,10 @@ class RerankingProcessor(BaseProcessor):
     async def _process_cohere(
         self, ctx: PipelineContext, nodes: List[NodeWithScore], top_n: int, cutoff: float
     ) -> List[NodeWithScore]:
-        client = await self._get_cohere_client(ctx.settings_service)
+        from app.factories.rerank_factory import RerankProviderFactory
+        client = await RerankProviderFactory.create_reranker("cohere", ctx.settings_service)
         if not client:
-            raise Exception("Cohere API Key missing")
+            raise Exception("Cohere API Client could not be initialized (Key missing?)")
 
         documents = [{"text": self._extract_text(n.node)} for n in nodes]
         logger.info(f"[RERANK] Calling Cohere with {len(documents)} docs")
@@ -147,11 +129,13 @@ class RerankingProcessor(BaseProcessor):
     async def _process_local(
         self, ctx: PipelineContext, nodes: List[NodeWithScore], top_n: int, cutoff: float
     ) -> List[NodeWithScore]:
-        model_name = await ctx.settings_service.get_value("local_rerank_model") or "BAAI/bge-reranker-base"
-        reranker = self._get_local_reranker(model_name)
+        from app.factories.rerank_factory import RerankProviderFactory
+        reranker = await RerankProviderFactory.create_reranker("local", ctx.settings_service)
+        if not reranker:
+            raise Exception("Local Reranker could not be initialized")
 
         documents = [self._extract_text(n.node) for n in nodes]
-        logger.info(f"[RERANK] Calling Local Reranker ({model_name}) with {len(documents)} docs")
+        logger.info(f"[RERANK] Calling Local Reranker with {len(documents)} docs")
 
         # FastEmbed Rerank is synchronous, run in thread to avoid blocking event loop
         loop = asyncio.get_event_loop()

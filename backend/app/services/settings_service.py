@@ -41,7 +41,7 @@ class SettingsService:
         "ollama_chat_model": "mistral",
         "ollama_embedding_model": "bge-m3",
         "ui_dark_mode": "auto",
-        "embedding_provider": "gemini",
+        "embedding_provider": "ollama",
         "gemini_api_key": "",
         "gemini_embedding_model": "models/text-embedding-004",
         "gemini_transcription_model": "gemini-1.5-flash-latest",

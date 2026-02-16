@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from app.core.rag.processors.reranking import RerankingProcessor
 from app.core.rag.types import PipelineContext, PipelineEvent
 from llama_index.core.schema import NodeWithScore, TextNode
@@ -37,20 +37,20 @@ def mock_ctx():
 @pytest.mark.asyncio
 async def test_reranking_happy_path(mock_ctx):
     processor = RerankingProcessor()
-    processor.cohere_client = AsyncMock()
-    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
-
-    # Mock Cohere response
+    
+    # Mock Cohere client
+    mock_cohere = AsyncMock()
     mock_result = MagicMock()
     mock_result.results = [
         MagicMock(index=1, relevance_score=0.9),  # doc2
         MagicMock(index=0, relevance_score=0.85),  # doc1
     ]
-    processor.cohere_client.rerank.return_value = mock_result
+    mock_cohere.rerank.return_value = mock_result
 
-    events = []
-    async for event in processor.process(mock_ctx):
-        events.append(event)
+    with patch("app.factories.rerank_factory.RerankProviderFactory.create_reranker", return_value=mock_cohere):
+        events = []
+        async for event in processor.process(mock_ctx):
+            events.append(event)
 
     assert len(mock_ctx.retrieved_nodes) == 2
     assert mock_ctx.retrieved_nodes[0].node.text == "doc2"
@@ -82,13 +82,13 @@ async def test_reranking_disabled(mock_ctx):
 @pytest.mark.asyncio
 async def test_reranking_fail_open_on_timeout(mock_ctx):
     processor = RerankingProcessor()
-    processor.cohere_client = AsyncMock()
-    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
-    processor.cohere_client.rerank.side_effect = asyncio.TimeoutError()
+    mock_cohere = AsyncMock()
+    mock_cohere.rerank.side_effect = asyncio.TimeoutError()
 
-    events = []
-    async for event in processor.process(mock_ctx):
-        events.append(event)
+    with patch("app.factories.rerank_factory.RerankProviderFactory.create_reranker", return_value=mock_cohere):
+        events = []
+        async for event in processor.process(mock_ctx):
+            events.append(event)
 
     # Should fallback to top_n_rerank original nodes
     assert len(mock_ctx.retrieved_nodes) == 2
@@ -99,8 +99,7 @@ async def test_reranking_fail_open_on_timeout(mock_ctx):
 @pytest.mark.asyncio
 async def test_reranking_cutoff_filtering(mock_ctx):
     processor = RerankingProcessor()
-    processor.cohere_client = AsyncMock()
-    processor._get_cohere_client = AsyncMock(return_value=processor.cohere_client)
+    mock_cohere = AsyncMock()
 
     # Mock Cohere response: one above cutoff, one below
     mock_result = MagicMock()
@@ -108,10 +107,11 @@ async def test_reranking_cutoff_filtering(mock_ctx):
         MagicMock(index=0, relevance_score=0.9),  # Above (0.5)
         MagicMock(index=1, relevance_score=0.3),  # Below (0.5)
     ]
-    processor.cohere_client.rerank.return_value = mock_result
+    mock_cohere.rerank.return_value = mock_result
 
-    async for _ in processor.process(mock_ctx):
-        pass
+    with patch("app.factories.rerank_factory.RerankProviderFactory.create_reranker", return_value=mock_cohere):
+        async for _ in processor.process(mock_ctx):
+            pass
 
     assert len(mock_ctx.retrieved_nodes) == 1
     assert mock_ctx.retrieved_nodes[0].node.text == "doc1"

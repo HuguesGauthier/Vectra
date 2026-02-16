@@ -39,16 +39,18 @@ class UnifiedQueryEngineFactory:
 
     def _determine_vector_provider(self, assistant: Any) -> str:
         """Helper to determine correct embedding provider from linked connectors."""
-        provider = "gemini"
+        # Use assistant's own provider as base instead of hardcoding "gemini"
+        provider = assistant.model_provider or "ollama"
         logger.debug(f"ROUTER_DEBUG | Inspecting Assistant {assistant.id} connectors...")
 
         if hasattr(assistant, "linked_connectors"):
             providers = set()
             for conn in assistant.linked_connectors:
                 # Configuration is a dict (jsonb)
-                curr_provider = "gemini"
+                # Fallback to the assistant level provider if connector doesn't specify
+                curr_provider = provider
                 if hasattr(conn, "configuration") and conn.configuration:
-                    curr_provider = conn.configuration.get("ai_provider", "gemini")
+                    curr_provider = conn.configuration.get("ai_provider", provider)
 
                 logger.debug(f"ROUTER_DEBUG | Connector {conn.id} ({conn.name}) | Provider: {curr_provider}")
                 providers.add(curr_provider)
@@ -57,6 +59,10 @@ class UnifiedQueryEngineFactory:
                 return "openai"
             elif "local" in providers:
                 return "local"
+            elif "gemini" in providers:
+                return "gemini"
+            elif "ollama" in providers:
+                return "ollama"
 
         return provider
 
@@ -167,7 +173,7 @@ class UnifiedQueryEngineFactory:
             )
 
             # Create Router LLM using Factory (P1 - DRY)
-            router_provider = assistant.model_provider or "gemini"
+            router_provider = assistant.model_provider or provider
             router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
 
             return RouterQueryEngine(

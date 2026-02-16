@@ -69,10 +69,12 @@ class VectorService:
         func_name = "VectorService.get_embedding_model"
 
         try:
-            # Resolve provider
+            # Resolve provider from Settings or fallback to system-wide default
             if not provider:
-                provider_val = await self.settings_service.get_value("embedding_provider")
-                provider = (provider_val or "gemini").lower().strip()
+                provider = await self.settings_service.get_value("embedding_provider")
+                if not provider:
+                    logger.warning("No embedding provider configured. Defaulting to 'ollama' for safety.")
+                    provider = "ollama"
 
             logger.info(f"START | {func_name} | Provider: {provider}")
 
@@ -257,13 +259,14 @@ class VectorService:
             # Default to 1024 for bge-m3, but this might vary by model (e.g. nomic is 768)
             # Ideally we'd check the model name, but for now we align with the default bge-m3.
             return 1024
-        return DEFAULT_EMBEDDING_DIM  # Gemini/Default
+        return 768  # Default (Gemini/Mistral/etc)
 
     async def get_collection_name(self, provider: Optional[str] = None) -> str:
         """Returns the collection name for a given provider."""
         if not provider:
-            provider_val = await self.settings_service.get_value("embedding_provider")
-            provider = (provider_val or "gemini").lower().strip()
+            provider = await self.settings_service.get_value("embedding_provider")
+            if not provider:
+                provider = "ollama"
 
         collection_map = {
             "openai": "openai_collection",
@@ -271,7 +274,7 @@ class VectorService:
             "ollama": "ollama_collection",
         }
 
-        return collection_map.get(provider, "gemini_collection")
+        return collection_map.get(provider, "ollama_collection")
 
     async def delete_connector_vectors(self, connector_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a connector."""
