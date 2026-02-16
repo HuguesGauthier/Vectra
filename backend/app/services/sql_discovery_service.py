@@ -95,18 +95,31 @@ class VannaQueryEngineWrapper:
                     if len(data_str) > 4000:
                         data_str = data_str[:4000] + "\n...(truncated)"
 
-                    prompt = (
-                        f"User Question: {query_str}\n\n"
-                        f"SQL Query: {sql}\n\n"
-                        f"Data Results:\n{data_str}\n\n"
-                        "Instructions:\n"
-                        "1. Answer the user's question explicitly based on the Data Results.\n"
-                        "2. If the answer is found, state it clearly.\n"
-                        "3. If the data results are not relevant or empty, say 'I found no matching data'.\n"
-                        "4. Do NOT simply repeat the question.\n"
-                        "5. Be concise."
-                    )
-                    logger.info("VANNA_QUERY | Synthesizing answer...")
+                    if is_french:
+                        prompt = (
+                            f"Question de l'utilisateur: {query_str}\n\n"
+                            f"Requête SQL: {sql}\n\n"
+                            f"Résultats des données:\n{data_str}\n\n"
+                            "Instructions:\n"
+                            "1. Répondez à la question de l'utilisateur de manière explicite en vous basant sur les Résultats des données.\n"
+                            "2. Si la réponse est trouvée, énoncez-la clairement.\n"
+                            "3. Si les résultats des données ne sont pas pertinents ou vides, dites 'Je n'ai trouvé aucune donnée correspondante'.\n"
+                            "4. Ne répétez pas simplement la question.\n"
+                            "5. Soyez concis."
+                        )
+                    else:
+                        prompt = (
+                            f"User Question: {query_str}\n\n"
+                            f"SQL Query: {sql}\n\n"
+                            f"Data Results:\n{data_str}\n\n"
+                            "Instructions:\n"
+                            "1. Answer the user's question explicitly based on the Data Results.\n"
+                            "2. If the answer is found, state it clearly.\n"
+                            "3. If the data results are not relevant or empty, say 'I found no matching data'.\n"
+                            "4. Do NOT simply repeat the question.\n"
+                            "5. Be concise."
+                        )
+                    logger.info(f"VANNA_QUERY | Synthesizing answer in {'French' if is_french else 'English'}...")
 
                     # Use Vanna's LLM to generate response
                     if hasattr(self.vanna.llm, "complete"):

@@ -42,7 +42,8 @@ class VectraCustomVanna(VannaBase):
         embedding_service=None,
         vector_service=None,
         connector_id=None,
-        collection_name=None,
+        collection_name: str = "vanna_rag",
+        language: str = "en",
     ):
         super().__init__(config=config)
         self.run_sql_is_set = True
@@ -50,7 +51,9 @@ class VectraCustomVanna(VannaBase):
         self.embedding_service = embedding_service
         self.vector_service = vector_service
         self.connector_id = str(connector_id) if connector_id else None
+        self.config = config
         self.collection_name = collection_name
+        self.language = language
 
     # --- Abstract Methods Implementation (Stubs/Retrieval) ---
     def add_ddl(self, ddl: str, **kwargs) -> str:
@@ -438,9 +441,17 @@ class VectraCustomVanna(VannaBase):
             "\n3. Existing columns (like 'AnneeVente') are used instead of calculating them if they satisfy the query."
         )
 
-        system_prompt = f"{dialect_instruction}\n\n{viz_instruction}\n{safety_instruction}\n{hallucination_instruction}\n{format_instruction}"
+        # 6. Language Enforcement
+        lang_name = "French" if self.language == "fr" else "English"
+        language_instruction = (
+            f"\nLANGUAGE INSTRUCTION:"
+            f"\n- You MUST respond in {lang_name}."
+            f"\n- Even if the schema or system rules are in English, the final explanation and conversation MUST be in {lang_name}."
+        )
+
+        system_prompt = f"{dialect_instruction}\n\n{viz_instruction}\n{safety_instruction}\n{hallucination_instruction}\n{language_instruction}\n{format_instruction}"
         logger.info(
-            f"VANNA_SYSTEM_PROMPT | Schema Config: {self.config.get('schema')} | Prompt Preview: {system_prompt[:200]}..."
+            f"VANNA_SYSTEM_PROMPT | Lang: {self.language} | Schema Config: {self.config.get('schema')} | Prompt Preview: {system_prompt[:200]}..."
         )
         return system_prompt
 
@@ -692,8 +703,10 @@ async def VannaServiceFactory(
     # 5.1 Pre-initialize Qdrant Client (Sync) for Vanna's sync methods
     await vector_service.get_qdrant_client()
 
-    # 6. Return Custom Vanna Instance with Collection Context
-    # 6. Return Custom Vanna Instance with Collection Context
+    # 6. Get App Language
+    language = await settings_service.get_value("app_language", "en")
+
+    # 7. Return Custom Vanna Instance with Collection Context
     return VectraCustomVanna(
         config=connector_config or {},
         llm=llm,
@@ -701,6 +714,7 @@ async def VannaServiceFactory(
         vector_service=vector_service,
         connector_id=connector_id,
         collection_name=collection_name,
+        language=language,
     )
 
 
