@@ -31,6 +31,19 @@ services:
               count: 1
               capabilities: [gpu]
 
+  vectra-frontend:
+    profiles: ["app"]
+    build: ./frontend
+    ports:
+      - "8080:80"
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    depends_on:
+      - vectra-api
+    networks:
+      - vectra
+
   vectra-worker:
     profiles: ["app"]
     build: ./backend
@@ -62,18 +75,6 @@ services:
               count: 1
               capabilities: [gpu]
 
-  vectra-frontend:
-    profiles: ["app"]
-    build: ./frontend
-    ports:
-      - "8080:80"
-    # volumes:
-    #   - ./frontend:/app
-    #   - /app/node_modules
-    depends_on:
-      - vectra-api
-    networks:
-      - vectra
 
   vectra-postgres:
     image: postgres:15
@@ -152,7 +153,7 @@ services:
     networks:
       - vectra
 
-  ollama:
+  vectra-ollama:
     image: ollama/ollama:latest
     container_name: vectra_ollama
     restart: always
@@ -161,6 +162,8 @@ services:
     volumes:
       - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
       - ./scripts/start_ollama.sh:/start_ollama.sh
+    environment:
+      - OLLAMA_KEEP_ALIVE=-1
     entrypoint: ["/bin/bash", "/start_ollama.sh"]
     deploy:
       resources:

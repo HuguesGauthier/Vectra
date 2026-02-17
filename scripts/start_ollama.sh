@@ -6,22 +6,29 @@
 # Record Process ID.
 pid=$!
 
-# Pause for Ollama to accept connections.
-sleep 5
+# Wait for Ollama to be ready
+echo "Waiting for Ollama service to start..."
+until ollama list > /dev/null 2>&1; do
+    sleep 1
+done
+echo "Ollama service is ready!"
 
-echo "🔴 Retrieving bge-m3 model..."
+echo "Retrieving model: bge-m3..."
 ollama pull bge-m3
-echo "🟢 Pulled!"
-echo "🔥 Pre-loading bge-m3..."
-ollama run bge-m3 "" > /dev/null
-echo "🟢 Done!"
+echo "Model bge-m3 pulled successfully."
 
-echo "🔴 Retrieving mistral model..."
+echo "Retrieving model: mistral..."
 ollama pull mistral
-echo "🟢 Pulled!"
-echo "🔥 Pre-loading mistral..."
-ollama run mistral "" > /dev/null
-echo "🟢 Done!"
+echo "Model mistral pulled successfully."
+
+echo "Pre-loading model: mistral..."
+ollama run mistral "say ok" > /dev/null
+echo "Model mistral pre-loaded."
+
+echo "Pre-loading model: bge-m3..."
+# For embedding models, we can use 'run' with a dummy input as well to force load into VRAM
+ollama run bge-m3 "warmup" > /dev/null
+echo "Model bge-m3 pre-loaded."
 
 # Wait for Ollama process to finish.
 wait $pid
