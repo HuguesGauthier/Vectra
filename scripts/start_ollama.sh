@@ -13,14 +13,14 @@ echo "🔴 Retrieving bge-m3 model..."
 ollama pull bge-m3
 echo "🟢 Pulled!"
 echo "🔥 Pre-loading bge-m3..."
-ollama run bge-m3 ""
+ollama run bge-m3 "" > /dev/null
 echo "🟢 Done!"
 
 echo "🔴 Retrieving mistral model..."
 ollama pull mistral
 echo "🟢 Pulled!"
 echo "🔥 Pre-loading mistral..."
-ollama run mistral ""
+ollama run mistral "" > /dev/null
 echo "🟢 Done!"
 
 # Wait for Ollama process to finish.

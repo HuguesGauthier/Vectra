@@ -1,10 +1,11 @@
 services:
   vectra-api:
+    profiles: ["app"]
     build: ./backend
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
+    # volumes:
+    #   - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra}
@@ -31,11 +32,12 @@ services:
               capabilities: [gpu]
 
   vectra-worker:
+    profiles: ["app"]
     build: ./backend
     # Override the default command to run the scheduler
     command: python scheduler.py
-    volumes:
-      - ./backend:/app
+    # volumes:
+    #   - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra}
@@ -61,12 +63,13 @@ services:
               capabilities: [gpu]
 
   vectra-frontend:
+    profiles: ["app"]
     build: ./frontend
     ports:
       - "8080:80"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+    # volumes:
+    #   - ./frontend:/app
+    #   - /app/node_modules
     depends_on:
       - vectra-api
     networks:

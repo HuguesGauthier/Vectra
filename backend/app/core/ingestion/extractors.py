@@ -13,6 +13,8 @@ from llama_index.core.program import LLMTextCompletionProgram
 from llama_index.core.schema import BaseNode, TransformComponent
 from pydantic import BaseModel, Field, ConfigDict
 
+from app.core.settings import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -142,9 +144,11 @@ class ComboMetadataExtractor(TransformComponent):
         [Async] Transform nodes by enriching with extracted metadata.
         Parallelized with Semaphore to respect rate limits.
         """
-        # P1: Parallelize using Semaphore to avoid sequential bottleneck
-        # Max 5 parallel extractions to respect LLM rate limits without being too slow
-        semaphore = asyncio.Semaphore(5)
+        # P0: Dynamic concurrency based on hardware
+        concurrency = settings.computed_extraction_concurrency
+        semaphore = asyncio.Semaphore(concurrency)
+
+        logger.info(f"✨ Starting metadata extraction for {len(nodes)} chunks | Concurrency: {concurrency}")
 
         async def _extract_single(i: int, node: BaseNode) -> BaseNode:
             async with semaphore:
@@ -157,8 +161,20 @@ class ComboMetadataExtractor(TransformComponent):
 
                     text_for_extraction = text_content[:2000]
 
-                    # LLM Call
-                    extracted_metadata = await self.extraction_program.acall(text_chunk=text_for_extraction)
+                    # Per-chunk progress (INFO level so user sees it)
+                    logger.info(f"🔍 Extracting metadata for chunk {i+1}/{len(nodes)} ({len(text_for_extraction)} chars)...")
+                    if i == 0 and settings.computed_local_workers == 0:
+                        logger.info(f"📝 Note: First chunk might be slow (Ollama loading '{self.extraction_model}' into VRAM...)")
+
+                    # LLM Call with timeout to prevent ingestion hang
+                    try:
+                        extracted_metadata = await asyncio.wait_for(
+                            self.extraction_program.acall(text_chunk=text_for_extraction),
+                            timeout=120.0  # Increased to 2m for low-end laptops
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(f"⌛ Extraction timed out for chunk {i} (2 min limit reached)")
+                        return node
 
                     if node.metadata is None:
                         node.metadata = {}
@@ -167,7 +183,7 @@ class ComboMetadataExtractor(TransformComponent):
                     node.metadata["extracted_summary"] = extracted_metadata.summary
                     node.metadata["extracted_questions"] = extracted_metadata.questions
 
-                    logger.debug(f"✅ Extracted metadata for chunk {i}: title='{extracted_metadata.title[:30]}...'")
+                    logger.info(f"✅ Chunk {i+1} complete: {extracted_metadata.title[:40]}...")
                     return node
 
                 except Exception as e:

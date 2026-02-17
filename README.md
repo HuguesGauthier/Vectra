@@ -102,6 +102,44 @@ docker-compose up -d
 
 Access the UI at: http://localhost:9000
 
+## Environments Setup
+
+Vectra supports multiple environments using Docker Compose profiles.
+
+### 🛠️ Hybrid Development (Recommended)
+
+This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docker and your **Application code** locally for better performance and debugging.
+
+1.  **Launch Infrastructure:**
+    ```bash
+    # Launches only the databases and infra services
+    docker compose up -d
+    ```
+2.  **Launch Backend:**
+    ```bash
+    cd backend
+    pip install -r requirements.txt
+    python main.py
+    ```
+3.  **Launch Frontend:**
+    ```bash
+    cd frontend
+    npm install
+    npm run dev
+    ```
+
+### 🚀 Production (Full Docker)
+
+This mode builds and runs everything inside optimized Docker containers. It doesn't rely on local code once built.
+
+```bash
+# Use --profile app to include the application services
+docker compose --profile app -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+- **Frontend:** http://localhost (Port 80)
+- **Backend API:** http://localhost:8000
+
 ## 📜 License
 
 Vectra is open-source software licensed under the **GNU AGPL v3**.

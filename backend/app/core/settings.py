@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     RERANKER_PROVIDER: Literal["cohere", "local"] = "cohere"
     LOCAL_RERANK_MODEL: str = "BAAI/bge-reranker-base"
 
+    # Hardware Tuning
+    INGESTION_LOCAL_WORKERS: Optional[int] = None  # Override for local worker count
+
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"
     FIRST_SUPERUSER_PASSWORD: Optional[str] = None
@@ -141,6 +144,15 @@ class Settings(BaseSettings):
             logger.info(f"🔧 Config: QDRANT_API_KEY loaded (length: {len(v)})")
         else:
             logger.warning("⚠️  Config: QDRANT_API_KEY is empty or not set!")
+        return v
+
+    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL")
+    @classmethod
+    def fix_ollama_host_for_windows(cls, v: str) -> str:
+        """Fix Windows/Docker localhost issues for Ollama."""
+        if sys.platform == "win32" and "localhost" in v:
+            logger.info(f"🔧 Config: Replacing 'localhost' with '127.0.0.1' in {v} for Windows compatibility.")
+            return v.replace("localhost", "127.0.0.1")
         return v
 
     @model_validator(mode="after")
@@ -233,6 +245,61 @@ class Settings(BaseSettings):
             raise ValueError("EMBEDDING_PROVIDER 'ollama' requires OLLAMA_BASE_URL")
 
         return self
+
+    @property
+    def computed_local_workers(self) -> int:
+        """
+        Dynamically determine the number of workers for local embedding/extraction
+        based on available hardware (VRAM).
+        """
+        if self.INGESTION_LOCAL_WORKERS is not None:
+            return self.INGESTION_LOCAL_WORKERS
+
+        # Hardware Detection (NVIDIA)
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            vram_mb = int(result.stdout.strip().split("\n")[0])
+            vram_gb = vram_mb / 1024
+
+            if vram_gb < 6:
+                # P0: For very low VRAM on Windows, stay synchronous (0 workers)
+                # to avoid multiprocessing overhead and memory pressure.
+                workers = 0 if sys.platform == "win32" else 1
+            elif vram_gb < 12:
+                workers = 4  # Balanced (RTX 4060)
+            else:
+                workers = 8  # Performance (RTX 4070+)
+
+            logger.info(f"⚡ Hardware Detection: Detected {vram_gb:.1f} GB VRAM -> Using {workers} workers")
+            return workers
+        except Exception as e:
+            logger.debug(f"Hardware detection failed or no GPU found: {e}. Defaulting to 1 worker.")
+            return 1
+
+    @property
+    def computed_extraction_concurrency(self) -> int:
+        """
+        Dynamically determine how many parallel LLM extraction calls to allow.
+        """
+        # Hardware-aware concurrency
+        try:
+            workers = self.computed_local_workers
+            if workers == 0:
+                return 1  # Ultra-safe
+            if workers == 1:
+                return 1  # Safe
+            if workers <= 4:
+                return 2  # Balanced
+            return 5  # Performance
+        except:
+            return 1
 
 
 # --- Thread-Safe Lazy Singleton ---

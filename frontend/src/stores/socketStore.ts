@@ -3,7 +3,7 @@ import { useConnectorStore } from './ConnectorStore';
 import { useConnectorDocumentStore } from './ConnectorDocumentStore';
 import { useDashboardStore } from './dashboardStore';
 import { useAdvancedAnalyticsStore } from './advancedAnalyticsStore';
-import type { ConnectorStatus } from '../models/enums';
+import type { ConnectorStatus, DocStatus } from '../models/enums';
 
 import type { Connector } from '../models/Connector';
 
@@ -28,8 +28,12 @@ interface ConnectorProgressMsg {
 interface DocUpdateMsg {
   type: 'DOC_UPDATE';
   id: string;
-  status: string;
+  status: DocStatus;
   details?: string;
+  doc_token_count?: number;
+  vector_point_count?: number;
+  updated_at?: string;
+  last_vectorized_at?: string;
 }
 
 interface WorkerStatusMsg {
@@ -260,16 +264,28 @@ export const useSocketStore = defineStore('socket', {
 
         case 'DOC_UPDATE':
           {
-            const detail = payload as { id: string; status: string };
+            const msg: DocUpdateMsg = payload;
+            const docStore = useConnectorDocumentStore();
+
+            // 1. Dispatch event for legacy component listeners
             window.dispatchEvent(new CustomEvent('doc-update', { detail: payload }));
 
-            // Update processing state for global progress bar
-            if (detail.status === 'processing') {
-              connectorStore.setDocProcessing(detail.id, true);
-            } else if (
-              ['indexed', 'failed', 'stopped', 'skipped', 'paused'].includes(detail.status)
-            ) {
-              connectorStore.setDocProcessing(detail.id, false);
+            // 2. Direct Store Update (More reliable)
+            docStore.updateDocumentStatus(
+              msg.id,
+              msg.status,
+              msg.doc_token_count,
+              msg.vector_point_count,
+              msg.updated_at,
+              msg.details,
+              msg.last_vectorized_at,
+            );
+
+            // 3. Update processing state for global progress bar
+            if (msg.status === 'processing') {
+              connectorStore.setDocProcessing(msg.id, true);
+            } else if (['indexed', 'failed', 'stopped', 'skipped', 'paused'].includes(msg.status)) {
+              connectorStore.setDocProcessing(msg.id, false);
             }
           }
           break;

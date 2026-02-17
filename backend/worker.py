@@ -303,8 +303,15 @@ if __name__ == "__main__":
 
             settings_service = SettingsService(db)
             await settings_service.load_cache()
+            
+            # Explicit hardware log for user transparency
+            worker_count = settings.computed_local_workers
+            logger.info("=" * 50)
+            logger.info(f"🚀 VECTRA WORKER STARTING | Hardware-Aware Mode")
+            logger.info(f"⚡ Parallelism: {worker_count} local worker(s) configured")
+            logger.info("=" * 50)
+
             logger.info("Settings cache loaded in worker.")
-            logger.info(f"DEBUG: Worker started with Secret: '{settings.WORKER_SECRET}'")
 
             # Initialize Phoenix for Worker Traceability (Deep Tracing)
             if settings.ENABLE_PHOENIX_TRACING:

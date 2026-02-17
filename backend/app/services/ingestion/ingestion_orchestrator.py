@@ -221,6 +221,17 @@ class IngestionOrchestrator:
             vector_store = QdrantVectorStore(client=client, aclient=aclient, collection_name=collection)
 
             workers = 5
+            is_local = provider in ["local", "ollama"]
+            if settings.ENABLE_PHOENIX_TRACING:
+                workers = 0
+                logger.debug("🕊️ Phoenix Tracing Enabled: Forcing synchronous execution (workers=0)")
+            elif is_local:
+                workers = settings.computed_local_workers
+            else:
+                # Remote APIs: Overhead of spawning 15 workers outweighs gain for small batches on Windows
+                workers = min(4, multiprocessing.cpu_count())
+
+            logger.info(f"⚡ Performance Mode: Using {workers} workers (provider={provider})")
             batch_size = 50 if provider != "local" else 5
 
             # Use threading for embeddings
@@ -478,28 +489,8 @@ class IngestionOrchestrator:
 
         # 2. EXECUTION PHASE (Pipeline)
         try:
-            # P0: Determine Optimized Worker Count
-            if settings.ENABLE_PHOENIX_TRACING:
-                workers = 0
-                logger.debug("🕊️ Phoenix Tracing Enabled: Forcing synchronous execution (workers=0)")
-            else:
-                # Heuristic: Cap workers for API-based embedding (Gemini/OpenAI)
-                # to avoid massive pickling overhead on Windows.
-                is_local = False
-                if pipeline.transformations:
-                    # Check if any transformation is a local model (heuristic)
-                    last_t_name = type(pipeline.transformations[-1]).__name__
-                    if "HuggingFace" in last_t_name:
-                        is_local = True
-
-                cpu_count = multiprocessing.cpu_count()
-                if not is_local:
-                    # Remote APIs: Overhead of spawning 15 workers outweighs gain for small batches
-                    workers = min(4, cpu_count)
-                else:
-                    workers = max(1, int(cpu_count * 0.75))
-
-                logger.debug(f"⚡ Performance Mode: Using {workers} workers (is_local={is_local})")
+            # Use the workers value passed from setup_pipeline (P0 Dynamic scaling fix)
+            workers = num_workers
 
             logger.info(
                 f"🚀 Running batch ingestion pipeline for {len(all_llama_documents)} segments from {len(valid_docs)} file(s)..."
@@ -509,6 +500,7 @@ class IngestionOrchestrator:
             for doc in valid_docs:
                 await manager.emit_document_update(str(doc.id), DocStatus.PROCESSING, "Embedding and indexing...")
 
+            logger.info(f"⏳ Executing pipeline with {workers} workers...")
             nodes = await pipeline.arun(documents=all_llama_documents, num_workers=workers, show_progress=False)
 
             # 3. FINALIZATION PHASE (Cleanup & Updates)
@@ -788,13 +780,9 @@ class IngestionOrchestrator:
             if doc:
                 try:
                     await self.doc_repo.update(doc.id, {"status": DocStatus.FAILED, "error_message": str(e)})
-                except:
-                    pass
-            if doc:
-                try:
-                    await self.doc_repo.update(doc.id, {"status": DocStatus.FAILED, "error_message": str(e)})
-                except:
-                    pass
+                    await manager.emit_document_update(str(doc.id), DocStatus.FAILED, f"Error: {str(e)}")
+                except Exception as ex:
+                    logger.warning(f"Failed to record failure for {doc_id}: {ex}")
             raise e
 
     # --- SQL SPECIALIZED INGESTION ---

@@ -199,6 +199,8 @@ class IngestionService:
 
                 # Finalize
                 await self.state_service.finalize_connector(connector.id)
+                # Ensure UI is updated for the document specifically
+                await self.state_service.update_document_status(doc.id, DocStatus.INDEXED, "Schema Vectorized")
                 elapsed_ms = round((asyncio.get_event_loop().time() - start_time) * 1000, 2)
                 logger.info(f"SUCCESS | SQL View {document_id} | {elapsed_ms}ms")
                 return
@@ -231,12 +233,13 @@ class IngestionService:
 
             # Ingest with transaction boundary
             connector_acl = connector.configuration.get("connector_acl", [])
+            doc_id = doc.id
 
             try:
                 await self.db.begin_nested()  # Savepoint
 
                 if doc.file_path.lower().endswith(".csv"):
-                    await orchestrator.ingest_csv_document(doc.id)
+                    await orchestrator.ingest_csv_document(doc_id)
                 else:
                     await orchestrator.ingest_files(
                         file_paths=[(full_path, doc.file_path)],
@@ -259,11 +262,13 @@ class IngestionService:
             except Exception as e:
                 await self.db.rollback()
                 # Cleanup orphaned vectors
-                await self.delete_document_vectors(doc.id)
+                await self.delete_document_vectors(doc_id)
                 raise
 
             # Finalize
             await self.state_service.finalize_connector(connector.id)
+            # FORCE EMIT of Indexed status after commit to clear UI progress bars
+            await self.state_service.update_document_status(doc_id, DocStatus.INDEXED, "Indexing Complete")
             elapsed_ms = round((asyncio.get_event_loop().time() - start_time) * 1000, 2)
             logger.info(f"SUCCESS | Document {document_id} | {elapsed_ms}ms")
 
