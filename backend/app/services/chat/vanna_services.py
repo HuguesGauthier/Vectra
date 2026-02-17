@@ -306,7 +306,7 @@ class VectraCustomVanna(VannaBase):
         user = params.get("user") or settings.DB_USER
         password = params.get("password") or settings.DB_PASSWORD
         database = params.get("database") or settings.DB_NAME
-        driver = params.get("driver", "ODBC Driver 17 for SQL Server")
+        driver = params.get("driver", "ODBC Driver 18 for SQL Server")
 
         # Helper to construct SQLAlchemy URL
         # We use mssql+pyodbc for SQL Server
@@ -319,7 +319,7 @@ class VectraCustomVanna(VannaBase):
             )
         else:
             # Fallback for others (Postgres/MySQL not fully implemented here yet, but structure allows it)
-            connection_url = f"mssql+pyodbc://{user}:{password}@{host}/{database}?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes"
+            connection_url = f"mssql+pyodbc://{user}:{password}@{host}/{database}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
 
         try:
             # Mask password for logging
@@ -354,12 +354,13 @@ class VectraCustomVanna(VannaBase):
                 "\n   - Last 3 years: YearColumn >= YEAR(GETDATE()) - 3"
                 "\n   - Recent dates: DateColumn >= DATEADD(day, -30, GETDATE())"
                 "\n   - DO NOT use complex math like DATEADD(year, -DATEPART(yyyy, GETDATE()), ...) as it causes overflows."
-                "\n3. CRITICAL: Do NOT use aliases in WHERE, GROUP BY, HAVING or ORDER BY clauses. You MUST repeat the full expression."
-                "\n   - WRONG: SELECT DATEPART(yy, Date) as Year ... WHERE Year = 2024 GROUP BY Year"
-                "\n   - RIGHT: SELECT DATEPART(yy, Date) as Year ... WHERE DATEPART(yy, Date) = 2024 GROUP BY DATEPART(yy, Date)"
+                "\n3. CRITICAL: SQL SERVER STRICT RULE: you CANNOT use column aliases in the WHERE, GROUP BY, HAVING, or ORDER BY clauses."
+                "\n   - WRONG: SELECT DATEPART(yyyy, Date) as GrpYear ... GROUP BY GrpYear"
+                "\n   - RIGHT: SELECT DATEPART(yyyy, Date) as GrpYear ... GROUP BY DATEPART(yyyy, Date)"
+                "\n   - EXCEPTION: If the table has a real column named 'Year' or 'Annee', use that column name directly."
                 "\n4. Avoid quoting column names unless they contain special characters."
                 "\n5. Use 'TOP 1000' if no specific limit is requested to prevent massive results."
-                "\n6. PREFER existing columns: If 'AnneeVente' exists, use it instead of DATEPART(year, DateVente)."
+                "\n6. PREFER existing columns: Check if a pre-calculated column exists (e.g. 'AnneeVente') before using functions like DATEPART."
             )
 
         elif db_type in ["postgres", "postgresql"]:
@@ -608,7 +609,8 @@ class VectraCustomVanna(VannaBase):
                     if "Invalid column name" in last_error and db_type in ["mssql", "sqlserver", "sql-server"]:
                         correction_prompt += (
                             "CRITICAL: SQL Server does NOT allow aliases in WHERE, GROUP BY, or HAVING. "
-                            "You must repeat the full expression or use an existing column from the DDL. "
+                            "You likely used an alias like 'Year' in the GROUP BY clause. "
+                            "FIX: Replace the alias in GROUP BY with the full expression (e.g. GROUP BY DATEPART(yy, DateColumn)). "
                         )
 
                     if "overflow" in last_error or "22007" in last_error:

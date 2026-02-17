@@ -6,6 +6,7 @@ import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
 import localLogo from 'src/assets/local_logo.svg';
 import cohereLogo from 'src/assets/cohere.png';
+import mistralLogo from 'src/assets/m-rainbow.svg';
 import type { ProviderOption } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
@@ -60,6 +61,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'gemini') logo = geminiLogo;
         if (p.id === 'openai') logo = openaiLogo;
         if (p.id === 'ollama') logo = localLogo; // Reuse local logo for Ollama
+        if (p.id === 'mistral') logo = mistralLogo;
 
         // Custom Description based on model name in settings (Hybrid approach)
         let description = ''; // Only show model info if configured, otherwise empty (tagline handles base desc)
@@ -103,7 +105,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         let logo = localLogo;
         if (p.id === 'gemini') logo = geminiLogo;
         if (p.id === 'openai') logo = openaiLogo;
-        if (p.id === 'mistral') logo = localLogo; // Mistral AI (Cloud) - maybe need a logo? Use local for now or generic?
+        if (p.id === 'mistral') logo = mistralLogo;
         if (p.id === 'ollama') logo = localLogo;
 
         // Custom Description

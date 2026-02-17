@@ -64,7 +64,7 @@ class VannaQueryEngineWrapper:
             "database": self.config.get("database"),
             "user": self.config.get("user"),
             "password": self.config.get("password"),
-            "driver": self.config.get("driver", "{ODBC Driver 17 for SQL Server}"),
+            "driver": self.config.get("driver", "{ODBC Driver 18 for SQL Server}"),
         }
 
         logger.info(f"VANNA_QUERY | Submitting question: {query_str}")
@@ -141,11 +141,15 @@ class VannaQueryEngineWrapper:
                     else "I ran the SQL query but it returned no results."
                 )
             else:
-                response_text = (
-                    "J'ai généré le SQL mais j'ai rencontré une erreur d'exécution."
-                    if is_french
-                    else "I generated the SQL but encountered an execution error."
-                )
+                # P0 FIX: Return the actual error message from Vanna if available
+                if result.get("text"):
+                    response_text = result["text"]
+                else:
+                    response_text = (
+                        "J'ai généré le SQL mais j'ai rencontré une erreur d'exécution."
+                        if is_french
+                        else "I generated the SQL but encountered an execution error."
+                    )
 
             # Metadata for Agentic Processor (Visualization)
             metadata = {}
