@@ -111,8 +111,8 @@ class EmbeddingProviderFactory:
         except ImportError:
             raise ExternalDependencyError("Ollama provider requires `llama-index-embeddings-ollama`")
 
-        base_url = await settings_service.get_value("ollama_base_url") or "http://localhost:11434"
-        model_name = await settings_service.get_value("ollama_embedding_model") or "bge-m3"
+        base_url = await settings_service.get_value("ollama_base_url")
+        model_name = await settings_service.get_value("ollama_embedding_model")
 
         logger.info(f"🔹 Creating Ollama Embedding | URL: {base_url} | Model: {model_name} | Batch: {batch_size}")
 

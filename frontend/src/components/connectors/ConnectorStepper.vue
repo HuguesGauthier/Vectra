@@ -115,7 +115,7 @@
             </q-step>
           </q-stepper>
 
-           <!-- Advanced Settings Dialog -->
+          <!-- Advanced Settings Dialog -->
           <AdvancedIndexingSettings
             v-model:isOpen="showAdvancedSettings"
             :chunk-size="connectorData.configuration?.chunk_size"
@@ -226,22 +226,12 @@
             class="q-mr-sm"
             @click="activeForm.onTestConnection?.()"
           />
-          
+
           <template v-if="isEdit">
-             <q-btn
-                :label="$t('cancel')"
-                flat
-                color="grey-5"
-                @click="handleClose"
-              />
-              <q-btn
-                color="accent"
-                :label="$t('save')"
-                :loading="loading"
-                @click="handleSave"
-              />
+            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
+            <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
           </template>
-          
+
           <q-btn
             color="accent"
             :label="$t('next')"
@@ -251,20 +241,10 @@
           />
         </div>
         <div v-else class="row items-center q-gutter-sm">
-           <template v-if="isEdit">
-             <q-btn
-                :label="$t('cancel')"
-                flat
-                color="grey-5"
-                @click="handleClose"
-              />
+          <template v-if="isEdit">
+            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
           </template>
-           <q-btn
-            color="accent"
-            :label="$t('save')"
-            :loading="loading"
-            @click="handleSave"
-          />
+          <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
         </div>
       </div>
     </q-card>
@@ -490,7 +470,7 @@ const initialStateJSON = ref('');
 
 function hasUnsavedChanges(): boolean {
   // If not edit mode and step > 1, assume likely changes if user entered data
-  // But strict comparison is better. 
+  // But strict comparison is better.
   // For create mode, we can stick to step > 1 check OR compare with empty default.
   // Let's rely on JSON comparison even for create if we captured "empty" state.
   // Although simplify: Edit mode -> compare JSON. Create mode -> step > 1.
@@ -524,7 +504,7 @@ function handleClose() {
     });
     return;
   }
-  
+
   // No changes or safe to close
   isOpen.value = false;
 }
@@ -588,7 +568,16 @@ function createValue(val: string, done: (item: string, mode: 'add' | 'toggle') =
   }
 }
 
-function handleSave() {
+async function handleSave() {
+  // Ensure we submit the currently active form if we are on step 2
+  // This is critical for edits where the user clicks "Save" directly from the config step
+  if (step.value === 2 && activeForm.value) {
+    if (typeof activeForm.value.submit === 'function') {
+      const success = await activeForm.value.submit();
+      if (!success) return;
+    }
+  }
+
   // Ensure provider
   if (!connectorData.value.configuration) connectorData.value.configuration = {};
   connectorData.value.configuration.ai_provider = selectedProvider.value;
@@ -633,10 +622,7 @@ async function loadSettings() {
   }
 }
 
-function handleAdvancedSettingsUpdate(payload: {
-  chunkSize: number;
-  chunkOverlap: number;
-}) {
+function handleAdvancedSettingsUpdate(payload: { chunkSize: number; chunkOverlap: number }) {
   if (!connectorData.value.configuration) {
     connectorData.value.configuration = {};
   }

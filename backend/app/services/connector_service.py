@@ -432,10 +432,10 @@ class ConnectorService:
             return ConnectorResponse.model_validate(fresh)
 
         except Exception as e:
-            if isinstance(e, (EntityNotFound, FunctionalError)):
+            if isinstance(e, (EntityNotFound, FunctionalError, TechnicalError)):
                 raise
             logger.error(f"Manual scan failed: {e}", exc_info=True)
-            raise TechnicalError("Scan failed", error_code="SCAN_ERROR")
+            raise TechnicalError(f"Scan failed: {e}", error_code="SCAN_ERROR")
 
     async def train_vanna(
         self,

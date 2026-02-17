@@ -87,15 +87,17 @@ export default boot(({ app, router }) => {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
 
-      // 1. Authentication (401) - Special case, still functional but redirection needed
-      if (status === 401) {
-        console.warn('[Axios] 401 Unauthorized - Logging out');
+      // 1. Authentication (401) or Forbidden (403)
+      if (status === 401 || status === 403) {
+        console.warn(`[Axios] ${status} Error - Handling session failure`);
         console.warn('Failed Request:', config.url);
 
         const authStore = useAuthStore();
         authStore.logout();
 
-        if (router.currentRoute.value.path !== '/login') {
+        // Only redirect to login if the current route explicitly requires authentication
+        const requiresAuth = router.currentRoute.value.meta.requiresAuth;
+        if (requiresAuth && router.currentRoute.value.path !== '/login') {
           void router.push('/login');
         }
       }

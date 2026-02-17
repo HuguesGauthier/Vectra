@@ -16,7 +16,7 @@ from app.services.settings_service import SettingsService, get_settings_service
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_MODEL_NAME = "models/gemini-embedding-001"
+DEFAULT_MODEL_NAME = "bge-m3"
 DEFAULT_EMBEDDING_DIM = 768
 
 # TypeVars for clear generics
@@ -340,7 +340,7 @@ class VectorService:
         from app.schemas.ingestion import IndexingStrategy
 
         indexing_strategy = kwargs.pop("indexing_strategy", None)
-        llm = kwargs.pop("llm", None)  # Caller must provide LLM for AutoRetriever logic
+        llm = kwargs.get("llm")  # Caller must provide LLM for AutoRetriever logic
 
         if indexing_strategy:
             # Lazy import to avoid circular dep

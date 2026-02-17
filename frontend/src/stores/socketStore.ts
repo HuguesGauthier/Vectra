@@ -132,7 +132,7 @@ export const useSocketStore = defineStore('socket', {
     isWorkerOnline: false,
     storageStatus: 'online' as 'online' | 'offline',
     socket: null as WebSocket | null,
-    reconnectInterval: 1000,
+    reconnectInterval: 500,
   }),
 
   actions: {
@@ -160,10 +160,8 @@ export const useSocketStore = defineStore('socket', {
       }
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname;
-      // Use port 8000 for backend if dev, or relative if proxied.
-      const port = '8000';
-      const wsUrl = `${protocol}//${host}:${port}/api/v1/ws`;
+      const host = window.location.host; // includes port if not 80/443
+      const wsUrl = `${protocol}//${host}/api/v1/ws`;
 
       this.socket = new WebSocket(wsUrl);
 

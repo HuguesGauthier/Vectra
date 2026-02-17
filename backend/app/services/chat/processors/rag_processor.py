@@ -148,11 +148,27 @@ class RAGGenerationProcessor(BaseChatProcessor):
                             yield json.dumps({"type": "token", "content": token, "text": token}, default=str) + "\n"
 
                 elif event.type == KEY_ERROR:
-                    yield json.dumps({"type": KEY_ERROR, "message": str(event.payload)}, default=str) + "\n"
+                    msg = str(event.payload)
+                    logger.error(f"Synthesis failed: {msg}")
+
+                    # P0: Friendly translation for connectivity issues
+                    if "ConnectError" in msg or "Connection refused" in msg or "11434" in msg:
+                        msg = "Failed to connect to Ollama. Ensure the service is running and accessible."
+
+                    yield json.dumps({"type": KEY_ERROR, "message": msg}, default=str) + "\n"
 
         except asyncio.TimeoutError:
             logger.error(f"Synthesis Phase Timeout ({TIMEOUT_SYNTHESIS}s)")
-            yield json.dumps({"type": KEY_ERROR, "message": "Generation timed out."}, default=str) + "\n"
+            yield json.dumps(
+                {
+                    "type": KEY_ERROR,
+                    "message": "Generation timed out. Ollama might be overloaded or model is too large.",
+                },
+                default=str,
+            ) + "\n"
+        except Exception as e:
+            logger.error(f"Unexpected Synthesis Exception: {e}", exc_info=True)
+            yield json.dumps({"type": KEY_ERROR, "message": f"Synthesis Error: {str(e)}"}, default=str) + "\n"
 
     async def _process_and_yield_sources(self, rag_ctx: PipelineContext, ctx: ChatContext) -> bool:
         ctx.retrieved_sources = await SourceService.process_sources(rag_ctx.retrieved_nodes, ctx.db)

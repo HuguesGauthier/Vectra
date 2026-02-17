@@ -22,6 +22,11 @@ def validate_data_mount() -> None:
     if not settings.VECTRA_DATA_PATH:
         return
 
+    # In development mode outside of Docker (e.g. Windows), /data doesn't exist.
+    # We skip validation and assume it's OK because paths are accessed directly.
+    if not os.path.exists("/.dockerenv") and settings.ENV == "development":
+        return
+
     global _storage_status
     try:
         data_path = "/data"

@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
                 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
                 logger.info("🕊️ Launching Arize Phoenix (via OpenInference)...")
-                endpoint = "http://localhost:6006/v1/traces"
+                endpoint = getattr(settings, "PHOENIX_ENDPOINT", "http://localhost:6006/v1/traces")
 
                 tracer_provider = TracerProvider()
                 span_exporter = OTLPSpanExporter(endpoint=endpoint)

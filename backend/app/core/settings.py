@@ -118,8 +118,8 @@ class Settings(BaseSettings):
         """
         return (
             init_settings,
-            dotenv_settings,  # High priority to prevent Windows env leak
-            env_settings,  # Fallback for Docker/Linux where .env is ignored
+            env_settings,  # Standard: Environment variables override .env
+            dotenv_settings,
             file_secret_settings,
         )
 

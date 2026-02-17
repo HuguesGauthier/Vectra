@@ -73,7 +73,11 @@ def translate_host_path(path: str) -> str:
     Translates a host Windows path to a container Linux path based on VECTRA_DATA_PATH.
     Example: D:/Docs/RH -> /data/docs/RH (if VECTRA_DATA_PATH=D:/Docs)
     """
+    import sys
     from app.core.settings import settings
+
+    if sys.platform == "win32":
+        return path
 
     if not path or not settings.VECTRA_DATA_PATH:
         return path

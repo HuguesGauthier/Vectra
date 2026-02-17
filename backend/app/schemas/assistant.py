@@ -28,7 +28,7 @@ class AIModel(StrEnum):
 
 # --- Configuration Constants ---
 DEFAULT_INSTRUCTIONS = "You are a helpful assistant."
-DEFAULT_MODEL = AIModel.GPT_4O
+DEFAULT_MODEL = AIModel.OLLAMA
 DEFAULT_AVATAR_COLOR = "primary"
 DEFAULT_AVATAR_TEXT_COLOR = "white"
 DEFAULT_TOP_K = 25

@@ -108,6 +108,7 @@ class ScannerService:
 
             # 3. Walk directory
             found_files = await self._run_blocking_io(self._walk_directory_sync, base_path, recursive)
+            logger.info(f"SCAN | Found {len(found_files)} candidates in {base_path}")
 
             stats = {"added": 0, "updated": 0, "ignored": 0, "deleted": 0}
             last_ws_update = time.time()
