@@ -3,6 +3,27 @@
     <CustomTitleBar />
     <q-layout view="lHh LpR lFf" container class="col">
       <q-header class="bg-secondary" style="color: var(--q-icon-color)">
+        <!-- Storage Warning Banner -->
+        <q-banner
+          v-if="socketStore.storageStatus === 'offline' && authStore.isAdmin"
+          dense
+          inline-actions
+          class="bg-orange-9 text-white q-py-xs"
+        >
+          <template v-slot:avatar>
+            <q-icon name="storage" />
+          </template>
+          <div class="row items-center">
+            <span class="text-weight-bold q-mr-sm">🚨 {{ $t('storageOfflineTitle') }}</span>
+            <span class="text-caption text-italic">
+              {{ $t('storageOfflineDesc') }}
+            </span>
+          </div>
+          <template v-slot:action>
+            <q-btn flat color="white" label="FIX" @click="showFixStorageDialog = true" />
+          </template>
+        </q-banner>
+
         <q-toolbar style="border-bottom: 1px solid var(--q-third); position: relative">
           <!-- Back Button for Connector Documents -->
           <q-btn
@@ -208,6 +229,13 @@
                 <q-icon v-else name="account_circle" size="32px" color="white" />
               </template>
               <div v-if="authStore.isAuthenticated" class="status-badge bg-positive"></div>
+              <!-- Storage Health Dot (Admins Only) -->
+              <div
+                v-if="authStore.isAdmin && socketStore.storageStatus === 'offline'"
+                class="storage-badge bg-negative"
+              >
+                <q-tooltip> {{ $t('storage') }}: {{ $t('statusOffline') }} </q-tooltip>
+              </div>
             </q-avatar>
             <div class="column col">
               <div class="text-white text-weight-bold text-caption ellipsis">
@@ -318,6 +346,44 @@
       <q-page-container class="bg-primary column">
         <router-view />
       </q-page-container>
+
+      <!-- Storage Fix Dialog -->
+      <q-dialog v-model="showFixStorageDialog">
+        <q-card style="min-width: 400px; background: var(--q-secondary); color: white">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6">{{ $t('storageFixTitle') }}</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+
+          <q-card-section class="q-pa-md">
+            <div class="column q-gutter-md">
+              <div class="text-subtitle2">{{ $t('storageFixPathLabel') }}</div>
+              <code class="bg-black q-pa-sm borderRadius-8" style="font-family: monospace">
+                d:\Vectra\.env
+              </code>
+
+              <div class="text-body2 q-mt-md">
+                <div class="q-mb-xs">{{ $t('storageFixStep1') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep2') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep3') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep4') }}</div>
+              </div>
+
+              <q-banner dense class="bg-grey-9 text-grey-4 text-caption borderRadius-4 q-mt-sm">
+                <template v-slot:avatar>
+                  <q-icon name="info" size="xs" />
+                </template>
+                docker compose --profile app up -d --build
+              </q-banner>
+            </div>
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat label="OK" color="primary" v-close-popup />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </q-layout>
   </div>
 </template>
@@ -348,8 +414,9 @@ const { locale, t } = useI18n({ useScope: 'global' });
 const { themePreference, setParams } = useTheme();
 
 // --- STATE ---
-const leftDrawerOpen = ref(true);
+const leftDrawerOpen = ref(false);
 const rightDrawerOpen = ref(false);
+const showFixStorageDialog = ref(false);
 const rightDrawerTab = ref('notifications'); // 'notifications' | 'debug'
 const notificationStore = useNotificationStore();
 const authStore = useAuthStore();
@@ -547,6 +614,15 @@ function handleDocUpdate(event: Event) {
   position: absolute;
   bottom: -2px;
   right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--q-secondary); /* Match background */
+}
+.storage-badge {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
   width: 10px;
   height: 10px;
   border-radius: 50%;

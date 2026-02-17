@@ -34,7 +34,7 @@ from app.core.settings import settings
 from app.models.error_log import ErrorLog
 from app.services.settings_service import SettingsService
 from app.workers.scheduler_service import scheduler_service
-from app.core.utils.storage import validate_data_mount
+from app.core.utils.storage import validate_data_mount, get_storage_status
 
 # Configure logging
 setup_logging(settings.LOG_LEVEL)
@@ -314,10 +314,11 @@ async def root() -> Dict[str, str]:
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
     """
-    Checks the health of the API and the background worker.
+    Checks the health of the API, the background worker, and the storage mount.
 
     Returns:
-        A dictionary with API and worker status.
+        A dictionary with API, worker, and storage status.
     """
     worker_status = "online" if manager.is_worker_online else "offline"
-    return {"api": "online", "worker": worker_status}
+    storage_status = "online" if get_storage_status() else "offline"
+    return {"api": "online", "worker": worker_status, "storage": storage_status}

@@ -86,6 +86,7 @@ interface DashboardStatsMsg {
       active_pipelines: number;
       total_connectors: number;
       system_status: 'ok' | 'error';
+      storage_status: 'online' | 'offline';
       last_sync_time: string | null;
     };
     vectorize: {
@@ -129,6 +130,7 @@ export const useSocketStore = defineStore('socket', {
   state: () => ({
     isConnected: false,
     isWorkerOnline: false,
+    storageStatus: 'online' as 'online' | 'offline',
     socket: null as WebSocket | null,
     reconnectInterval: 1000,
   }),
@@ -302,6 +304,11 @@ export const useSocketStore = defineStore('socket', {
           {
             const dashboardStore = useDashboardStore();
             dashboardStore.updateStats(payload.data);
+
+            // Update storage status also
+            if (payload.data.connect.storage_status) {
+              this.storageStatus = payload.data.connect.storage_status;
+            }
           }
           break;
 

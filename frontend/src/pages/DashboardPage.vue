@@ -36,6 +36,14 @@
                 ></div>
                 <div class="text-caption text-weight-medium">Worker</div>
               </div>
+
+              <div class="status-badge bg-secondary row items-center q-px-md q-py-xs">
+                <div
+                  class="live-dot q-mr-sm"
+                  :class="storageStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
+                ></div>
+                <div class="text-caption text-weight-medium">{{ $t('storage') }}</div>
+              </div>
             </template>
 
             <!-- Last Update Badge -->
@@ -289,6 +297,7 @@ const authStore = useAuthStore();
 // --- HEARTBEAT COMPUTED ---
 const apiStatus = computed(() => (socketStore.isConnected ? 'online' : 'offline'));
 const workerStatus = computed(() => (socketStore.isWorkerOnline ? 'online' : 'offline'));
+const storageStatus = computed(() => socketStore.storageStatus);
 const apiLatency = computed(() => (socketStore.isConnected ? t('connected') : '--'));
 
 onMounted(() => {

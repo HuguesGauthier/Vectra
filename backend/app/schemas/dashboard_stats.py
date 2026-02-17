@@ -20,6 +20,9 @@ class ConnectStats(BaseModel):
     system_status: Literal["ok", "error"] = Field(
         default="ok", description="Overall system health based on error presence"
     )
+    storage_status: Literal["online", "offline"] = Field(
+        default="online", description="Health status of the data storage mount"
+    )
     last_sync_time: Optional[datetime] = Field(default=None, description="Most recent connector sync timestamp")
 
 

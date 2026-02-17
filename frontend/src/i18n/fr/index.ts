@@ -204,6 +204,18 @@ export default {
   localProviderWarning:
     'La vectorisation locale utilise votre processeur et est beaucoup plus lente que les fournisseurs cloud. Veuillez patienter.',
   connected: 'Connecté',
+  storage: 'Stockage',
+  storageOfflineTitle: 'Point de montage rompu',
+  storageOfflineDesc:
+    'Docker ne peut pas accéder à vos données. Veuillez modifier VECTRA_DATA_PATH dans votre fichier .env (racine du projet).',
+  storageOnline: 'Stockage en ligne',
+  storageOffline: 'Stockage hors ligne',
+  storageFixTitle: 'Comment réparer le stockage',
+  storageFixStep1: '1. Localisez le fichier .env à la racine du projet.',
+  storageFixStep2: '2. Trouvez la variable VECTRA_DATA_PATH.',
+  storageFixStep3: '3. Remplacez-la par un chemin physique (ex: C:/VectraData ou /home/user/data).',
+  storageFixStep4: '4. Redémarrez les containers Docker.',
+  storageFixPathLabel: 'Chemin racine du projet :',
   cpuUsage: 'Utilisation CPU',
   memoryUsage: 'Utilisation Mémoire',
   totalQueries: 'Requêtes Totales',

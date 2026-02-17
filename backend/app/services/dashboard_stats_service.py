@@ -14,8 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.usage_stat import UsageStat
-from app.schemas.dashboard_stats import (ChatStats, ConnectStats,
-                                         DashboardStats, VectorizeStats)
+from app.schemas.dashboard_stats import ChatStats, ConnectStats, DashboardStats, VectorizeStats
 from app.schemas.enums import ConnectorStatus, DocStatus
 
 logger = logging.getLogger(__name__)
@@ -59,10 +58,15 @@ class DashboardStatsService:
             # System status is "error" if any connector has recent errors
             system_status = "error" if error_count > 0 else "ok"
 
+            from app.core.utils.storage import get_storage_status
+
+            storage_status = "online" if get_storage_status() else "offline"
+
             return ConnectStats(
                 active_pipelines=active_pipelines,
                 total_connectors=total_connectors,
                 system_status=system_status,
+                storage_status=storage_status,
                 last_sync_time=last_sync_time,
             )
 

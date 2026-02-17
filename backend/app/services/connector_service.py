@@ -538,7 +538,12 @@ class ConnectorService:
         path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isfile, path)
         if not exists:
-            raise FunctionalError(f"File not found: {path}", error_code="FILE_NOT_FOUND", status_code=400)
+            error_msg = f"File not found: {path}"
+            from app.core.utils.storage import get_storage_status
+
+            if not get_storage_status():
+                error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            raise FunctionalError(error_msg, error_code="FILE_NOT_FOUND", status_code=400)
 
         # ARCHITECT FIX: Validate extension for CSV connectors
         if connector_type == ConnectorType.LOCAL_FILE:
@@ -553,7 +558,12 @@ class ConnectorService:
         path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isdir, path)
         if not exists:
-            raise FunctionalError(f"Path not found: {path}", error_code="PATH_NOT_FOUND", status_code=400)
+            error_msg = f"Path not found: {path}"
+            from app.core.utils.storage import get_storage_status
+
+            if not get_storage_status():
+                error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            raise FunctionalError(error_msg, error_code="PATH_NOT_FOUND", status_code=400)
 
     @classmethod
     async def _safe_delete_file(cls, path: str):

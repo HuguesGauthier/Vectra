@@ -7,7 +7,7 @@
   <a href="https://github.com/HuguesGauthier/Vectra/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/License-AGPL%20v3-red.svg" alt="License">
   </a>
-  <img src="https://img.shields.io/badge/Python-3.10+-yellow.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Python-3.12+-yellow.svg" alt="Python">
   <img src="https://img.shields.io/badge/Vue-3.0-green.svg" alt="VueJS">
   <img src="https://img.shields.io/badge/Docker-Ready-blue" alt="Docker">
 </div>
