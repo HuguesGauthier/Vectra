@@ -10,6 +10,7 @@
       :connect="connectConfig"
       :submitButtonStyles="submitButtonStyles"
       :introMessage="introMessage"
+      :speechToText="speechToTextConfig"
     ></deep-chat>
   </div>
 </template>
@@ -261,7 +262,7 @@ const textInput = ref<any>({
       color: 'var(--q-text-main)',
       backgroundColor: 'var(--q-fourth)',
       borderRadius: '24px',
-      padding: '12px 50px 12px 16px',
+      padding: '12px 50px 12px 48px', // Right 50px for send, Left 48px for mic
       border: 'none',
       outline: 'none',
     },
@@ -321,6 +322,13 @@ const introMessage = computed(() => {
     role: 'ai',
   };
 });
+
+const speechToTextConfig = {
+  webSpeech: true, // Uses the browser's native Speech Recognition API
+  button: {
+    position: 'inside-left', // Clean positioning inside the input
+  },
+};
 
 // --- Types ---
 
