@@ -34,6 +34,7 @@ from app.core.settings import settings
 from app.models.error_log import ErrorLog
 from app.services.settings_service import SettingsService
 from app.workers.scheduler_service import scheduler_service
+from app.core.utils.storage import validate_data_mount
 
 # Configure logging
 setup_logging(settings.LOG_LEVEL)
@@ -80,6 +81,9 @@ async def lifespan(app: FastAPI):
         async with SessionLocal() as db:
             settings_service = SettingsService(db)
             await settings_service.load_cache()
+
+        # 3b. Validate Data Mount (Docker)
+        validate_data_mount()
 
         # 4. Observability: Initialize Arize Phoenix (if enabled)
         if settings.ENABLE_PHOENIX_TRACING:

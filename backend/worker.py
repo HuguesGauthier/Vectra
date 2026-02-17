@@ -36,6 +36,7 @@ from app.core.settings import settings
 from app.core.time import SystemClock
 from app.services.connector_state_service import ConnectorStateService
 from app.services.ingestion_service import IngestionService
+from app.core.utils.storage import validate_data_mount
 
 # Configure logging (use centralized setup)
 setup_logging(settings.LOG_LEVEL)
@@ -52,7 +53,7 @@ import websockets
 
 async def maintain_socket_connection():
     """Maintains a persistent WebSocket connection to the API."""
-    uri = "ws://localhost:8000/api/v1/ws?client_type=worker"
+    uri = settings.BACKEND_WS_URL
     while True:
         try:
             logger.info(f"Connecting to API at {uri}...")
@@ -303,7 +304,10 @@ if __name__ == "__main__":
 
             settings_service = SettingsService(db)
             await settings_service.load_cache()
-            
+
+            # Validate Data Mount (Docker)
+            validate_data_mount()
+
             # Explicit hardware log for user transparency
             worker_count = settings.computed_local_workers
             logger.info("=" * 50)

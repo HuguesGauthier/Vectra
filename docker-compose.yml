@@ -8,8 +8,8 @@ services:
     #   - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra}
-      # Using qdrant hostname matching the service name below
+      - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
+      - VECTRA_DATA_PATH=${VECTRA_DATA_PATH}
       - QDRANT_HOST=vectra-qdrant
       - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Redis Configuration
@@ -19,10 +19,14 @@ services:
       - REDIS_DB=0
       - REDIS_CACHE_TTL=3600
     depends_on:
+      vectra-postgres:
+        condition: service_healthy
       vectra-redis:
         condition: service_healthy
     networks:
       - vectra
+    volumes:
+      - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
     deploy:
       resources:
         reservations:
@@ -35,7 +39,7 @@ services:
     profiles: ["app"]
     build: ./frontend
     ports:
-      - "8080:80"
+      - "80:80"
     # volumes:
     #   - ./frontend:/app
     #   - /app/node_modules
@@ -48,12 +52,13 @@ services:
     profiles: ["app"]
     build: ./backend
     # Override the default command to run the scheduler
-    command: python scheduler.py
+    command: python worker.py
     # volumes:
     #   - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra}
+      - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
+      - VECTRA_DATA_PATH=${VECTRA_DATA_PATH}
       - QDRANT_HOST=vectra-qdrant
       - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Redis Configuration
@@ -61,12 +66,15 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-vectra_redis_2024}
       - REDIS_DB=0
+      - BACKEND_WS_URL=ws://vectra-api:8000/api/v1/ws?client_type=worker
     depends_on:
       - vectra-postgres
       - vectra-qdrant
       - vectra-redis
     networks:
       - vectra
+    volumes:
+      - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
     deploy:
       resources:
         reservations:
@@ -87,6 +95,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vectra} -d ${POSTGRES_DB:-vectra}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - vectra
 

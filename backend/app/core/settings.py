@@ -31,6 +31,8 @@ class Settings(BaseSettings):
 
     # Infrastructure
     DATABASE_URL: str = "postgresql+asyncpg://vectra:vectra@localhost:5432/vectra"
+    BACKEND_WS_URL: str = "ws://localhost:8000/api/v1/ws?client_type=worker"
+    VECTRA_DATA_PATH: Optional[str] = None  # Local path on Windows (mapped to /data in Docker)
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 3600
@@ -107,14 +109,17 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
         """
-        Enforce 'Strict .env' mode:
-        Ignore system environment variables (env_settings) to prevent
-        global Windows variables (like OPENAI_API_KEY) from leaking into the app.
+        Customise settings sources.
+        Priority order:
+        1. Init settings
+        2. .env file settings (Higher priority to protect local dev)
+        3. Environment variables (Fallback for Docker)
+        4. Class defaults
         """
         return (
             init_settings,
-            dotenv_settings,
-            # env_settings, # <--- DISABLED: Do not read from OS Environment
+            dotenv_settings,  # High priority to prevent Windows env leak
+            env_settings,  # Fallback for Docker/Linux where .env is ignored
             file_secret_settings,
         )
 

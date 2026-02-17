@@ -24,6 +24,7 @@ from app.services.settings_service import SettingsService, get_settings_service
 from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
 from app.repositories.connector_sync_log_repository import ConnectorSyncLogRepository
+from app.core.interfaces.base_connector import translate_host_path
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +289,7 @@ class ConnectorService:
             if db_connector.configuration:
                 # 🔴 P0 SECURITY FIX: Guarded Deletion
                 if db_connector.connector_type == ConnectorType.LOCAL_FILE:
-                    path = db_connector.configuration.get("path")
+                    path = translate_host_path(db_connector.configuration.get("path"))
                     if path and self._is_managed_path(path):
                         self._track_task(self._safe_delete_file(path))
 
@@ -400,7 +401,7 @@ class ConnectorService:
                 elif connector.connector_type == ConnectorType.LOCAL_FILE:
                     # File Scan
                     logger.info("SCAN ROUTE | FILE PATH SELECTED")
-                    path = connector.configuration.get("path")
+                    path = translate_host_path(connector.configuration.get("path"))
                     if not path:
                         raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
                     stats = await self.scanner_service.scan_folder(connector.id, path, recursive=False)
@@ -408,7 +409,7 @@ class ConnectorService:
                 elif connector.connector_type == ConnectorType.LOCAL_FOLDER:
                     # Folder Scan
                     logger.info("SCAN ROUTE | FOLDER PATH SELECTED")
-                    path = connector.configuration.get("path")
+                    path = translate_host_path(connector.configuration.get("path"))
                     if not path:
                         raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
                     recursive = connector.configuration.get("recursive", False)
@@ -534,7 +535,7 @@ class ConnectorService:
         if not config or "path" not in config:
             raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG", status_code=400)
 
-        path = config["path"]
+        path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isfile, path)
         if not exists:
             raise FunctionalError(f"File not found: {path}", error_code="FILE_NOT_FOUND", status_code=400)
@@ -549,7 +550,7 @@ class ConnectorService:
         """Non-blocking validation of directory existence."""
         if not config or "path" not in config:
             return
-        path = config["path"]
+        path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isdir, path)
         if not exists:
             raise FunctionalError(f"Path not found: {path}", error_code="PATH_NOT_FOUND", status_code=400)
@@ -608,7 +609,7 @@ class ConnectorService:
             async with SessionLocal() as db:
                 recursive = config.get("recursive", False)
 
-                path = config.get("path")
+                path = translate_host_path(config.get("path"))
                 if not path:
                     logger.warning(f"BACKGROUND SCAN | No path found for {connector_id}")
                     return

@@ -14,7 +14,7 @@ declare module '@vue/runtime-core' {
 // Default to backend URL. In prod use env var.
 // Default to backend URL. In prod use env var.
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:8000/api/v1',
+  baseURL: process.env.VUE_APP_API_BASE_URL || '/api/v1',
   withCredentials: true, // Function to pass cookies to the backend
   headers: {
     'Content-Type': 'application/json',

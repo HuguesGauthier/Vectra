@@ -126,8 +126,12 @@ class ConnectorFactory:
         config_class = CONFIG_SCHEMAS[conn_type]
         config_dict = dict(config_data)
 
-        # PURE CODE: No legacy normalization.
-        # The frontend/client must send data matching the Pydantic schema exactly.
+        # --- Path Translation (Docker compatibility) ---
+        if "path" in config_dict:
+            from app.core.interfaces.base_connector import translate_host_path
+
+            config_dict["path"] = translate_host_path(config_dict["path"])
+        # -----------------------------------------------
 
         try:
             return config_class(**config_dict)

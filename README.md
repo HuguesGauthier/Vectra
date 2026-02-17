@@ -102,6 +102,16 @@ docker-compose up -d
 
 Access the UI at: http://localhost:9000
 
+### Data Persistence (Docker)
+
+To allows Vectra to access your local files and folders in Docker:
+
+1. Define the base path of your documents in your `.env`:
+   ```env
+   VECTRA_DATA_PATH=D:/MyDocuments
+   ```
+2. Any connector created with a path starting with `D:/MyDocuments` will be automatically mapped to the internal Docker `/data` volume.
+
 ## Environments Setup
 
 Vectra supports multiple environments using Docker Compose profiles.

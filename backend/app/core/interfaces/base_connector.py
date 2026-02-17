@@ -68,44 +68,57 @@ class BaseConnector(ABC, Generic[TConfig]):
 # === CONNECTOR UTILITIES ===
 
 
+def translate_host_path(path: str) -> str:
+    """
+    Translates a host Windows path to a container Linux path based on VECTRA_DATA_PATH.
+    Example: D:/Docs/RH -> /data/docs/RH (if VECTRA_DATA_PATH=D:/Docs)
+    """
+    from app.core.settings import settings
+
+    if not path or not settings.VECTRA_DATA_PATH:
+        return path
+
+    # Normalize both paths to forward slashes for cross-platform comparison
+    # Important: rstrip slashes from data path to ensure correct len() calculation
+    norm_data_path = settings.VECTRA_DATA_PATH.replace("\\", "/").rstrip("/").lower()
+    norm_input_path = path.replace("\\", "/").lower()
+
+    if norm_input_path.startswith(norm_data_path):
+        # Replace the Windows prefix with /data
+        # We preserve the original case of the suffix (after the prefix)
+        rel_to_root = path.replace("\\", "/")[len(norm_data_path) :].lstrip("/")
+        translated = os.path.join("/data", rel_to_root).replace("\\", "/")
+
+        import logging
+
+        logging.getLogger(__name__).info(f"📂 [PATH_TRANSLATION] {path} -> {translated}")
+        return translated
+
+    import logging
+
+    logging.getLogger(__name__).debug(f"📂 [NO_TRANSLATION] '{norm_input_path}' does not start with '{norm_data_path}'")
+    return path
+
+
 def get_full_path_from_connector(connector, doc_file_path: str) -> str:
     """
     Reconstruct full file path based on connector type and configuration.
-
-    This is a domain helper for the Connector subsystem.
-    Used by SystemService, Orchestrator, and IngestionService.
-
-    Logic:
-    - **Folder connectors**: configuration.path is the base directory
-      - Example: path="D:\\Documents", file_path="RH\\procedure.docx"
-      - Result: "D:\\Documents\\RH\\procedure.docx"
-
-    - **File connectors**: configuration.path IS the full file path
-      - Example: path="D:\\Important\\budget.xlsx", file_path="budget.xlsx"
-      - Result: "D:\\Important\\budget.xlsx" (ignore file_path)
-
-    Args:
-        connector: Connector model with type and configuration
-        doc_file_path: Relative file path from document record
-
-    Returns:
-        Absolute path to the file
+    Handles dynamic path translation for Docker environments.
     """
     base_path = connector.configuration.get("path", "")
     if not base_path:
         return doc_file_path
 
-    conn_type = str(connector.connector_type).strip().lower()
+    # Apply translation
+    base_path = translate_host_path(base_path)
 
+    conn_type = str(connector.connector_type).strip().lower()
     # For file connectors, path IS the complete file path
     if conn_type in {"file", "local_file"}:
         return base_path
 
     # Security (P0): Prevent path traversal
-    # Ensure relative path doesn't escape base_path
     resolved_base = os.path.abspath(base_path)
-
-    # Strip leading separators and normalize
     safe_rel_path = doc_file_path.lstrip("/\\")
     full_path = os.path.abspath(os.path.join(resolved_base, safe_rel_path))
 
@@ -115,7 +128,6 @@ def get_full_path_from_connector(connector, doc_file_path: str) -> str:
         logging.getLogger(__name__).warning(
             f"🚨 [SECURITY] Path traversal attempt blocked: {doc_file_path} (Context: {resolved_base})"
         )
-        # Fallback to joining only the filename to the base path for safety
         return os.path.join(resolved_base, os.path.basename(doc_file_path))
 
     return full_path

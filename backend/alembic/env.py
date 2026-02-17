@@ -35,6 +35,17 @@ target_metadata = SQLModel.metadata
 # ... etc.
 
 
+def get_url():
+    """
+    Get database URL from environment variable, fallback to config if not found.
+    Converts asyncpg driver to standard postgresql for Alembic compatibility.
+    """
+    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    if url and url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return url
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -47,8 +58,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
-    print(f"DEBUG: Connecting to {url}")
+    url = get_url()
+    print(f"DEBUG: Offline connecting to {url}")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -67,12 +78,18 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    url = get_url()
+    print(f"DEBUG: Online connection engine: {url}")
+
+    # Override the sqlalchemy.url in the config section used by engine_from_config
+    section = config.get_section(config.config_ini_section, {})
+    section["sqlalchemy.url"] = url
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    print(f"DEBUG: Online connection engine: {connectable.url}")
 
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
