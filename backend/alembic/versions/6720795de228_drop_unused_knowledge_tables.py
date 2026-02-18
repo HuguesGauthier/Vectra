@@ -20,17 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # 1. Drop knowledge_documents first because it depends on knowledge_bases (FK)
-    # Check if table exists before dropping to be safe (though Alembic usually assumes state)
-    # We use IF EXISTS for raw SQL or just try/except blocks in python, but standard alembic
-    # op.drop_table doesn't have if_exists=True until very recent versions or via specialized dialects.
-    # However, since we know they were created in ac5e71ba4874, we can drop them.
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+
+    # Drop knowledge_documents if exists
+    if inspector.has_table('knowledge_documents'):
+        op.drop_table('knowledge_documents')
     
-    # Drop knowledge_documents
-    op.drop_table('knowledge_documents')
-    
-    # Drop knowledge_bases
-    op.drop_table('knowledge_bases')
+    # Drop knowledge_bases if exists
+    if inspector.has_table('knowledge_bases'):
+        op.drop_table('knowledge_bases')
 
 
 def downgrade() -> None:
