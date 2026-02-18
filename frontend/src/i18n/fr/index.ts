@@ -328,6 +328,8 @@ export default {
   // --- Stratégie de Récupération ---
   retrievalStrategy: 'Stratégie de Récupération',
   retrievalStrategyDesc: "Configurez comment l'assistant trouve et classe les informations.",
+  retrievalVolumeAndRelevance: 'Volume de Récupération & Pertinence',
+  precisionBoost: 'Boost de Précision',
   enableReranking: 'Boost de Précision (IA)',
   rerankerProvider: 'Fournisseur de Re-classement',
   topKRetrieval: 'Volume de récupération',

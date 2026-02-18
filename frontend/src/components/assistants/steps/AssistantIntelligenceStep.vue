@@ -14,14 +14,13 @@
             @click="!model.disabled && (localData.model = model.value || '')"
           >
             <q-card-section class="column items-center text-center q-pa-sm">
-              <q-avatar
-                size="48px"
-                :color="model.disabled ? 'grey-8' : model.color"
-                text-color="white"
-                class="q-mb-sm"
-              >
-                <q-icon :name="model.icon" size="24px" />
-              </q-avatar>
+              <div class="q-mb-md relative-position">
+                <img
+                  :src="model.logo"
+                  style="width: 48px; height: 48px; object-fit: contain"
+                  :class="{ 'grayscale-filter': model.disabled }"
+                />
+              </div>
               <div
                 class="text-subtitle1 text-weight-bold"
                 :class="{ 'text-grey-6': model.disabled }"
@@ -113,51 +112,40 @@ onMounted(() => {
 // AI Models - map from centralized chat providers
 const aiModels = computed(() => {
   const models = chatProviderOptions.value.map((provider) => {
-    if (provider.value === 'gemini') {
-      return {
-        value: provider.value,
-        label: provider.label,
-        description: t('geminiDesc'),
-        icon: 'auto_awesome',
-        color: 'blue-6',
-        disabled: provider.disabled,
-      };
-    } else if (provider.value === 'openai') {
-      return {
-        value: provider.value,
-        label: provider.label,
-        description: t('openaiDesc'),
-        icon: 'smart_toy',
-        color: 'green-6',
-        disabled: provider.disabled,
-      };
-    } else if (provider.value === 'mistral') {
-      return {
-        value: provider.value,
-        label: provider.label,
-        description: t('mistralDesc'),
-        icon: 'air',
-        color: 'orange-10', // Mistral branding is often warm
-        disabled: provider.disabled,
-      };
-    } else if (provider.value === 'ollama') {
-      return {
-        value: provider.value,
-        label: provider.label,
-        description: t('mistralLocalDesc'),
-        icon: 'terminal',
-        color: 'blue-grey-8',
-        disabled: provider.disabled,
-      };
-    }
-    return {
+    const baseModel = {
       value: provider.value || '',
       label: provider.label,
       description: '',
-      icon: 'psychology',
-      color: 'grey-6',
+      logo: provider.logo,
       disabled: provider.disabled,
     };
+
+    if (provider.value === 'gemini') {
+      return {
+        ...baseModel,
+        description: t('geminiDesc'),
+        color: 'blue-6',
+      };
+    } else if (provider.value === 'openai') {
+      return {
+        ...baseModel,
+        description: t('openaiDesc'),
+        color: 'green-6',
+      };
+    } else if (provider.value === 'mistral') {
+      return {
+        ...baseModel,
+        description: t('mistralDesc'),
+        color: 'orange-10',
+      };
+    } else if (provider.value === 'ollama') {
+      return {
+        ...baseModel,
+        description: t('mistralLocalDesc'),
+        color: 'blue-grey-8',
+      };
+    }
+    return baseModel;
   });
 
   // Sort to put Ollama first
@@ -212,5 +200,10 @@ const aiModels = computed(() => {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+.grayscale-filter {
+  filter: grayscale(100%);
+  opacity: 0.5;
 }
 </style>

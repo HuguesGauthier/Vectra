@@ -7,116 +7,127 @@
         <q-btn icon="close" flat round dense v-close-popup />
       </q-card-section>
 
-      <q-card-section class="q-pt-md">
-        <div class="column q-gutter-y-md">
-          <!-- Gemini Chat Configuration -->
-          <template v-if="providerId === 'gemini'">
-            <div class="text-subtitle2 q-mb-sm">{{ $t('geminiConfiguration') }}</div>
-            <q-input
-              v-model="internalModels.gemini_api_key"
-              :label="$t('apiKey')"
-              outlined
-              dense
-              type="password"
-              autocomplete="new-password"
-            />
-            <q-input
-              v-model="internalModels.gemini_chat_model"
-              :label="$t('chatModel')"
-              outlined
-              dense
-              :hint="$t('chatModelHintGemini')"
-            />
-          </template>
+      <q-form @submit="handleSave" class="column q-gutter-y-md">
+        <q-card-section class="q-pt-md">
+          <!-- Hidden username to satisfy browser heuristics for password forms -->
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            style="display: none; opacity: 0; position: absolute; left: -9999px"
+            tabindex="-1"
+          />
 
-          <!-- OpenAI Chat Configuration -->
-          <template v-if="providerId === 'openai'">
-            <div class="text-subtitle2 q-mb-sm">{{ $t('openaiConfiguration') }}</div>
-            <q-input
-              v-model="internalModels.openai_api_key"
-              :label="$t('apiKey')"
-              outlined
-              dense
-              type="password"
-              autocomplete="new-password"
-            />
-            <q-input
-              v-model="internalModels.openai_chat_model"
-              :label="$t('chatModel')"
-              outlined
-              dense
-              :hint="$t('chatModelHintOpenAI')"
-            />
-          </template>
-
-          <!-- Mistral Chat Configuration -->
-          <template v-if="providerId === 'mistral'">
-            <div class="text-subtitle2 q-mb-sm">{{ $t('mistralConfiguration') }}</div>
-            <q-input
-              v-model="internalModels.mistral_api_key"
-              :label="$t('apiKey')"
-              outlined
-              dense
-              type="password"
-              autocomplete="new-password"
-            />
-            <q-input
-              v-model="internalModels.mistral_chat_model"
-              :label="$t('chatModel')"
-              outlined
-              dense
-            />
-          </template>
-
-          <!-- Ollama Chat Configuration -->
-          <template v-if="providerId === 'ollama'">
-            <div class="text-subtitle2 q-mb-sm">{{ $t('ollamaConfiguration') }}</div>
-            <q-input
-              v-model="internalModels.ollama_base_url"
-              :label="$t('baseUrl')"
-              outlined
-              dense
-              :hint="$t('baseUrlHint')"
-            />
-            <q-input
-              v-model="internalModels.ollama_chat_model"
-              :label="$t('chatModel')"
-              outlined
-              dense
-            />
-          </template>
-
-          <q-separator class="q-my-sm" />
-
-          <div class="text-subtitle2">{{ $t('parameters') }}</div>
-          <div class="row q-col-gutter-md">
-            <div class="col-6">
+          <div class="column q-gutter-y-md">
+            <!-- Gemini Chat Configuration -->
+            <template v-if="providerId === 'gemini'">
+              <div class="text-subtitle2 q-mb-sm">{{ $t('geminiConfiguration') }}</div>
               <q-input
-                v-model="internalModels.ai_temperature"
-                :label="$t('temperature')"
+                v-model="internalModels.gemini_api_key"
+                :label="$t('apiKey')"
                 outlined
                 dense
-                type="number"
-                step="0.1"
+                type="password"
+                autocomplete="new-password"
               />
-            </div>
-            <div class="col-6">
               <q-input
-                v-model="internalModels.ai_top_k"
-                :label="$t('topK')"
+                v-model="internalModels.gemini_chat_model"
+                :label="$t('chatModel')"
                 outlined
                 dense
-                type="number"
+                :hint="$t('chatModelHintGemini')"
               />
+            </template>
+
+            <!-- OpenAI Chat Configuration -->
+            <template v-if="providerId === 'openai'">
+              <div class="text-subtitle2 q-mb-sm">{{ $t('openaiConfiguration') }}</div>
+              <q-input
+                v-model="internalModels.openai_api_key"
+                :label="$t('apiKey')"
+                outlined
+                dense
+                type="password"
+                autocomplete="new-password"
+              />
+              <q-input
+                v-model="internalModels.openai_chat_model"
+                :label="$t('chatModel')"
+                outlined
+                dense
+                :hint="$t('chatModelHintOpenAI')"
+              />
+            </template>
+
+            <!-- Mistral Chat Configuration -->
+            <template v-if="providerId === 'mistral'">
+              <div class="text-subtitle2 q-mb-sm">{{ $t('mistralConfiguration') }}</div>
+              <q-input
+                v-model="internalModels.mistral_api_key"
+                :label="$t('apiKey')"
+                outlined
+                dense
+                type="password"
+                autocomplete="new-password"
+              />
+              <q-input
+                v-model="internalModels.mistral_chat_model"
+                :label="$t('chatModel')"
+                outlined
+                dense
+              />
+            </template>
+
+            <!-- Ollama Chat Configuration -->
+            <template v-if="providerId === 'ollama'">
+              <div class="text-subtitle2 q-mb-sm">{{ $t('ollamaConfiguration') }}</div>
+              <q-input
+                v-model="internalModels.ollama_base_url"
+                :label="$t('baseUrl')"
+                outlined
+                dense
+                :hint="$t('baseUrlHint')"
+              />
+              <q-input
+                v-model="internalModels.ollama_chat_model"
+                :label="$t('chatModel')"
+                outlined
+                dense
+              />
+            </template>
+
+            <q-separator class="q-my-sm" />
+
+            <div class="text-subtitle2">{{ $t('parameters') }}</div>
+            <div class="row q-col-gutter-md">
+              <div class="col-6">
+                <q-input
+                  v-model="internalModels.ai_temperature"
+                  :label="$t('temperature')"
+                  outlined
+                  dense
+                  type="number"
+                  step="0.1"
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model="internalModels.ai_top_k"
+                  :label="$t('topK')"
+                  outlined
+                  dense
+                  type="number"
+                />
+              </div>
             </div>
           </div>
-        </div>
-      </q-card-section>
+        </q-card-section>
 
-      <q-card-actions align="right" class="bg-secondary text-primary">
-        <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
-        <q-btn flat :label="$t('save')" color="accent" @click="handleSave" />
-      </q-card-actions>
+        <q-card-actions align="right" class="bg-secondary text-primary">
+          <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
+          <q-btn flat :label="$t('save')" type="submit" color="accent" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>

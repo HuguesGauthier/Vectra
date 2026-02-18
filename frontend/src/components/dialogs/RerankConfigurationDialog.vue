@@ -7,43 +7,54 @@
         <q-btn icon="close" flat round dense v-close-popup />
       </q-card-section>
 
-      <q-card-section class="q-pt-md">
-        <div class="column q-gutter-y-md">
-          <!-- Cohere Configuration -->
-          <template v-if="providerId === 'cohere'">
-            <q-input
-              v-model="internalModels.cohere_api_key"
-              :label="$t('apiKey')"
-              outlined
-              dense
-              type="password"
-              autocomplete="new-password"
-            />
-            <div class="text-caption text-grey-6">
-              {{ $t('cohereRerankDesc') || 'Recommended for highest precision.' }}
-            </div>
-          </template>
+      <q-form @submit="handleSave" class="column q-gutter-y-md">
+        <q-card-section class="q-pt-md">
+          <!-- Hidden username to satisfy browser heuristics for password forms -->
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            style="display: none; opacity: 0; position: absolute; left: -9999px"
+            tabindex="-1"
+          />
 
-          <!-- Local Configuration -->
-          <template v-if="providerId === 'local'">
-            <q-input
-              v-model="internalModels.local_rerank_model"
-              :label="$t('modelName')"
-              outlined
-              dense
-              hint="ex. BAAI/bge-reranker-base"
-            />
-            <div class="text-caption text-grey-6">
-              {{ $t('localRerankDesc') || 'Runs privately on your CPU using FastEmbed.' }}
-            </div>
-          </template>
-        </div>
-      </q-card-section>
+          <div class="column q-gutter-y-md">
+            <!-- Cohere Configuration -->
+            <template v-if="providerId === 'cohere'">
+              <q-input
+                v-model="internalModels.cohere_api_key"
+                :label="$t('apiKey')"
+                outlined
+                dense
+                type="password"
+                autocomplete="new-password"
+              />
+              <div class="text-caption text-grey-6">
+                {{ $t('cohereRerankDesc') || 'Recommended for highest precision.' }}
+              </div>
+            </template>
 
-      <q-card-actions align="right" class="bg-secondary text-primary">
-        <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
-        <q-btn flat :label="$t('save')" color="accent" @click="handleSave" />
-      </q-card-actions>
+            <!-- Local Configuration -->
+            <template v-if="providerId === 'local'">
+              <q-input
+                v-model="internalModels.local_rerank_model"
+                :label="$t('modelName')"
+                outlined
+                dense
+                hint="ex. BAAI/bge-reranker-base"
+              />
+              <div class="text-caption text-grey-6">
+                {{ $t('localRerankDesc') || 'Runs privately on your CPU using FastEmbed.' }}
+              </div>
+            </template>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="bg-secondary text-primary">
+          <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
+          <q-btn flat :label="$t('save')" type="submit" color="accent" />
+        </q-card-actions>
+      </q-form>
     </q-card>
   </q-dialog>
 </template>

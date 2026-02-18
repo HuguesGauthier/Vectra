@@ -112,7 +112,7 @@ class SettingsService:
         value = self.__class__._cache.get(key)
 
         # 3. Fallback to Environment Variable
-        if value is None or value == "":
+        if value is None:
             value = self._get_env_fallback(key)
 
         # 4. Fallback to Hardcoded Default
@@ -151,6 +151,7 @@ class SettingsService:
             raise TechnicalError("Cannot update setting without database session.")
 
         log_val = "********" if is_secret else value
+        print(f"DEBUG: update_setting called for {key} with value='{value}'")
         logger.info(f"Updating setting: {key}={log_val}")
 
         try:
@@ -198,6 +199,7 @@ class SettingsService:
             for upd_data in updates:
                 key = upd_data["key"]
                 value = upd_data.get("value")
+                print(f"DEBUG BATCH: key={key}, value={value}")
                 group = upd_data.get("group", "general")
                 is_secret = upd_data.get("is_secret", False)
 
@@ -205,9 +207,10 @@ class SettingsService:
                 setting = await self.repository.get_by_key(key)
 
                 if not setting:
-                    # Create new
+                    # Create new (handle None as empty string)
+                    val_to_save = value if value is not None else ""
                     setting = await self.repository.create(
-                        {"key": key, "value": value, "group": group, "is_secret": is_secret}
+                        {"key": key, "value": val_to_save, "group": group, "is_secret": is_secret}
                     )
                 else:
                     # Protection against overwriting with masked placeholder
@@ -216,8 +219,10 @@ class SettingsService:
                         continue
 
                     # Update ORM object
-                    if value is not None:
-                        setting.value = value
+                    # FIX: Allow clearing setting if value is explicitly None (from frontend)
+                    if "value" in upd_data:
+                        setting.value = value if value is not None else ""
+
                     if "group" in upd_data:
                         setting.group = upd_data["group"]
                     if "is_secret" in upd_data:

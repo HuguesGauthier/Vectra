@@ -21,7 +21,11 @@ async def get_providers(
     # Helper to check if key exists (in DB or Env via SettingsService fallback)
     async def is_configured(key: str) -> bool:
         val = await service.get_value(key)
-        return bool(val and val.strip())
+        if val is None:
+            return False
+        val = str(val).strip()
+        # Consider empty or single asterisks (masked) as not configured
+        return bool(val and val != "" and not all(c == "*" for c in val))
 
     # --- Embedding Providers ---
     # Ollama
