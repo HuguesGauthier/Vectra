@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from jose import jwt
 
-from app.core.exceptions import TechnicalError, UnauthorizedAction
+from app.core.exceptions import TechnicalError, UnauthorizedAction, AuthenticationError
 from app.core.security import (
     ALGORITHM,
     SECRET_KEY,
@@ -81,7 +81,7 @@ class TestSecurity:
     async def test_get_user_from_token_invalid_format(self):
         """Should raise UnauthorizedAction for bad token."""
         mock_db = AsyncMock()
-        with pytest.raises(UnauthorizedAction):
+        with pytest.raises(AuthenticationError):
             await _get_user_from_token("bad.token", mock_db)
 
     @pytest.mark.asyncio
@@ -94,7 +94,7 @@ class TestSecurity:
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        with pytest.raises(UnauthorizedAction) as exc:
+        with pytest.raises(AuthenticationError) as exc:
             await _get_user_from_token(token, mock_db)
         assert "User not found" in str(exc.value)
 
@@ -109,7 +109,7 @@ class TestSecurity:
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
 
-        with pytest.raises(UnauthorizedAction) as exc:
+        with pytest.raises(AuthenticationError) as exc:
             await _get_user_from_token(token, mock_db)
         assert "Inactive user" in str(exc.value)
 

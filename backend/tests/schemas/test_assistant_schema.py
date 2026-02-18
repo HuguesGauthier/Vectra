@@ -12,7 +12,7 @@ from app.schemas.assistant import MAX_CONNECTORS, AIModel, AssistantBase, Assist
 
 def test_assistant_base_defaults():
     a = AssistantBase(name="Test Bot")
-    assert a.model == AIModel.GPT_4O
+    assert a.model == AIModel.OLLAMA
     assert a.top_k_retrieval == 25
     assert a.configuration.temperature == 0.7
 

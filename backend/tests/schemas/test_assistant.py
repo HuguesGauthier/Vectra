@@ -7,7 +7,7 @@ def test_assistant_create_defaults():
     """Test default values in AssistantCreate."""
     assistant = AssistantCreate(name="Test Assistant")
     assert assistant.name == "Test Assistant"
-    assert assistant.model == AIModel.GPT_4O
+    assert assistant.model == AIModel.OLLAMA
     assert assistant.top_k_retrieval == 25
     assert assistant.top_n_rerank == 5
     assert assistant.use_reranker is False

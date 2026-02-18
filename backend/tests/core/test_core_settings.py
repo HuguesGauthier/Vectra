@@ -21,6 +21,7 @@ from app.core.settings import Settings, get_settings
 class TestSettingsBasics:
     """Test basic settings loading and defaults."""
 
+    @patch.dict(os.environ, {}, clear=True)
     def test_settings_loads_with_defaults(self):
         """Settings should load successfully with default values in development."""
         # Check defaults by NOT passing anything (except required fields if any, but dev has defaults)
@@ -111,6 +112,7 @@ class TestSecretValidation:
             SECRET_KEY="a" * 64,  # Strong secret
             WORKER_SECRET="b" * 64,
             FIRST_SUPERUSER_PASSWORD="super-strong-admin-password-123!",
+            DEBUG=False,
             _env_file=None,
         )
 

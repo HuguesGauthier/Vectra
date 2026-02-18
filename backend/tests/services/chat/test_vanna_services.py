@@ -196,8 +196,8 @@ def test_get_similar_question_sql(vanna_service, mock_vector_service):
 def test_system_instructions_mssql(vanna_service):
     vanna_service.config["type"] = "mssql"
     instructions = vanna_service._get_system_instructions()
-    assert "CRITICAL: Do NOT use aliases in WHERE, GROUP BY, HAVING or ORDER BY clauses" in instructions
-    assert "repeat the full expression" in instructions
+    assert "RULES FOR SQL SERVER" in instructions
+    assert "Full expressions are repeated" in instructions
 
 
 def test_submit_question_auto_learn(vanna_service, mock_llm, mock_vector_service):

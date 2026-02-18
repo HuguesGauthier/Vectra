@@ -34,7 +34,8 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_assistant(mock_assistant, mock_settings, temperature=0.5)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("openai", "gpt-4", "sk-test-key", temperature=0.5)
+        mock_llm_factory.create_llm.assert_called_once_with("openai", "gpt-4", "sk-test-key", temperature=0.5, base_url=None)
+
 
     @pytest.mark.asyncio
     @patch("app.factories.chat_engine_factory.LLMFactory")
@@ -48,7 +49,7 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_provider("gemini", mock_settings)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("gemini", "gemini-pro", "genai-key")
+        mock_llm_factory.create_llm.assert_called_once_with("gemini", "gemini-pro", "genai-key", base_url=None)
 
     @pytest.mark.asyncio
     @patch("app.factories.chat_engine_factory.LLMFactory")

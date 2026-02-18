@@ -26,7 +26,7 @@ def test_health_check():
         mock_manager.is_worker_online = True
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"api": "online", "worker": "online"}
+        assert response.json() == {"api": "online", "worker": "online", "storage": "online"}
 
 
 def test_exception_handler_vectra_exception():
