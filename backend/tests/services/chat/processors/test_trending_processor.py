@@ -20,6 +20,7 @@ def mock_context():
     ctx.assistant = MagicMock()
     ctx.assistant.id = str(uuid4())
     ctx.assistant.model = "gpt-4o"
+    ctx.assistant.model_provider = "openai"
     ctx.assistant.linked_connectors = []
 
     # Defaults for eligibility
@@ -131,7 +132,10 @@ async def test_execute_trending_safe_timeout(mock_context):
 async def test_persist_usage_statistics_safe(mock_context):
     processor = TrendingProcessor()
 
-    with patch("app.services.chat.processors.trending_processor.UsageRepository"):
+    with (
+        patch("app.services.chat.processors.trending_processor.UsageRepository"),
+        patch("app.services.chat.processors.trending_processor.PricingService"),
+    ):
 
         async def _commit():
             pass

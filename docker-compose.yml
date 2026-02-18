@@ -165,7 +165,7 @@ services:
 
   vectra-ollama:
     image: ollama/ollama:latest
-    container_name: vectra_ollama
+    container_name: vectra-ollama
     restart: always
     ports:
       - "11434:11434"

@@ -31,6 +31,8 @@ class UsageStatBase(SQLModel):
         description="Assistant being used",
     )
 
+    message_id: Optional[UUID] = Field(default=None, index=True, description="Assistant Message ID")
+
     session_id: str = Field(
         index=True, nullable=False, max_length=MAX_SESSION_ID_LENGTH, description="User session identifier"
     )
@@ -56,6 +58,12 @@ class UsageStatBase(SQLModel):
     output_tokens: int = Field(default=0, ge=0, description="Output tokens")
 
     model: str = Field(nullable=False, max_length=MAX_MODEL_NAME_LENGTH, description="LLM model used")
+
+    provider: Optional[str] = Field(default=None, max_length=50, description="LLM Provider (e.g. openai, gemini, ollama)")
+
+    is_cached: bool = Field(default=False, description="Whether the prompt was cached (e.g. Gemini context caching)")
+
+    cost: float = Field(default=0.0, ge=0.0, description="Estimated cost in USD")
 
 
 class UsageStat(UsageStatBase, table=True):

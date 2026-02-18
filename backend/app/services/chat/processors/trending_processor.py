@@ -26,6 +26,7 @@ from app.services.chat.processors.base_chat_processor import BaseChatProcessor, 
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
 from app.services.trending_service import TrendingService
+from app.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
 
@@ -105,22 +106,13 @@ class TrendingProcessor(BaseChatProcessor):
                 settings_service=ctx.settings_service,
             )
 
+            # P1: Resolve Provider from Connector (NOT global setting!)
+            # The embedding provider must match the one used to generate the embedding
             embedding = ctx.question_embedding or ctx.captured_source_embedding
             if not embedding:
                 raise ValueError("Embedding lost consistency check.")
 
-            # P1: Resolve Provider from Connector (NOT global setting!)
-            # The embedding provider must match the one used to generate the embedding
-            provider = None
-            if hasattr(ctx.assistant, "linked_connectors") and ctx.assistant.linked_connectors:
-                for conn in ctx.assistant.linked_connectors:
-                    if hasattr(conn, "configuration") and conn.configuration:
-                        provider = conn.configuration.get("ai_provider")
-                        if provider:
-                            break
-
-            # Fallback to gemini if no connector provider found (shouldn't happen)
-            provider = (provider or "gemini").lower().strip()
+            provider = self._resolve_provider(ctx)
 
             # P0: Async Timeout Protection (DoS Prevention)
             await asyncio.wait_for(
@@ -177,11 +169,18 @@ class TrendingProcessor(BaseChatProcessor):
             # Assuming UsageRepository.create returns the model but needs commit if scoped session.
             # We'll assume standard Repo adds to session.
 
-            # NOTE: UsageRepository might not accept Pydantic or Dict, let's verify signature.
-            # As I cannot see UsageRepository code, I will use the safest approach: Model instantiation + Repo add.
-            # BUT instructions say DB access logic in Repo.
-            # Use Repo if method exists, else fallback to standard Add.
-            # I will blindly assume a `create` or `add` method exists or I use generic `add`.
+            # Calculate Cost (New Logic)
+            pricing_service = PricingService(ctx.settings_service)
+            cost = pricing_service.calculate_cost(
+                provider=stat_data.get("provider"),
+                model_name=stat_data.get("model"),
+                input_tokens=stat_data.get("input_tokens", 0),
+                output_tokens=stat_data.get("output_tokens", 0),
+                is_cached=stat_data.get("is_cached", False),
+            )
+            
+            # Enrich Data
+            stat_data["cost"] = cost
 
             usage_stat = UsageStat(**stat_data)
             ctx.db.add(usage_stat)
@@ -206,7 +205,29 @@ class TrendingProcessor(BaseChatProcessor):
             "output_tokens": ctx.metrics.get(METRIC_OUTPUT_TOKENS, 0),
             "step_duration_breakdown": ctx.metrics.get(METRIC_STEP_BREAKDOWN),
             "step_token_breakdown": ctx.metrics.get(METRIC_TOKEN_BREAKDOWN),
+            # New Fields
+            "provider": self._resolve_provider(ctx),  # We need to extract this
+            "is_cached": False,  # Placeholder until we get this from metrics
+            "message_id": None,  # We should link to assistant_message_id if available
         }
+        
+        # Link to message if possible
+        if ctx.assistant_message_id:
+            try:
+                data["message_id"] = UUID(str(ctx.assistant_message_id))
+            except:
+                pass
+                
+        return data
+
+    def _resolve_provider(self, ctx: ChatContext) -> str:
+        """Helper to resolve the AI provider used."""
+        # 1. Try to get from Assistant defaults
+        provider = ctx.assistant.model_provider
+        
+        # 2. If it's a specific setup (e.g. connectors override), allow logic here
+        # For now, assistant.model_provider is the source of truth for the Chat LLM
+        return provider or "openai"
 
     def _get_total_duration(self, ctx: ChatContext) -> float:
         """Calculates trustworthy total duration."""
