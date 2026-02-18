@@ -108,6 +108,10 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@vectra.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./backend/servers.json:/pgadmin4/servers.json
     ports:
       - "5050:80"
     networks:
@@ -193,3 +197,4 @@ volumes:
   qdrant_data:
   redis_data:
   ollama_data:
+  pgadmin_data:

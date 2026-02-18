@@ -151,10 +151,10 @@ class Settings(BaseSettings):
             logger.warning("⚠️  Config: QDRANT_API_KEY is empty or not set!")
         return v
 
-    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL")
+    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST")
     @classmethod
     def fix_ollama_host_for_windows(cls, v: str) -> str:
-        """Fix Windows/Docker localhost issues for Ollama."""
+        """Fix Windows/Docker localhost issues for Ollama and Redis."""
         if sys.platform == "win32" and "localhost" in v:
             logger.info(f"🔧 Config: Replacing 'localhost' with '127.0.0.1' in {v} for Windows compatibility.")
             return v.replace("localhost", "127.0.0.1")

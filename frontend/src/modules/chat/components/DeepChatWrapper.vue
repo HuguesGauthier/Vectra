@@ -33,7 +33,8 @@ const props = defineProps<{
   disabled?: boolean;
 }>();
 
-const { t } = useI18n();
+const $q = useQuasar();
+const { t, locale } = useI18n();
 
 const emit = defineEmits<{
   (e: 'message-sent', message: string): void;
@@ -299,17 +300,40 @@ const submitButtonStyles = computed(() => ({
         right: '12px',
         top: '50%',
         transform: 'translateY(-50%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+        cursor: 'pointer',
       },
     },
     svg: {
-      content:
-        '<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#e8eaed"><path d="M120-160v-240l320-80-320-80v-240l760 320-760 320Z"/></svg>',
+      content: `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="${$q.dark.isActive ? '#e8eaed' : '#757575'}"><path d="M120-160v-240l320-80-320-80v-240l760 320-760 320Z"/></svg>`,
       styles: {
         default: {
           width: '1.5em',
           height: '1.5em',
+          fill: $q.dark.isActive ? '#e8eaed' : '#757575',
+          filter: 'none',
+          color: $q.dark.isActive ? '#e8eaed' : '#757575',
         },
       },
+    },
+  },
+  disabled: {
+    container: {
+      default: { opacity: 1 },
+    },
+    svg: {
+      styles: { default: {} },
+    },
+  },
+  loading: {
+    container: {
+      default: { opacity: 0.6 },
+    },
+    svg: {
+      styles: { default: {} },
     },
   },
 }));
@@ -323,12 +347,91 @@ const introMessage = computed(() => {
   };
 });
 
-const speechToTextConfig = {
-  webSpeech: true, // Uses the browser's native Speech Recognition API
-  button: {
-    position: 'inside-left', // Clean positioning inside the input
-  },
+const languageMap: Record<string, string> = {
+  fr: 'fr-FR',
+  'en-US': 'en-US',
 };
+
+const sttLanguage = computed(() => {
+  const currentLocale = locale.value || 'en-US';
+  return languageMap[currentLocale] || currentLocale;
+});
+
+const speechToTextConfig = computed(() => ({
+  webSpeech: true, // Uses the browser's native Speech Recognition API
+  language: sttLanguage.value,
+  button: {
+    position: 'inside-start', // Clean positioning inside the input
+    default: {
+      svg: {
+        content: `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="${$q.dark.isActive ? '#e8eaed' : '#757575'}"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 3.01-2.55 5.49-5.5 5.5S6 14.01 6 11H4c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`,
+        styles: {
+          default: {
+            width: '1.5em',
+            height: '1.5em',
+            fill: $q.dark.isActive ? '#e8eaed' : '#757575', // Explicitly set fill in style
+            filter: 'none', // Ensure color is not affected by default filters
+            color: $q.dark.isActive ? '#e8eaed' : '#757575',
+            pointerEvents: 'none',
+          },
+        },
+      },
+      container: {
+        default: {
+          position: 'absolute',
+          left: '12px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 1,
+          width: '24px',
+          height: '24px',
+          cursor: 'pointer',
+          zIndex: 10,
+          pointerEvents: 'auto',
+        },
+      },
+    },
+    active: {
+      svg: {
+        content: `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="${$q.dark.isActive ? '#e8eaed' : '#757575'}"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 3.01-2.55 5.49-5.5 5.5S6 14.01 6 11H4c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`,
+        styles: {
+          default: {
+            width: '1.5em',
+            height: '1.5em',
+            fill: $q.dark.isActive ? '#e8eaed' : '#757575',
+            filter: 'none',
+            color: $q.dark.isActive ? '#e8eaed' : '#757575',
+            pointerEvents: 'none',
+          },
+        },
+      },
+      container: {
+        default: {
+          position: 'absolute',
+          left: '12px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: 1,
+          width: '24px',
+          height: '24px',
+          cursor: 'pointer',
+          zIndex: 10,
+          pointerEvents: 'auto',
+        },
+      },
+    },
+    disabled: {
+      svg: { styles: { default: {} } },
+      container: { default: { opacity: 0.4 } },
+    },
+  },
+}));
 
 // --- Types ---
 
@@ -610,8 +713,6 @@ onUnmounted(() => {
 });
 
 import ApexCharts, { type ApexOptions } from 'apexcharts';
-
-const $q = useQuasar();
 
 const hydrateChart = (element: Element, config: ApexOptions & { viz_type?: string }) => {
   // Clear loading placeholder

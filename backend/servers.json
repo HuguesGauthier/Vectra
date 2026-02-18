@@ -1,0 +1,14 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "Vectra Database",
+            "Group": "Servers",
+            "Host": "vectra-postgres",
+            "Port": 5432,
+            "MaintenanceDB": "vectra",
+            "Username": "vectra",
+            "SSLMode": "prefer",
+            "Comment": "Main database for Project Vectra"
+        }
+    }
+}
