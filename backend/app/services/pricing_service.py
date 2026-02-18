@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends
 
-from app.core.pricing_defaults import MODEL_PRICES
+from app.core.model_catalog import get_model_pricing, build_pricing_map
 from app.schemas.pricing import PricingMapResponse
 from app.services.settings_service import SettingsService, get_settings_service
 
@@ -12,26 +12,22 @@ logger = logging.getLogger(__name__)
 
 class PricingService:
     """
-    Architect Refactor of PricingService.
-    Supports async resolution (P1) and proper DI (P1).
+    Calculates LLM usage costs using the centralized model catalog.
+    Uses separate input/output pricing for accurate cost estimation.
     """
 
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
 
-
     async def get_pricing_map(self) -> PricingMapResponse:
         """
         Returns a dictionary of model names to price per 1k tokens.
-        Ensures a safe fallback to defaults in case of configuration errors.
+        Used by the frontend dashboard for cost visualization.
         """
-        # Start with static defaults
-        prices = MODEL_PRICES.copy()
+        prices = build_pricing_map()
 
         try:
-            # Async resolution of settings
             local_model = await self.settings_service.get_value("local_embedding_model")
-
             if local_model and isinstance(local_model, str):
                 prices[local_model] = 0.0
 
@@ -39,7 +35,6 @@ class PricingService:
 
         except Exception as e:
             logger.error(f"Failed to calculate pricing map, using defaults: {e}", exc_info=True)
-            # Return current state of 'prices' (which contains defaults) to avoid breaking UI
             return PricingMapResponse(prices=prices)
 
     def calculate_cost(
@@ -52,13 +47,14 @@ class PricingService:
     ) -> float:
         """
         Calculates the estimated cost of a transaction in USD.
+        Uses separate input/output pricing from the model catalog for accuracy.
 
         Args:
             provider: The LLM provider (e.g. 'openai', 'gemini', 'ollama').
             model_name: The specific model used.
             input_tokens: Number of prompt tokens.
             output_tokens: Number of completion tokens.
-            is_cached: Whether the input tokens were cached (affects pricing for some providers).
+            is_cached: Whether the input tokens were cached.
 
         Returns:
             float: Estimated cost in USD.
@@ -67,45 +63,29 @@ class PricingService:
             return 0.0
 
         provider = provider.lower().strip()
-        model_key = model_name.lower().strip()
 
-        # 1. Free Providers
+        # Free providers
         if provider in ("ollama", "local", "test"):
             return 0.0
 
-        # 2. Get Price Config
-        # We try to match the model name in our price map.
-        # If exact match fails, we might need a fallback or partial match (omitted for now to keep it safe).
-        base_price_1k = MODEL_PRICES.get(model_key)
+        if not model_name:
+            return 0.0
 
-        if base_price_1k is None:
-            # Try to find a logical fallback or just return 0 to avoid wild guesses?
-            # For now, let's log a warning and return 0, or use a default "average"?
-            # Instructions said "unknown provider -> 0". 
-            # If known provider but unknown model, maybe 0 is safer than wrong data.
+        model_key = model_name.lower().strip()
+
+        # Look up pricing from central catalog
+        pricing = get_model_pricing(model_key)
+
+        if pricing is None:
             logger.warning(f"PricingService: Unknown model '{model_name}' for provider '{provider}'. Cost = 0.")
             return 0.0
 
-        # 3. Calculate
-        # NOTE: MODEL_PRICES currently has a single float per 1k tokens (blended or input-only).
-        # Real pricing is (Input * Price_In) + (Output * Price_Out).
-        # The existing 'MODEL_PRICES' in `pricing_defaults.py` seems to be a single float per model.
-        # Let's check `pricing_defaults.py` content again.
-        # It says: "Generative prices below represent estimated blended costs or input-only costs used for rough budgetary tracking".
-        # So we will use this simplified metric for now as requested.
-        
-        # If we want to be more precise in the future, we need to expand MODEL_PRICES structure.
-        # For now: Cost = (Total Tokens / 1000) * Price_Per_1k
-        
-        total_tokens = input_tokens + output_tokens
-        
-        # Handle Caching (Gemini/Anthropic specific logic could go here)
-        # For this iteration, if cached, maybe we discount the input? 
-        # But we only have a blended price. 
-        # Let's just apply the standard calc for now unless we change the constant structure.
-        
-        cost = (total_tokens / 1000.0) * base_price_1k
-        return round(cost, 6)
+        input_price_per_1m, output_price_per_1m = pricing
+
+        # cost = (input_tokens × input_price / 1M) + (output_tokens × output_price / 1M)
+        cost = (input_tokens * input_price_per_1m / 1_000_000.0) + (output_tokens * output_price_per_1m / 1_000_000.0)
+
+        return round(cost, 8)
 
 
 async def get_pricing_service(

@@ -169,6 +169,7 @@
                     :provider-id="configChatProviderId"
                     :provider-name="configChatProviderName"
                     :models="models"
+                    :supported-models="chatSupportedModels"
                     @save="handleConfigSave"
                   />
                 </div>
@@ -269,6 +270,10 @@ const configChatProviderId = ref('');
 const configChatProviderName = computed(() => {
   const provider = chatProviderOptions.value.find((p) => p.id === configChatProviderId.value);
   return provider ? provider.name : '';
+});
+const chatSupportedModels = computed(() => {
+  const provider = chatProviderOptions.value.find((p) => p.id === configChatProviderId.value);
+  return provider?.supported_models || [];
 });
 
 const showRerankConfig = ref(false);
@@ -444,13 +449,13 @@ async function saveSpecificSettings(updatedSettings: Record<string, string>) {
 
 function openEmbeddingConfig(providerId: string) {
   configProviderId.value = providerId;
-  models.embedding_provider = providerId;
+  // models.embedding_provider = providerId; // REMOVED: User request to not auto-select
   showEmbeddingConfig.value = true;
 }
 
 function openChatConfig(providerId: string) {
   configChatProviderId.value = providerId;
-  models.gen_ai_provider = providerId;
+  // models.gen_ai_provider = providerId; // REMOVED: User request to not auto-select
   showChatConfig.value = true;
 }
 
@@ -468,7 +473,7 @@ async function handleConfigSave(updatedModels: Record<string, string>) {
 
 function openRerankConfig(providerId: string) {
   configRerankProviderId.value = providerId;
-  models.rerank_provider = providerId;
+  // models.rerank_provider = providerId; // REMOVED: User request to not auto-select
   showRerankConfig.value = true;
 }
 

@@ -73,6 +73,8 @@ class TrendingService:
     def _get_collection_name(self, provider: str) -> str:
         """Helper to generate provider-specific collection name."""
         provider = provider.lower().strip()
+        if provider == "ollama":
+            return f"{BASE_TRENDING_COLLECTION}_ollama"
         if provider in ["local", "huggingface"]:
             return f"{BASE_TRENDING_COLLECTION}_local"
         if provider == "openai":

@@ -137,7 +137,30 @@ export function useChatStream() {
           if (msg.steps && msg.steps.length > 0) {
             msg.steps = msg.steps.map((step) => {
               // Generate label from step_type using i18n
-              const label = t(`pipelineSteps.${step.step_type}`) || step.step_type;
+              let label = t(`pipelineSteps.${step.step_type}`) || step.step_type;
+
+              // Append model name if available in metadata (for history reload)
+              const modelName = step.metadata?.model_name as string | undefined;
+              const modelProvider = step.metadata?.model_provider as string | undefined;
+
+              if (modelName) {
+                let displayModel = modelName;
+                if (modelProvider) {
+                  const providerMap: Record<string, string> = {
+                    openai: 'OpenAI',
+                    gemini: 'Google',
+                    mistral: 'Mistral',
+                    ollama: 'Ollama',
+                    anthropic: 'Anthropic',
+                    cohere: 'Cohere',
+                  };
+                  const displayProvider =
+                    providerMap[modelProvider.toLowerCase()] ||
+                    modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1);
+                  displayModel = `${displayProvider} - ${modelName}`;
+                }
+                label = `${label} (${displayModel})`;
+              }
 
               // Map is_substep from metadata to isSubStep
               // Check both metadata.is_substep and direct is_substep property
@@ -323,6 +346,33 @@ export function useChatStream() {
     // Cache specific logic
     if (event.step_type === 'cache_lookup' && event.status === 'completed' && event.payload) {
       label = event.payload.hit ? t('pipelineSteps.cache_hit') : t('pipelineSteps.cache_miss');
+    }
+    // Append model name for generation steps (e.g. "Génération de la réponse (Google - Gemini 2.5 Flash)")
+    const modelName = event.payload?.model_name;
+    const modelProvider = event.payload?.model_provider;
+
+    if (typeof modelName === 'string' && modelName && !event.label) {
+      let displayModel = modelName;
+
+      // Format provider if available
+      if (typeof modelProvider === 'string' && modelProvider) {
+        // Map common providers to display names
+        const providerMap: Record<string, string> = {
+          openai: 'OpenAI',
+          gemini: 'Google',
+          mistral: 'Mistral',
+          ollama: 'Ollama',
+          anthropic: 'Anthropic',
+          cohere: 'Cohere',
+        };
+        const displayProvider =
+          providerMap[modelProvider.toLowerCase()] ||
+          modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1);
+
+        displayModel = `${displayProvider} - ${modelName}`;
+      }
+
+      label = `${label} (${displayModel})`;
     }
 
     const payload = event.payload as

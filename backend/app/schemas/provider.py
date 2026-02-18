@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -9,3 +9,4 @@ class ProviderInfo(BaseModel):
     description: Optional[str] = None
     configured: bool = False
     is_active: bool = True
+    supported_models: List[Dict[str, Any]] = []

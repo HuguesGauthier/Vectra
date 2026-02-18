@@ -58,6 +58,17 @@ class AgenticProcessor(BaseChatProcessor):
         Main execution flow for the Agentic Processor.
         """
         logger.info(f"--- [AgenticProcessor] New Request: '{ctx.message}' ---")
+
+        # 0. Resolve specific model name for UI (e.g., "gpt-4o" instead of just "openai")
+        try:
+            provider = ctx.assistant.model_provider
+            # Handle special cases if any, but standard pattern is {provider}_chat_model
+            config_key = f"{provider}_chat_model"
+            specific_model = await ctx.settings_service.get_value(config_key)
+            if specific_model:
+                ctx.metadata["specific_model_name"] = specific_model
+        except Exception as e:
+            logger.warning(f"Failed to resolve specific model name: {e}")
         if self._should_skip(ctx):
             logger.warning("[AgenticProcessor] Skipping: ctx.should_stop or no factory")
             return
@@ -580,12 +591,17 @@ class AgenticProcessor(BaseChatProcessor):
         llm_input_tokens = getattr(stream_handler, "total_input_tokens", 0)
         llm_output_tokens = getattr(stream_handler, "total_output_tokens", 0)
 
+        # Fallback for input tokens if 0 (common with some streams like OpenAI if not configured perfectly)
+        if llm_input_tokens == 0:
+            # Rough estimate: 1 token ~ 4 chars. This ensures cost is not 0.
+            llm_input_tokens = len(ctx.message) // 4
+
         # Pass to metrics system
         ctx.metrics.end_span(
             stream_span,
             input_tokens=llm_input_tokens,
             output_tokens=llm_output_tokens or output_tokens,
-            increment_total=False,
+            increment_total=True,
         )
 
     # --- Metrics & Formatter Helpers ---
@@ -606,6 +622,18 @@ class AgenticProcessor(BaseChatProcessor):
             # We strictly rely on the hint now.
 
             step_type = PipelineStepType.SQL_SCHEMA_RETRIEVAL if is_sql_meta else PipelineStepType.ROUTER_RETRIEVAL
+
+        # Inject model name for generation steps so the UI can display it
+        if step_type in (PipelineStepType.ROUTER_REASONING, PipelineStepType.ROUTER_SYNTHESIS):
+            try:
+                # Prefer specific model from settings (e.g. "gpt-4o"), fallback to enum value (e.g. "openai")
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                payload["model_name"] = model_val
+                payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
 
         # FIX: Ensure completed events ALWAYS have duration (even if 0.0) so they appear in UI
         if status == StepStatus.COMPLETED:

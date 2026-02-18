@@ -2,6 +2,7 @@ from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends
 
+from app.core.model_catalog import SUPPORTED_CHAT_MODELS
 from app.schemas.provider import ProviderInfo
 from app.services.settings_service import SettingsService, get_settings_service
 
@@ -86,6 +87,7 @@ async def get_providers(
             description="Google DeepMind",
             configured=await is_configured("gemini_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_CHAT_MODELS.get("gemini", []),
         )
     )
 
@@ -95,9 +97,10 @@ async def get_providers(
             id="openai",
             name="OpenAI",
             type="chat",
-            description="GPT-4 / GPT-3.5",
+            description="ChatGPT",
             configured=await is_configured("openai_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_CHAT_MODELS.get("openai", []),
         )
     )
 
@@ -110,6 +113,7 @@ async def get_providers(
             description="European Champion",
             configured=await is_configured("mistral_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_CHAT_MODELS.get("mistral", []),
         )
     )
 

@@ -247,6 +247,14 @@ export class MessageRenderer {
     ).length;
     const failedCount = steps.filter((s) => s.status === 'failed').length;
 
+    // Access i18n messages for static rendering
+    const locale = localStorage.getItem('app_language') || 'en-US';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const appMessages = messages[locale as keyof typeof messages] as any;
+    const pipelineTitle = appMessages?.pipelineSteps?.title || 'Pipeline Steps';
+    const completedLabel = appMessages?.pipelineSteps?.completed || 'completed';
+    const failedLabel = appMessages?.pipelineSteps?.failed || 'failed';
+
     let html = `
       <details class="pipeline-steps-details" style="
         background: rgba(255, 255, 255, 0.05);
@@ -268,9 +276,9 @@ export class MessageRenderer {
         ">
           <span style="font-size: 16px;">📊</span>
           <span style="flex: 1;">
-            Pipeline Steps
+            ${pipelineTitle}
             <span style="opacity: 0.7; font-weight: 400; margin-left: 8px;">
-              (${completedCount} completed${failedCount > 0 ? `, ${failedCount} failed` : ''})
+              (${completedCount} ${completedLabel}${failedCount > 0 ? `, ${failedCount} ${failedLabel}` : ''})
             </span>
           </span>
           <span style="

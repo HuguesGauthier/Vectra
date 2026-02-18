@@ -136,6 +136,11 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect as e:
         logger.info(f"FINISH | {func_name} | {client_type.value.capitalize()} Disconnected [Code: {e.code}]")
+    except RuntimeError as e:
+        if 'Need to call "accept" first' in str(e):
+            logger.info(f"FINISH | {func_name} | {client_type.value.capitalize()} Disconnected (Handshake incomplete)")
+        else:
+            logger.error(f"FAIL | {func_name} | Runtime error in WS loop | Error: {e!r}", exc_info=True)
     except Exception as e:
         logger.error(f"FAIL | {func_name} | Unexpected error in WS loop | Error: {e!r}", exc_info=True)
 

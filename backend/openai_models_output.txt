@@ -1,0 +1,21 @@
+✅ Found API key.
+--- Available OpenAI Models (Verified with Catalog) ---
+Model ID                       | Name                      | Input ($/1M)    | Output ($/1M)  
+------------------------------------------------------------------------------------------
+gpt-4.1-mini                   | GPT-4.1 Mini              | 0.4             | 1.6             ✅
+gpt-4o-mini                    | GPT-4o Mini               | 0.15            | 0.6             ✅
+gpt-5                          | GPT-5 (Base)              | 1.25            | 10.0            ✅
+gpt-5-mini                     | GPT-5 Mini                | 0.25            | 2.0             ✅
+gpt-5-nano                     | GPT-5 Nano                | 0.05            | 0.4             ✅
+gpt-5.1                        | GPT-5.1                   | 1.25            | 10.0            ✅
+gpt-5.2                        | GPT-5.2 (Flagship)        | 1.75            | 14.0            ✅
+gpt-5.2-pro                    | GPT-5.2 Pro               | 21.0            | 168.0           ✅
+o1                             | OpenAI o1                 | 15.0            | 60.0            ✅
+o3                             | OpenAI o3                 | 2.0             | 8.0             ✅
+o3-mini                        | OpenAI o3-mini            | 1.1             | 4.4             ✅
+o4-mini                        | OpenAI o4-mini            | 1.1             | 4.4             ✅
+
+--- Embedding Models ---
+text-embedding-3-large         | OpenAI Embedding 3 Large  | 0.13            | N/A             ✅
+text-embedding-3-small         | OpenAI Embedding 3 Small  | 0.02            | N/A             ✅
+text-embedding-ada-002         | OpenAI Ada 002            | 0.1             | N/A             ✅

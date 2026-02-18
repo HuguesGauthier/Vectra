@@ -128,4 +128,4 @@ class TestVectorService:
         service = VectorService(mock_settings_service)
         assert await service.get_collection_name(provider="gemini") == "gemini_collection"
         assert await service.get_collection_name(provider="openai") == "openai_collection"
-        assert await service.get_collection_name(provider="ollama") == "ollama_collection"
+        assert await service.get_collection_name(provider="ollama") == "documents_ollama"

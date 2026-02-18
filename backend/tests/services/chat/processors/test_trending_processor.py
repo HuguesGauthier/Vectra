@@ -16,6 +16,7 @@ def mock_context():
     ctx.db.commit = AsyncMock()
     ctx.db.rollback = AsyncMock()
     ctx.settings_service = MagicMock()
+    ctx.settings_service.get_value = AsyncMock(return_value=None)
     ctx.vector_service = MagicMock()
     ctx.assistant = MagicMock()
     ctx.assistant.id = str(uuid4())

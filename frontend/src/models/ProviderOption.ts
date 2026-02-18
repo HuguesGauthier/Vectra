@@ -1,3 +1,12 @@
+export interface ModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  category: 'flagship' | 'balanced' | 'economy' | 'reasoning';
+  input_price: number;
+  output_price: number;
+}
+
 export interface ProviderOption {
   id: string;
   name: string;
@@ -7,6 +16,7 @@ export interface ProviderOption {
   badge?: string | undefined;
   badgeColor?: string | undefined;
   disabled?: boolean | undefined;
-  value?: string; // Add value as it is used in map in useAiProviders
-  label?: string; // Add label as it is used
+  value?: string;
+  label?: string;
+  supported_models?: ModelInfo[];
 }

@@ -24,7 +24,7 @@ from app.services.chat.processors.base_chat_processor import BaseChatProcessor, 
 
 # Framework / Core
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter
+from app.services.chat.utils import EventFormatter, resolve_embedding_provider
 from app.services.trending_service import TrendingService
 from app.services.pricing_service import PricingService
 
@@ -112,7 +112,10 @@ class TrendingProcessor(BaseChatProcessor):
             if not embedding:
                 raise ValueError("Embedding lost consistency check.")
 
-            provider = self._resolve_provider(ctx)
+            # FIX: Resolve actual EMBEDDING provider from settings OR connector configuration
+            # Priority: Connector Config > Global Settings > Default
+            # This matches AgenticProcessor._compute_background_embedding logic
+            embedding_provider = await resolve_embedding_provider(ctx)
 
             # P0: Async Timeout Protection (DoS Prevention)
             await asyncio.wait_for(
@@ -120,7 +123,7 @@ class TrendingProcessor(BaseChatProcessor):
                     question=ctx.message,
                     assistant_id=ctx.assistant.id,
                     embedding=embedding,
-                    embedding_provider=provider,
+                    embedding_provider=embedding_provider,
                 ),
                 timeout=TIMEOUT_TRENDING_ANALYSIS,
             )
@@ -162,7 +165,7 @@ class TrendingProcessor(BaseChatProcessor):
             repo = UsageRepository(ctx.db)
 
             # Defensive Data Extraction
-            stat_data = self._extract_usage_data(ctx)
+            stat_data = await self._extract_usage_data(ctx)
 
             # P1: Transaction Atomicity handled by Repository usually,
             # or manual commit here if Repo is just DAO.
@@ -178,7 +181,7 @@ class TrendingProcessor(BaseChatProcessor):
                 output_tokens=stat_data.get("output_tokens", 0),
                 is_cached=stat_data.get("is_cached", False),
             )
-            
+
             # Enrich Data
             stat_data["cost"] = cost
 
@@ -192,42 +195,50 @@ class TrendingProcessor(BaseChatProcessor):
             logger.error(f"Usage Persistence Failed: {e}", exc_info=True)
             await ctx.db.rollback()
 
-    def _extract_usage_data(self, ctx: ChatContext) -> dict:
+    async def _extract_usage_data(self, ctx: ChatContext) -> dict:
         """Pure function to extract and validate metric data."""
-        return {
+        provider = self._resolve_provider(ctx)
+
+        # Resolve the actual model name from settings (e.g. "gemini-2.0-flash")
+        # instead of the enum value (e.g. "gemini") so that pricing lookup works.
+        model_key = f"{provider}_chat_model"
+        actual_model = await ctx.settings_service.get_value(model_key)
+        if not actual_model:
+            actual_model = str(ctx.assistant.model)
+
+        data = {
             "assistant_id": ctx.assistant.id,
             "session_id": ctx.session_id,
             "user_id": self._parse_uuid(ctx.user_id),
-            "model": ctx.assistant.model,
+            "model": actual_model,
             "total_duration": self._get_total_duration(ctx),
             "ttft": ctx.metrics.get(METRIC_TTFT),
             "input_tokens": ctx.metrics.get(METRIC_INPUT_TOKENS, 0),
             "output_tokens": ctx.metrics.get(METRIC_OUTPUT_TOKENS, 0),
             "step_duration_breakdown": ctx.metrics.get(METRIC_STEP_BREAKDOWN),
             "step_token_breakdown": ctx.metrics.get(METRIC_TOKEN_BREAKDOWN),
-            # New Fields
-            "provider": self._resolve_provider(ctx),  # We need to extract this
-            "is_cached": False,  # Placeholder until we get this from metrics
-            "message_id": None,  # We should link to assistant_message_id if available
+            "provider": provider,
+            "is_cached": False,
+            "message_id": None,
         }
-        
+
         # Link to message if possible
         if ctx.assistant_message_id:
             try:
                 data["message_id"] = UUID(str(ctx.assistant_message_id))
-            except:
+            except Exception:
                 pass
-                
+
         return data
 
     def _resolve_provider(self, ctx: ChatContext) -> str:
         """Helper to resolve the AI provider used."""
         # 1. Try to get from Assistant defaults
         provider = ctx.assistant.model_provider
-        
+
         # 2. If it's a specific setup (e.g. connectors override), allow logic here
         # For now, assistant.model_provider is the source of truth for the Chat LLM
-        return provider or "openai"
+        return provider or "ollama"
 
     def _get_total_duration(self, ctx: ChatContext) -> float:
         """Calculates trustworthy total duration."""

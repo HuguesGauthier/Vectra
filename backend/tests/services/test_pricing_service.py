@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from app.services.pricing_service import PricingService
 from app.schemas.pricing import PricingMapResponse
-from app.core.pricing_defaults import MODEL_PRICES
+from app.core.model_catalog import build_pricing_map
 
 
 @pytest.fixture
@@ -17,43 +17,80 @@ def service(mock_settings_service):
 
 @pytest.mark.asyncio
 async def test_get_pricing_map_success(service, mock_settings_service):
-    # Setup
     local_model = "snowflake/snowflake-arctic-embed-m"
     mock_settings_service.get_value.return_value = local_model
 
-    # Execute
     result = await service.get_pricing_map()
 
-    # Assert
     assert isinstance(result, PricingMapResponse)
     assert result.prices[local_model] == 0.0
-    # Check if a default price is still there
     assert "gemini-1.5-flash" in result.prices
-    assert result.prices["gemini-1.5-flash"] == MODEL_PRICES["gemini-1.5-flash"]
+    expected_prices = build_pricing_map()
+    assert result.prices["gemini-1.5-flash"] == expected_prices["gemini-1.5-flash"]
 
 
 @pytest.mark.asyncio
 async def test_get_pricing_map_no_local_model(service, mock_settings_service):
-    # Setup
     mock_settings_service.get_value.return_value = None
 
-    # Execute
     result = await service.get_pricing_map()
 
-    # Assert
-    assert result.prices == MODEL_PRICES
+    expected = build_pricing_map()
+    assert result.prices == expected
     assert result.currency == "USD"
 
 
 @pytest.mark.asyncio
 async def test_get_pricing_map_fallback_on_error(service, mock_settings_service):
-    # Setup
     mock_settings_service.get_value.side_effect = Exception("DB Timeout")
 
-    # Execute
     result = await service.get_pricing_map()
 
-    # Assert
-    # Should still return defaults even if settings service fails
-    assert result.prices == MODEL_PRICES
+    expected = build_pricing_map()
+    assert result.prices == expected
     mock_settings_service.get_value.assert_called_once_with("local_embedding_model")
+
+
+def test_calculate_cost_known_model(service):
+    """Gemini 1.5 Flash: input $0.075/1M, output $0.30/1M"""
+    cost = service.calculate_cost(
+        provider="gemini",
+        model_name="gemini-1.5-flash",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+    )
+    # (1M * 0.075 / 1M) + (1M * 0.30 / 1M) = 0.075 + 0.30 = 0.375
+    assert cost == pytest.approx(0.375, abs=0.001)
+
+
+def test_calculate_cost_unknown_model(service):
+    """Unknown model returns 0."""
+    cost = service.calculate_cost(
+        provider="openai",
+        model_name="unknown-model",
+        input_tokens=1000,
+        output_tokens=1000,
+    )
+    assert cost == 0.0
+
+
+def test_calculate_cost_free_provider(service):
+    """Ollama/local always return 0."""
+    cost = service.calculate_cost(
+        provider="ollama",
+        model_name="llama3",
+        input_tokens=1_000_000,
+        output_tokens=1_000_000,
+    )
+    assert cost == 0.0
+
+
+def test_calculate_cost_no_provider(service):
+    """Empty provider returns 0."""
+    cost = service.calculate_cost(
+        provider="",
+        model_name="gpt-4o",
+        input_tokens=1000,
+        output_tokens=1000,
+    )
+    assert cost == 0.0

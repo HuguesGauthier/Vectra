@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from app.repositories.chat_history_repository import ChatPostgresRepository
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter
+from app.services.chat.utils import EventFormatter, resolve_embedding_provider
 
 logger = logging.getLogger(__name__)
 
@@ -254,11 +254,14 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         try:
             payload = self._build_cache_payload(ctx)
 
+            provider = await resolve_embedding_provider(ctx)
+
             await ctx.cache_service.set_cached_response(
                 question=ctx.original_message,
                 assistant_id=str(ctx.assistant.id),
                 embedding=ctx.question_embedding,
                 response=payload,
+                embedding_provider=provider,
             )
         except Exception as e:
             logger.warning(LOG_CACHE_FAIL, "AssistantProcessor", e)

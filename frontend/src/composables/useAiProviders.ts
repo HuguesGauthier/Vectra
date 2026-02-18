@@ -7,7 +7,7 @@ import openaiLogo from 'src/assets/openai_logo.svg';
 import localLogo from 'src/assets/local_logo.svg';
 import cohereLogo from 'src/assets/cohere.png';
 import mistralLogo from 'src/assets/m-rainbow.svg';
-import type { ProviderOption } from 'src/models/ProviderOption';
+import type { ProviderOption, ModelInfo } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
   id: string;
@@ -16,6 +16,7 @@ export interface ProviderInfo {
   description?: string;
   configured: boolean;
   is_active: boolean;
+  supported_models?: Record<string, unknown>[];
 }
 
 /**
@@ -131,6 +132,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           badge: p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'ollama' ? 'warning' : 'info',
           disabled: !p.configured,
+          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
         };
       });
   });

@@ -94,6 +94,7 @@ class ChatContext:
     history: List[Message] = field(default_factory=list)
     question_embedding: Optional[List[float]] = None
     captured_source_embedding: Optional[List[float]] = None
+    embedding_provider: Optional[str] = None  # Resolved provider for vectors
     full_response_text: str = ""
     retrieved_sources: List[Dict] = field(default_factory=list)
     sql_results: Optional[List] = None  # Raw SQL results (List[Tuple]) for visualization

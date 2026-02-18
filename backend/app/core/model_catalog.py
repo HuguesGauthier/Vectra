@@ -1,0 +1,423 @@
+"""
+Centralized catalog of supported AI models per provider.
+
+This is the SINGLE SOURCE OF TRUTH for available models AND their pricing.
+When a model is added, deprecated, or removed, update ONLY this file.
+
+Each model entry contains:
+- id: API identifier used in requests
+- name: Human-readable display name
+- description: Short description of capabilities
+- category: "flagship" | "balanced" | "economy" | "reasoning"
+- input_price: Cost per 1M input tokens (USD)
+- output_price: Cost per 1M output tokens (USD)
+"""
+
+from typing import Any, Dict, Optional, Tuple
+
+ModelEntry = dict[str, Any]
+
+# ---------------------------------------------------------------------------
+#  Chat Models
+# ---------------------------------------------------------------------------
+SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
+    "gemini": [
+        # ── Flagship ──
+        {
+            "id": "gemini-3-pro-preview",
+            "name": "Gemini 3 Pro Preview",
+            "description": "Most advanced Gemini 3 model (Preview). Superior reasoning and multimodal capabilities.",
+            "category": "flagship",
+            "input_price": 2.00,
+            "output_price": 12.00,
+        },
+        {
+            "id": "gemini-2.5-pro",
+            "name": "Gemini 2.5 Pro",
+            "description": "High-performance model with advanced context handling and reasoning.",
+            "category": "flagship",
+            "input_price": 1.25,
+            "output_price": 10.00,
+        },
+        {
+            "id": "gemini-1.5-pro",
+            "name": "Gemini 1.5 Pro",
+            "description": "Stable flagship model with 1M+ context window and balanced performance.",
+            "category": "flagship",
+            "input_price": 1.25,
+            "output_price": 10.00,
+        },
+        # ── Balanced ──
+        {
+            "id": "gemini-3-flash-preview",
+            "name": "Gemini 3 Flash Preview",
+            "description": "Fastest Gemini 3 model (Preview). Optimized for low-latency and efficiency.",
+            "category": "balanced",
+            "input_price": 0.50,
+            "output_price": 3.00,
+        },
+        {
+            "id": "gemini-2.5-flash",
+            "name": "Gemini 2.5 Flash",
+            "description": "Core balanced model for Gen 2.5. Excellent speed and reasoning ratio.",
+            "category": "balanced",
+            "input_price": 0.15,
+            "output_price": 0.60,
+        },
+        {
+            "id": "gemini-2.0-flash",
+            "name": "Gemini 2.0 Flash",
+            "description": "Reliable fast model for production workloads.",
+            "category": "balanced",
+            "input_price": 0.10,
+            "output_price": 0.40,
+        },
+        # ── Economy ──
+        {
+            "id": "gemini-2.5-flash-lite",
+            "name": "Gemini 2.5 Flash-Lite",
+            "description": "Lightweight 2.5 model for high-volume, low-cost operations.",
+            "category": "economy",
+            "input_price": 0.10,
+            "output_price": 0.40,
+        },
+        {
+            "id": "gemini-1.5-flash",
+            "name": "Gemini 1.5 Flash",
+            "description": "Standard economy model. Fast and well-tested.",
+            "category": "economy",
+            "input_price": 0.075,
+            "output_price": 0.30,
+        },
+        {
+            "id": "gemini-1.5-flash-8b",
+            "name": "Gemini 1.5 Flash 8B",
+            "description": "Ultra-efficient small model for high-throughput tasks.",
+            "category": "economy",
+            "input_price": 0.0375,
+            "output_price": 0.15,
+        },
+    ],
+    "openai": [
+        # ── Flagship ──
+        {
+            "id": "gpt-5.2",
+            "name": "GPT-5.2 (Flagship)",
+            "description": "Latest flagship model. Enhanced reasoning and multimodal capabilities with 128k-400k context.",
+            "category": "flagship",
+            "input_price": 1.75,
+            "output_price": 14.00,
+        },
+        {
+            "id": "gpt-5.2-pro",
+            "name": "GPT-5.2 Pro",
+            "description": "Smartest and most precise model. Ideal for complex coding and deep analysis.",
+            "category": "flagship",
+            "input_price": 21.00,
+            "output_price": 168.00,
+        },
+        {
+            "id": "gpt-5.1",
+            "name": "GPT-5.1",
+            "description": "Highly capable frontier model with improved stability and performance.",
+            "category": "flagship",
+            "input_price": 1.25,
+            "output_price": 10.00,
+        },
+        {
+            "id": "gpt-5",
+            "name": "GPT-5 (Base)",
+            "description": "Foundation model for the GPT-5 generation. State-of-the-art general intelligence.",
+            "category": "flagship",
+            "input_price": 1.25,
+            "output_price": 10.00,
+        },
+        # ── Reasoning ──
+        {
+            "id": "o1",
+            "name": "OpenAI o1",
+            "description": "Advanced reasoning model for complex logical tasks and scientific problem solving.",
+            "category": "reasoning",
+            "input_price": 15.00,
+            "output_price": 60.00,
+        },
+        {
+            "id": "o3",
+            "name": "OpenAI o3",
+            "description": "Next-gen reasoning model. Superior performance in logic, math, and coding.",
+            "category": "reasoning",
+            "input_price": 2.00,
+            "output_price": 8.00,
+        },
+        {
+            "id": "o3-mini",
+            "name": "OpenAI o3-mini",
+            "description": "Compact reasoning model. Fast and efficient for logic-heavy workloads.",
+            "category": "reasoning",
+            "input_price": 1.10,
+            "output_price": 4.40,
+        },
+        {
+            "id": "o4-mini",
+            "name": "OpenAI o4-mini",
+            "description": "Latest affordable reasoning model. Optimized for analytical efficiency.",
+            "category": "reasoning",
+            "input_price": 1.10,
+            "output_price": 4.40,
+        },
+        # ── Balanced ──
+        {
+            "id": "gpt-5-mini",
+            "name": "GPT-5 Mini",
+            "description": "Balanced performance and cost for the GPT-5 generation.",
+            "category": "balanced",
+            "input_price": 0.25,
+            "output_price": 2.00,
+        },
+        {
+            "id": "gpt-4.1-mini",
+            "name": "GPT-4.1 Mini",
+            "description": "Reliable and efficient model for production applications.",
+            "category": "balanced",
+            "input_price": 0.40,
+            "output_price": 1.60,
+        },
+        # ── Economy ──
+        {
+            "id": "gpt-5-nano",
+            "name": "GPT-5 Nano",
+            "description": "Ultra-fast and affordable model for high-throughput, simple tasks.",
+            "category": "economy",
+            "input_price": 0.05,
+            "output_price": 0.40,
+        },
+        {
+            "id": "gpt-4o-mini",
+            "name": "GPT-4o Mini",
+            "description": "Legacy balanced/economy model. Widely compatible and cost-effective.",
+            "category": "economy",
+            "input_price": 0.15,
+            "output_price": 0.60,
+        },
+    ],
+    "mistral": [
+        # ── General Purpose ──
+        {
+            "id": "mistral-large-latest",
+            "name": "Mistral Large 3 (Flagship)",
+            "description": "Mistral's top-tier model. Best for complex reasoning, multi-step tasks, and high-precision coding.",
+            "category": "flagship",
+            "input_price": 2.00,
+            "output_price": 6.00,
+        },
+        {
+            "id": "mistral-medium-latest",
+            "name": "Mistral Medium 3",
+            "description": "High-performance model with optimized cost for professional applications.",
+            "category": "balanced",
+            "input_price": 0.10,
+            "output_price": 0.30,
+        },
+        {
+            "id": "mistral-small-latest",
+            "name": "Mistral Small 3.1",
+            "description": "Fast and efficient model with 128k context. Ideal for routine tasks.",
+            "category": "balanced",
+            "input_price": 0.10,
+            "output_price": 0.30,
+        },
+        {
+            "id": "open-mistral-nemo",
+            "name": "Mistral NeMo",
+            "description": "Efficient 12B model developed with NVIDIA. Excellent for edge and specialized use.",
+            "category": "economy",
+            "input_price": 0.15,
+            "output_price": 0.15,
+        },
+        {
+            "id": "mistral-tiny",
+            "name": "Mistral Tiny",
+            "description": "Lightest Mistral model for simple classification and low-latency responses.",
+            "category": "economy",
+            "input_price": 0.25,
+            "output_price": 0.25,
+        },
+        # ── Edge Optimized (Ministral) ──
+        {
+            "id": "ministral-3b-latest",
+            "name": "Ministral 3 3B",
+            "description": "Ultra-compact model for edge computing and mobile devices.",
+            "category": "economy",
+            "input_price": 0.10,
+            "output_price": 0.10,
+        },
+        {
+            "id": "ministral-8b-latest",
+            "name": "Ministral 3 8B",
+            "description": "Balanced edge model with stronger reasoning capabilities.",
+            "category": "economy",
+            "input_price": 0.15,
+            "output_price": 0.15,
+        },
+        {
+            "id": "ministral-14b-latest",
+            "name": "Ministral 3 14B",
+            "description": "Highest capacity edge model for complex processing in constrained environments.",
+            "category": "economy",
+            "input_price": 0.20,
+            "output_price": 0.20,
+        },
+        # ── Specialized ──
+        {
+            "id": "codestral-latest",
+            "name": "Codestral 22B (Coding)",
+            "description": "Top-tier code generation model supporting 80+ programming languages.",
+            "category": "balanced",
+            "input_price": 1.00,
+            "output_price": 3.00,
+        },
+        {
+            "id": "pixtral-large-latest",
+            "name": "Pixtral Large (Vision)",
+            "description": "State-of-the-art multimodal vision model for documents and complex image analysis.",
+            "category": "flagship",
+            "input_price": 2.00,
+            "output_price": 6.00,
+        },
+        {
+            "id": "pixtral-12b-2409",
+            "name": "Pixtral 12B",
+            "description": "Efficient multimodal model for general vision tasks.",
+            "category": "balanced",
+            "input_price": 0.15,
+            "output_price": 0.15,
+        },
+        {
+            "id": "voxtral-latest",
+            "name": "Voxtral (Audio)",
+            "description": "Specialized audio understanding and speech processing model.",
+            "category": "balanced",
+            "input_price": 0.10,
+            "output_price": 0.30,
+        },
+        # ── Research and Free ──
+        {
+            "id": "devstral-latest",
+            "name": "Devstral",
+            "description": "Experimental model optimized for software developer agents.",
+            "category": "economy",
+            "input_price": 0.00,
+            "output_price": 0.00,
+        },
+        {
+            "id": "open-mistral-7b",
+            "name": "Mistral 7B v0.3",
+            "description": "The original classic 7B model. Fast and reliable.",
+            "category": "economy",
+            "input_price": 0.25,
+            "output_price": 0.25,
+        },
+    ],
+}
+
+# ---------------------------------------------------------------------------
+#  Embedding Models  (input_price only — embeddings have no "output" tokens)
+# ---------------------------------------------------------------------------
+EMBEDDING_MODELS: dict[str, ModelEntry] = {
+    "text-embedding-004": {
+        "id": "text-embedding-004",
+        "name": "Gemini Text Embedding 004",
+        "input_price": 0.025,  # $0.025 / 1M tokens
+        "output_price": 0.0,
+    },
+    "text-embedding-005": {
+        "id": "text-embedding-005",
+        "name": "Gemini Text Embedding 005",
+        "input_price": 0.025,
+        "output_price": 0.0,
+    },
+    "gemini-embedding-001": {
+        "id": "gemini-embedding-001",
+        "name": "Gemini Embedding 001",
+        "input_price": 0.025,
+        "output_price": 0.0,
+    },
+    "text-embedding-3-small": {
+        "id": "text-embedding-3-small",
+        "name": "OpenAI Embedding 3 Small",
+        "input_price": 0.020,
+        "output_price": 0.0,
+    },
+    "text-embedding-3-large": {
+        "id": "text-embedding-3-large",
+        "name": "OpenAI Embedding 3 Large",
+        "input_price": 0.130,
+        "output_price": 0.0,
+    },
+    "text-embedding-ada-002": {
+        "id": "text-embedding-ada-002",
+        "name": "OpenAI Ada 002",
+        "input_price": 0.100,
+        "output_price": 0.0,
+    },
+    "mistral-embed": {
+        "id": "mistral-embed",
+        "name": "Mistral Embed",
+        "input_price": 0.10,
+        "output_price": 0.0,
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+#  Pricing Helpers  (used by PricingService)
+# ---------------------------------------------------------------------------
+
+
+def get_model_pricing(model_id: str) -> Optional[Tuple[float, float]]:
+    """
+    Look up (input_price, output_price) per 1M tokens for any model
+    (chat or embedding).  Returns None if unknown.
+    """
+    # 1. Search chat models
+    for models in SUPPORTED_CHAT_MODELS.values():
+        for m in models:
+            if m["id"] == model_id:
+                return (m["input_price"], m["output_price"])
+
+    # 2. Search embedding models
+    if model_id in EMBEDDING_MODELS:
+        e = EMBEDDING_MODELS[model_id]
+        return (e["input_price"], e["output_price"])
+
+    return None
+
+
+def build_pricing_map() -> Dict[str, float]:
+    """
+    Build a flat model_id → blended_price_per_1k_tokens map.
+    Used by the /api/v1/pricing endpoint for the frontend dashboard.
+
+    Blended price = average of input and output prices,
+    converted from per-1M to per-1K tokens.
+    """
+    prices: Dict[str, float] = {}
+
+    # Chat models
+    for models in SUPPORTED_CHAT_MODELS.values():
+        for m in models:
+            blended_per_1m = (m["input_price"] + m["output_price"]) / 2.0
+            prices[m["id"]] = round(blended_per_1m / 1000.0, 8)  # per 1K tokens
+
+    # Embedding models
+    for model_id, m in EMBEDDING_MODELS.items():
+        prices[model_id] = round(m["input_price"] / 1000.0, 8)  # per 1K tokens
+
+    # Free providers
+    prices["ollama"] = 0.0
+    prices["local"] = 0.0
+
+    # Fallback
+    prices["default"] = 0.0001
+
+    return prices

@@ -271,10 +271,10 @@ class VectorService:
         collection_map = {
             "openai": "openai_collection",
             "gemini": "gemini_collection",
-            "ollama": "ollama_collection",
+            "ollama": "documents_ollama",
         }
 
-        return collection_map.get(provider, "ollama_collection")
+        return collection_map.get(provider, "documents_ollama")
 
     async def delete_connector_vectors(self, connector_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a connector."""

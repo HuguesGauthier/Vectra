@@ -7,9 +7,42 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter
+from app.services.chat.utils import EventFormatter, resolve_embedding_provider
 
 logger = logging.getLogger(__name__)
+
+# ... (rest of imports)
+
+
+class SemanticCacheProcessor(BaseChatProcessor):
+    # ...
+
+    async def process(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
+        # ...
+        # 2. Stage 2: Semantic Match (Requires expensive embedding)
+        if not is_hit:
+            logger.info("🔍 Stage 2: No exact match. Generating expensive embedding...")
+            # Resolve correct provider context
+            provider = await resolve_embedding_provider(ctx)
+
+            # Generate Input Embedding (12s cost on CPU)
+            embedding = await self._generate_query_embedding(ctx, provider)
+            ctx.question_embedding = embedding
+
+            # Perform Semantic Lookup
+            cached_res = await ctx.cache_service.get_cached_response(
+                question=ctx.original_message,
+                assistant_id=str(ctx.assistant.id),
+                embedding=embedding,
+                embedding_provider=provider,
+                min_score=ctx.assistant.cache_similarity_threshold,
+            )
+
+
+# ...
+
+# _get_provider removed
+
 
 # Constants - Dictionary Keys
 KEY_SOURCES = "sources"
@@ -69,7 +102,7 @@ class SemanticCacheProcessor(BaseChatProcessor):
             if not is_hit:
                 logger.info("🔍 Stage 2: No exact match. Generating expensive embedding...")
                 # Resolve correct provider context
-                provider = self._get_provider(ctx)
+                provider = await resolve_embedding_provider(ctx)
 
                 # Generate Input Embedding (12s cost on CPU)
                 embedding = await self._generate_query_embedding(ctx, provider)
@@ -80,6 +113,7 @@ class SemanticCacheProcessor(BaseChatProcessor):
                     question=ctx.original_message,
                     assistant_id=str(ctx.assistant.id),
                     embedding=embedding,
+                    embedding_provider=provider,
                     min_score=ctx.assistant.cache_similarity_threshold,
                 )
                 is_hit = bool(cached_res) and self._is_valid_cache_entry(cached_res)
@@ -112,16 +146,6 @@ class SemanticCacheProcessor(BaseChatProcessor):
         except Exception as e:
             self._handle_lookup_error(ctx, e)
 
-    def _get_provider(self, ctx: ChatContext) -> Optional[str]:
-        """Resolves the embedding provider from the assistant's connectors."""
-        if hasattr(ctx.assistant, "linked_connectors") and ctx.assistant.linked_connectors:
-            for conn in ctx.assistant.linked_connectors:
-                if hasattr(conn, "configuration") and conn.configuration:
-                    provider = conn.configuration.get("ai_provider")
-                    if provider:
-                        return provider
-        return None
-
     # --- Private Helpers: Preconditions & Setup ---
 
     def _should_skip(self, ctx: ChatContext) -> bool:
@@ -138,7 +162,7 @@ class SemanticCacheProcessor(BaseChatProcessor):
 
     # --- Private Helpers: Core Logic ---
 
-    async def _generate_query_embedding(self, ctx: ChatContext, provider: Optional[str] = None) -> List[float]:
+    async def _generate_query_embedding(self, ctx: ChatContext, provider: str) -> List[float]:
         """Retrieves the embedding for the user's message in a non-blocking way."""
         embed_model = await ctx.vector_service.get_embedding_model(provider=provider)
 
