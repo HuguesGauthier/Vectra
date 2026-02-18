@@ -317,42 +317,7 @@ if __name__ == "__main__":
 
             logger.info("Settings cache loaded in worker.")
 
-            # Initialize Phoenix for Worker Traceability (Deep Tracing)
-            if settings.ENABLE_PHOENIX_TRACING:
-                try:
-                    import phoenix as px
-                    from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
-                    from opentelemetry import trace as trace_api
-                    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-                    from opentelemetry.sdk.trace import TracerProvider
-                    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-                    # Configure OpenTelemetry to export to Phoenix Docker Container
-                    endpoint = "http://localhost:6006/v1/traces"
-
-                    # DEBUG: Enable OTel internal logging
-                    import sys
-
-                    from opentelemetry.sdk.resources import Resource
-
-                    tracer_provider = TracerProvider(resource=Resource.create({"service.name": "vectra-worker"}))
-                    span_exporter = OTLPSpanExporter(endpoint=endpoint)
-
-                    # Use BatchSpanProcessor for production, but Simple for debug
-                    tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-                    trace_api.set_tracer_provider(tracer_provider)
-
-                    # Initialize Automatic Instrumentation
-                    LlamaIndexInstrumentor().instrument()
-
-                    logger.info(f"🦜 Worker OpenInference Instrumentation active (to {endpoint})")
-
-                except ImportError as e:
-                    logger.warning(f"⚠️ Phoenix enabled but dependencies missing in worker: {e}")
-                except Exception as e:
-                    logger.error(f"⚠️ Failed to launch Phoenix in worker: {e}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to init Phoenix in worker: {e}")
 
     loop.run_until_complete(startup())
 

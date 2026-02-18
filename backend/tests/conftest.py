@@ -30,7 +30,7 @@ def settings_mock():
     mock.QDRANT_API_KEY = "test_key"
     mock.WORKER_SECRET = "test-worker-secret-ephemeral-32-chars-long"
     mock.SECRET_KEY = "test-secret-key-ephemeral-32-chars-long"
-    mock.ENABLE_PHOENIX_TRACING = False
+
     return mock
 
 

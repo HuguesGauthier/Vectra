@@ -300,23 +300,7 @@ class PdfCloudProcessor(FileProcessor):
             Include all tables and handwritten text in the 'content' field as Markdown.
             """
 
-            # TRACING: Wrap Gemini call for Phoenix visibility
-            from opentelemetry import trace
-
-            tracer = trace.get_tracer(__name__)
-
-            with tracer.start_as_current_span(
-                "gemini_pdf_extraction",
-                attributes={
-                    "llm.vendor": "Google",
-                    "llm.request.model": model_name,
-                    "llm.request.max_tokens": 8192,
-                    "llm.request.temperature": 0.0,
-                    "llm.input_messages": str([{"role": "user", "content": prompt[:200] + "..."}]),  # Convert to string
-                    "file.hash": file_hash,
-                },
-            ) as span:
-                response = await asyncio.to_thread(
+            response = await asyncio.to_thread(
                     self.client.models.generate_content,
                     model=model_name,
                     contents=[prompt, gemini_file],
@@ -324,14 +308,6 @@ class PdfCloudProcessor(FileProcessor):
                         temperature=0.0, max_output_tokens=8192, top_p=0.95, response_mime_type="application/json"
                     ),
                 )
-
-                # Add response metrics to span
-                if response.text:
-                    span.set_attribute("llm.response.length", len(response.text))
-                    # Estimate token count (rough: 1 token ≈ 4 chars)
-                    estimated_tokens = len(response.text) // 4
-                    span.set_attribute("llm.usage.total_tokens", estimated_tokens)
-                    span.set_attribute("llm.usage.completion_tokens", estimated_tokens)
 
             import json
             import re

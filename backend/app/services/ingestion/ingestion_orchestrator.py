@@ -222,10 +222,7 @@ class IngestionOrchestrator:
 
             workers = 5
             is_local = provider in ["local", "ollama"]
-            if settings.ENABLE_PHOENIX_TRACING:
-                workers = 0
-                logger.debug("🕊️ Phoenix Tracing Enabled: Forcing synchronous execution (workers=0)")
-            elif is_local:
+            if is_local:
                 workers = settings.computed_local_workers
             else:
                 # Remote APIs: Overhead of spawning 15 workers outweighs gain for small batches on Windows

@@ -103,12 +103,3 @@ pytest-mock==3.15.1
 pytest-cov==7.0.0
 httpx==0.28.1
 
-# ============================================================================
-# Observability
-# ============================================================================
-arize-phoenix
-llama-index-callbacks-arize-phoenix
-openinference-instrumentation-llama-index
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-exporter-otlp

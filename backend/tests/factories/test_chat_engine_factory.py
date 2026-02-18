@@ -62,4 +62,4 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_provider("mistral", mock_settings)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("mistral", None, None)
+        mock_llm_factory.create_llm.assert_called_once_with("mistral", None, None, base_url=None)

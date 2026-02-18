@@ -56,83 +56,7 @@ async def test_startup_sequence():
         mock_scheduler.shutdown.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_startup_sequence_with_phoenix():
-    """✅ SUCCESS: Startup sequence with Phoenix enabled."""
-    mock_instrumentor = MagicMock()
-    
-    # Mock all necessary modules
-    modules = {
-        "openinference.instrumentation.llama_index": MagicMock(),
-        "opentelemetry": MagicMock(),
-        "opentelemetry.exporter.otlp.proto.http.trace_exporter": MagicMock(),
-        "opentelemetry.sdk.trace": MagicMock(),
-        "opentelemetry.sdk.trace.export": MagicMock(),
-    }
-    
-    with (
-        patch.dict(sys.modules, modules),
-        patch("app.main.run_migrations"),
-        patch("app.main.init_db", new_callable=AsyncMock),
-        patch("app.main.SettingsService") as mock_settings,
-        patch("app.main.scheduler_service"),
-        patch("app.main.SessionLocal") as mock_session_lib,
-        patch("app.api.v1.endpoints.dashboard.start_broadcast_task", new_callable=AsyncMock),
-        patch("app.api.v1.endpoints.analytics.start_broadcast_task", new_callable=AsyncMock),
-        patch("app.main.settings") as mock_settings_val,
-    ):
-        mock_settings_val.ENABLE_PHOENIX_TRACING = True
-        mock_settings_val.LOG_LEVEL = "INFO"
-        
-        # Configure mock instrumentor
-        modules["openinference.instrumentation.llama_index"].LlamaIndexInstrumentor.return_value = mock_instrumentor
-        
-        # Mock DB Context
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_session_lib.return_value.__aenter__.return_value = mock_db
 
-        mock_service_inst = AsyncMock()
-        mock_settings.return_value = mock_service_inst
-
-        # Execute Lifespan
-        async with lifespan(app):
-            pass
-            
-        mock_instrumentor.instrument.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_startup_sequence_phoenix_import_error():
-    """✅ SUCCESS: Startup sequence handles Phoenix import error."""
-    # We want to ensure that if 'openinference' fails to import, it logs a warning
-    with (
-        patch("app.main.run_migrations"),
-        patch("app.main.init_db", new_callable=AsyncMock),
-        patch("app.main.SettingsService") as mock_settings,
-        patch("app.main.scheduler_service"),
-        patch("app.main.SessionLocal") as mock_session_lib,
-        patch("app.api.v1.endpoints.dashboard.start_broadcast_task", new_callable=AsyncMock),
-        patch("app.api.v1.endpoints.analytics.start_broadcast_task", new_callable=AsyncMock),
-        patch("app.main.settings") as mock_settings_val,
-        patch("app.main.logger") as mock_logger,
-        patch("builtins.__import__", side_effect=ImportError),
-    ):
-        mock_settings_val.ENABLE_PHOENIX_TRACING = True
-        
-        # Mock DB Context
-        mock_db = MagicMock()
-        mock_db.commit = AsyncMock()
-        mock_session_lib.return_value.__aenter__.return_value = mock_db
-
-        mock_service_inst = AsyncMock()
-        mock_settings.return_value = mock_service_inst
-
-        with pytest.raises(SystemExit):
-            async with lifespan(app):
-                pass
-        
-        mock_logger.warning.assert_called()
 
 
 @pytest.mark.asyncio
@@ -168,7 +92,7 @@ def test_health_check_nominal(client):
         mock_manager.is_worker_online = True
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"api": "online", "worker": "online"}
+        assert response.json() == {"api": "online", "worker": "online", "storage": "online"}
 
 
 def test_health_check_worker_offline(client):
@@ -177,7 +101,7 @@ def test_health_check_worker_offline(client):
         mock_manager.is_worker_online = False
         response = client.get("/health")
         assert response.status_code == 200
-        assert response.json() == {"api": "online", "worker": "offline"}
+        assert response.json() == {"api": "online", "worker": "offline", "storage": "online"}
 
 
 def test_root_endpoint(client):

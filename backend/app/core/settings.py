@@ -76,7 +76,7 @@ class Settings(BaseSettings):
     LOCAL_EXTRACTION_URL: str = "http://localhost:11434"
 
     # Observability
-    ENABLE_PHOENIX_TRACING: bool = False  # Set to True via env to enable Arize Phoenix
+
     ENABLE_TRENDING: bool = True  # Toggle trending analysis in ChatPipeline
     LOG_RETENTION_DAYS: int = 30  # Days to keep error logs
 

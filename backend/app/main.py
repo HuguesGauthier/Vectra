@@ -85,30 +85,7 @@ async def lifespan(app: FastAPI):
         # 3b. Validate Data Mount (Docker)
         validate_data_mount()
 
-        # 4. Observability: Initialize Arize Phoenix (if enabled)
-        if settings.ENABLE_PHOENIX_TRACING:
-            try:
-                from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
-                from opentelemetry import trace as trace_api
-                from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-                from opentelemetry.sdk.trace import TracerProvider
-                from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
-                logger.info("🕊️ Launching Arize Phoenix (via OpenInference)...")
-                endpoint = getattr(settings, "PHOENIX_ENDPOINT", "http://localhost:6006/v1/traces")
-
-                tracer_provider = TracerProvider()
-                span_exporter = OTLPSpanExporter(endpoint=endpoint)
-                tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-                trace_api.set_tracer_provider(tracer_provider)
-
-                LlamaIndexInstrumentor().instrument()
-                logger.info(f"🦜 OpenInference Instrumentation active. Exporting to {endpoint}")
-
-            except ImportError:
-                logger.warning("⚠️ Phoenix enabled but dependencies missing.")
-            except Exception as e:
-                logger.error(f"⚠️ Failed to launch Phoenix: {e}")
 
         # 5. Start Scheduler Service
         scheduler_service.start()
