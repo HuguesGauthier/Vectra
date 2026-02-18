@@ -51,7 +51,7 @@ export const assistantService = {
   },
 
   async getById(id: string): Promise<Assistant> {
-    const response = await api.get(`${API_PATH}/${id}/`);
+    const response = await api.get(`${API_PATH}/${id}`);
     return response.data;
   },
 

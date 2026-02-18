@@ -60,12 +60,12 @@ export const connectorDocumentService = {
     if (status) params.append('status', status);
     if (search) params.append('search', search);
 
-    const response = await api.get(`${API_PATH}/${id}/documents/?${params.toString()}`);
+    const response = await api.get(`${API_PATH}/${id}/documents?${params.toString()}`);
     return response.data;
   },
 
   async createDocument(id: string, payload: ConnectorDocumentCreate): Promise<ConnectorDocument> {
-    const response = await api.post(`${API_PATH}/${id}/documents/`, payload);
+    const response = await api.post(`${API_PATH}/${id}/documents`, payload);
     return response.data;
   },
 
@@ -75,7 +75,7 @@ export const connectorDocumentService = {
    * @param {string} documentId - The document ID.
    */
   async deleteDocument(connectorId: string, documentId: string): Promise<void> {
-    await api.delete(`${API_PATH}/${connectorId}/documents/${documentId}/`);
+    await api.delete(`${API_PATH}/${connectorId}/documents/${documentId}`);
   },
 
   /**
@@ -84,7 +84,7 @@ export const connectorDocumentService = {
    * @param {string} documentId - The document ID.
    */
   async syncDocument(connectorId: string, documentId: string): Promise<void> {
-    await api.post(`${API_PATH}/${connectorId}/documents/${documentId}/sync/`);
+    await api.post(`${API_PATH}/${connectorId}/documents/${documentId}/sync`);
   },
 
   /**
@@ -109,7 +109,7 @@ export const connectorDocumentService = {
     data: { file_name?: string; file_path?: string; configuration?: Record<string, unknown> },
   ): Promise<ConnectorDocument> {
     const response = await api.put<ConnectorDocument>(
-      `/connectors/${connectorId}/documents/${documentId}/`,
+      `/connectors/${connectorId}/documents/${documentId}`,
       data,
     );
     return response.data;
@@ -120,6 +120,6 @@ export const connectorDocumentService = {
    * @param {string} documentId - The document ID.
    */
   async stopDocument(connectorId: string, documentId: string): Promise<void> {
-    await api.post(`${API_PATH}/${connectorId}/documents/${documentId}/stop/`);
+    await api.post(`${API_PATH}/${connectorId}/documents/${documentId}/stop`);
   },
 };
