@@ -107,6 +107,9 @@
                     :provider-id="configProviderId"
                     :provider-name="configProviderName"
                     :models="models"
+                    :supported-models="embeddingSupportedModels"
+                    :supported-transcription-models="transcriptionSupportedModels"
+                    :extraction-supported-models="extractionSupportedModels"
                     @save="handleConfigSave"
                   />
                 </div>
@@ -228,6 +231,8 @@ const models = reactive<Record<string, string>>({
   gemini_extraction_model: 'gemini-2.0-flash',
   openai_api_key: '',
   openai_embedding_model: 'text-embedding-3-small',
+  openai_transcription_model: 'whisper-1',
+  openai_extraction_model: 'gpt-4o-mini',
   local_embedding_url: 'http://localhost:11434',
   local_embedding_model: 'nomic-embed-text',
   local_extraction_model: 'mistral',
@@ -242,6 +247,7 @@ const models = reactive<Record<string, string>>({
   ollama_base_url: 'http://localhost:11434',
   ollama_chat_model: 'mistral',
   ollama_embedding_model: 'bge-m3',
+  ollama_transcription_model: 'whisper',
 
   // Rerank Settings
   rerank_provider: 'cohere',
@@ -274,6 +280,22 @@ const configChatProviderName = computed(() => {
 const chatSupportedModels = computed(() => {
   const provider = chatProviderOptions.value.find((p) => p.id === configChatProviderId.value);
   return provider?.supported_models || [];
+});
+
+const embeddingSupportedModels = computed(() => {
+  const provider = embeddingProviderOptions.value.find((p) => p.id === configProviderId.value);
+  return provider?.supported_models || [];
+});
+
+const transcriptionSupportedModels = computed(() => {
+  const provider = embeddingProviderOptions.value.find((p) => p.id === configProviderId.value);
+  return provider?.supported_transcription_models || [];
+});
+
+const extractionSupportedModels = computed(() => {
+  // Find the chat provider that matches the current embedding provider ID
+  const chatProvider = chatProviderOptions.value.find((p) => p.id === configProviderId.value);
+  return chatProvider?.supported_models || [];
 });
 
 const showRerankConfig = ref(false);

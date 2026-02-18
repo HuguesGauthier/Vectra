@@ -161,7 +161,7 @@ export default {
   popular: 'Populaire',
   public: 'Public', // Added
   private: 'Privé',
-  transcriptionModel: 'Modèle de transcription',
+  transcriptionModel: "Modèle de transcription audio",
   temperature: 'Température',
   topK: 'Top K',
   modelNameHint: 'ex. models/text-embedding-004',
@@ -314,7 +314,7 @@ export default {
   localEmbeddingsDesc: 'Privé & Sécurisé',
   engineNotConfigured: 'Moteur non configuré (Voir Paramètres)',
   notConfigured: 'Non configuré',
-  rerankEngine: 'Moteur de Rerank',
+  rerankEngine: 'Moteur de Pertinence',
   cohereRerankDesc: 'Recommandé pour la plus haute précision.',
   localRerankDesc: "S'exécute localement sur votre processeur avec FastEmbed.",
   modelDeprecationWarning:
@@ -341,7 +341,7 @@ export default {
   retrievalVolumeAndRelevance: 'Volume de Récupération & Pertinence',
   precisionBoost: 'Boost de Précision',
   enableReranking: 'Boost de Précision (IA)',
-  rerankerProvider: 'Fournisseur de Re-classement',
+  rerankerProvider: 'Fournisseur de Pertinence',
   topKRetrieval: 'Volume de récupération',
   topKRetrievalHint: 'Nombre de fragments de documents consultés.',
   topNRerank: 'Volume raffiné',

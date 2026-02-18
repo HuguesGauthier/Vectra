@@ -1,6 +1,6 @@
 <template>
-  <q-dialog v-model="isOpen" maximized transition-show="slide-up" transition-hide="slide-down">
-    <q-card class="model-selector-card">
+  <q-dialog v-model="isOpen"  >
+    <q-card class="model-selector-card" style="min-width: 1000px">
       <!-- Header -->
       <q-card-section class="model-selector-header">
         <div class="row items-center no-wrap">

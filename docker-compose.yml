@@ -1,5 +1,4 @@
 services:
-
   vectra-api:
     profiles: ["prod"]
     build: ./backend
@@ -19,11 +18,14 @@ services:
       - REDIS_CACHE_TTL=3600
       - OLLAMA_BASE_URL=http://vectra-ollama:11434
       - LOCAL_EXTRACTION_URL=http://vectra-ollama:11434
+      - WHISPER_BASE_URL=http://vectra-whisper:8000/v1
     depends_on:
       vectra-postgres:
         condition: service_healthy
       vectra-redis:
         condition: service_healthy
+      vectra-whisper:
+        condition: service_started
     networks:
       - vectra
     volumes:
@@ -67,6 +69,7 @@ services:
       - BACKEND_WS_URL=ws://vectra-api:8000/api/v1/ws?client_type=worker
       - OLLAMA_BASE_URL=http://vectra-ollama:11434
       - LOCAL_EXTRACTION_URL=http://vectra-ollama:11434
+      - WHISPER_BASE_URL=http://vectra-whisper:8000/v1
     depends_on:
       - vectra-postgres
       - vectra-qdrant
@@ -95,7 +98,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vectra} -d ${POSTGRES_DB:-vectra}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-vectra} -d ${POSTGRES_DB:-vectra}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -108,7 +115,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@vectra.com}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
       - ./backend/servers.json:/pgadmin4/servers.json
@@ -188,6 +195,26 @@ services:
     networks:
       - vectra
 
+  vectra-whisper:
+    image: fedless/faster-whisper-server:latest-cuda
+    restart: always
+    environment:
+      - WHISPER__MODEL=base
+      - WHISPER__DEVICE=cuda
+    ports:
+      - "8003:8000"
+    volumes:
+      - whisper_data:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - vectra
+
 networks:
   vectra:
     driver: bridge
@@ -198,3 +225,4 @@ volumes:
   redis_data:
   ollama_data:
   pgadmin_data:
+  whisper_data:

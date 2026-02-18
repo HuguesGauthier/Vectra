@@ -318,6 +318,16 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
             "output_price": 0.25,
         },
     ],
+    "ollama": [
+        {
+            "id": "mistral",
+            "name": "Mistral 7B v0.3 (Ollama)",
+            "description": "Powerful 7B parameter local model. Features a 32k context window, excellent logical reasoning, and native French support. Optimized for efficiency on consumer GPUs.",
+            "category": "balanced",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+    ],
 }
 
 # ---------------------------------------------------------------------------
@@ -366,6 +376,106 @@ EMBEDDING_MODELS: dict[str, ModelEntry] = {
         "input_price": 0.10,
         "output_price": 0.0,
     },
+}
+
+# ─── Grouped by Provider for UI Selectors ───
+
+SUPPORTED_EMBEDDING_MODELS: dict[str, list[ModelEntry]] = {
+    "gemini": [
+        {
+            "id": "models/text-embedding-004",
+            "name": "Gemini Text Embedding 004",
+            "description": "Google's latest state-of-the-art model with 768 dimensions. Optimized for semantic search and retrieval tasks.",
+            "category": "flagship",
+            "input_price": 0.025,
+            "output_price": 0.0,
+        },
+        {
+            "id": "models/text-embedding-005",
+            "name": "Gemini Text Embedding 005",
+            "description": "Latest generation model with improved latency and higher compression quality. Ideal for large-scale production apps.",
+            "category": "balanced",
+            "input_price": 0.025,
+            "output_price": 0.0,
+        },
+    ],
+    "openai": [
+        {
+            "id": "text-embedding-3-small",
+            "name": "OpenAI Embedding 3 Small",
+            "description": "Highly efficient model from OpenAI. Great performance for general purpose search with 1536 dimensions.",
+            "category": "balanced",
+            "input_price": 0.020,
+            "output_price": 0.0,
+        },
+        {
+            "id": "text-embedding-3-large",
+            "name": "OpenAI Embedding 3 Large",
+            "description": "OpenAI's most capable model with up to 3072 dimensions. Best for complex semantic relationships and high accuracy.",
+            "category": "flagship",
+            "input_price": 0.130,
+            "output_price": 0.0,
+        },
+    ],
+    "ollama": [
+        {
+            "id": "bge-m3",
+            "name": "BGE-M3 (Ollama)",
+            "description": "Flagship multi-lingual model supporting 100+ languages. Features multi-granularity (sentences to docs) and 8192 context.",
+            "category": "flagship",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+        {
+            "id": "nomic-embed-text",
+            "name": "Nomic Embed Text (Ollama)",
+            "description": "High-performance open-source model. Features a massive 8192 context window and outperforms OpenAI Ada-002 on many benchmarks.",
+            "category": "balanced",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+    ],
+}
+
+SUPPORTED_TRANSCRIPTION_MODELS: dict[str, list[ModelEntry]] = {
+    "gemini": [
+        {
+            "id": "gemini-1.5-flash",
+            "name": "Gemini 1.5 Flash",
+            "description": "Fast and efficient for audio transcription.",
+            "category": "balanced",
+            "input_price": 0.075,
+            "output_price": 0.30,
+        },
+        {
+            "id": "gemini-1.5-pro",
+            "name": "Gemini 1.5 Pro",
+            "description": "Highest quality transcription with 1M+ context.",
+            "category": "flagship",
+            "input_price": 1.25,
+            "output_price": 10.00,
+        },
+    ],
+    "openai": [
+        {
+            "id": "whisper-1",
+            "name": "Whisper v2-large",
+            "description": "State-of-the-art speech-to-text model from OpenAI.",
+            "category": "flagship",
+            "input_price": 0.006,  # Price is per minute, but we use token price placeholders for now
+            "output_price": 0.0,
+        },
+    ],
+    "ollama": [
+        {
+            "id": "whisper",
+            "name": "Whisper (Ollama)",
+            "description": "General-purpose speech recognition model.",
+            "category": "balanced",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+    ],
 }
 
 

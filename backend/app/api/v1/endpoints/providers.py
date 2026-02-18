@@ -2,7 +2,11 @@ from typing import Annotated, Any, List
 
 from fastapi import APIRouter, Depends
 
-from app.core.model_catalog import SUPPORTED_CHAT_MODELS
+from app.core.model_catalog import (
+    SUPPORTED_CHAT_MODELS,
+    SUPPORTED_EMBEDDING_MODELS,
+    SUPPORTED_TRANSCRIPTION_MODELS,
+)
 from app.schemas.provider import ProviderInfo
 from app.services.settings_service import SettingsService, get_settings_service
 
@@ -38,6 +42,8 @@ async def get_providers(
             description="GPU Accelerated & Efficient",
             configured=await is_configured("ollama_base_url") or True,  # Default is configured (localhost)
             is_active=True,
+            supported_models=SUPPORTED_EMBEDDING_MODELS.get("ollama", []),
+            supported_transcription_models=SUPPORTED_TRANSCRIPTION_MODELS.get("ollama", []),
         )
     )
 
@@ -50,6 +56,8 @@ async def get_providers(
             description="Google DeepMind",
             configured=await is_configured("gemini_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_EMBEDDING_MODELS.get("gemini", []),
+            supported_transcription_models=SUPPORTED_TRANSCRIPTION_MODELS.get("gemini", []),
         )
     )
 
@@ -62,6 +70,8 @@ async def get_providers(
             description="Standard Industry Model",
             configured=await is_configured("openai_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_EMBEDDING_MODELS.get("openai", []),
+            supported_transcription_models=SUPPORTED_TRANSCRIPTION_MODELS.get("openai", []),
         )
     )
 
@@ -75,6 +85,7 @@ async def get_providers(
             description="Run models locally",
             configured=True,
             is_active=True,
+            supported_models=SUPPORTED_CHAT_MODELS.get("ollama", []),
         )
     )
 
@@ -117,13 +128,13 @@ async def get_providers(
         )
     )
 
-    # --- Rerank Providers ---
+    # --- Pertinence Providers ---
 
     # Local (FastEmbed)
     providers.append(
         ProviderInfo(
             id="local",
-            name="Local Reranker (FastEmbed)",
+            name="Pertinence Local (FastEmbed)",
             type="rerank",
             description="Private & Efficient (CPU)",
             configured=True,  # FastEmbed is built-in
@@ -137,7 +148,7 @@ async def get_providers(
             id="cohere",
             name="Cohere",
             type="rerank",
-            description="Industry leader in Reranking",
+            description="Industry leader in Relevance",
             configured=await is_configured("cohere_api_key"),
             is_active=True,
         )

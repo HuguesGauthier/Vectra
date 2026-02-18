@@ -10,3 +10,4 @@ class ProviderInfo(BaseModel):
     configured: bool = False
     is_active: bool = True
     supported_models: List[Dict[str, Any]] = []
+    supported_transcription_models: List[Dict[str, Any]] = []

@@ -29,33 +29,39 @@
                 type="password"
                 autocomplete="new-password"
               />
-              <q-input
-                v-model="internalModels.gemini_embedding_model"
-                :label="$t('modelName')"
-                outlined
-                dense
-                :hint="$t('modelNameHint')"
-              >
-                <template v-slot:append>
-                  <q-icon name="warning" class="cursor-pointer text-warning">
-                    <q-tooltip class="text-body2">{{ $t('modelDeprecationWarning') }}</q-tooltip>
-                  </q-icon>
-                </template>
-              </q-input>
-              <q-input
-                v-model="internalModels.gemini_transcription_model"
-                :label="$t('transcriptionModel')"
-                outlined
-                dense
-                :hint="$t('transcriptionModelHint')"
-              />
-              <q-input
-                v-model="internalModels.gemini_extraction_model"
-                label="Extraction Model (Ingestion)"
-                outlined
-                dense
-                hint="ex. gemini-2.0-flash"
-              />
+
+              <!-- Embedding Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('gemini_embedding_model', 'embedding')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('modelName') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.gemini_embedding_model, 'embedding') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
+
+              <!-- Transcription Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('gemini_transcription_model', 'transcription')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('transcriptionModel') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.gemini_transcription_model, 'transcription') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
+
+              <!-- Extraction Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('gemini_extraction_model', 'extraction')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('smartExtractionTitle') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.gemini_extraction_model, 'extraction') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
             </template>
 
             <!-- OpenAI Configuration -->
@@ -68,19 +74,38 @@
                 type="password"
                 autocomplete="new-password"
               />
-              <q-input
-                v-model="internalModels.openai_embedding_model"
-                :label="$t('modelName')"
-                outlined
-                dense
-                hint="ex. text-embedding-3-small"
-              >
-                <template v-slot:append>
-                  <q-icon name="warning" class="cursor-pointer text-warning">
-                    <q-tooltip class="text-body2">{{ $t('modelDeprecationWarning') }}</q-tooltip>
-                  </q-icon>
-                </template>
-              </q-input>
+              <!-- Embedding Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('openai_embedding_model', 'embedding')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('modelName') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.openai_embedding_model, 'embedding') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
+
+              <!-- Transcription Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('openai_transcription_model', 'transcription')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('transcriptionModel') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.openai_transcription_model, 'transcription') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
+
+              <!-- Extraction Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('openai_extraction_model', 'extraction')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('smartExtractionTitle') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.openai_extraction_model, 'extraction') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
             </template>
 
             <!-- Local Configuration -->
@@ -93,16 +118,16 @@
                 hint="ex. nomic-embed-text"
               />
 
-              <div class="text-subtitle2 q-mt-md">
-                {{ $t('smartExtractionTitle') }} (Ollama/Mistral)
+              <!-- Extraction Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('local_extraction_model', 'extraction')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('smartExtractionTitle') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.local_extraction_model, 'extraction') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
               </div>
-              <q-input
-                v-model="internalModels.local_extraction_model"
-                label="Extraction Model"
-                outlined
-                dense
-                hint="ex. mistral"
-              />
               <q-input
                 v-model="internalModels.local_extraction_url"
                 label="Ollama Base URL"
@@ -122,24 +147,40 @@
                 dense
                 hint="ex. http://localhost:11434"
               />
-              <q-input
-                v-model="internalModels.ollama_embedding_model"
-                :label="$t('modelName')"
-                outlined
-                dense
-                hint="ex. bge-m3, nomic-embed-text"
-              />
+              
+              <!-- Embedding Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('ollama_embedding_model', 'embedding')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('modelName') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.ollama_embedding_model, 'embedding') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
 
-              <q-separator class="q-my-md" />
+              <!-- Transcription Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('ollama_transcription_model', 'transcription')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('transcriptionModel') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.ollama_transcription_model, 'transcription') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
 
-              <div class="text-subtitle2 q-mb-sm">{{ $t('smartExtractionTitle') }} (Ollama)</div>
-              <q-input
-                v-model="internalModels.local_extraction_model"
-                label="Extraction Model"
-                outlined
-                dense
-                hint="ex. mistral, llama3, gemma, phi"
-              />
+              
+              <!-- Extraction Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('local_extraction_model', 'extraction')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('smartExtractionTitle') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.local_extraction_model, 'extraction') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
             </template>
           </div>
         </q-card-section>
@@ -151,11 +192,21 @@
       </q-form>
     </q-card>
   </q-dialog>
+
+  <!-- Model Selector Dialog -->
+  <ModelSelectorDialog
+    v-model:is-open="showModelSelector"
+    :provider-name="providerName"
+    :models="currentSelectorModels"
+    :current-model-id="currentModelId"
+    @select="handleModelSelect"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, watch, type PropType } from 'vue';
-// import { useI18n } from 'vue-i18n';
+import { ref, watch, computed, type PropType } from 'vue';
+import ModelSelectorDialog from './ModelSelectorDialog.vue';
+import type { ModelInfo } from 'src/models/ProviderOption';
 
 const props = defineProps({
   providerId: {
@@ -170,11 +221,27 @@ const props = defineProps({
     type: Object as PropType<Record<string, string>>,
     default: () => ({}),
   },
+  supportedModels: {
+    type: Array as PropType<ModelInfo[]>,
+    default: () => [],
+  },
+  supportedTranscriptionModels: {
+    type: Array as PropType<ModelInfo[]>,
+    default: () => [],
+  },
+  extractionSupportedModels: {
+    type: Array as PropType<ModelInfo[]>,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(['update:isOpen', 'save']);
 const isOpen = defineModel<boolean>('isOpen', { default: false });
-// const { t } = useI18n();
+
+// Model Selector State
+const showModelSelector = ref(false);
+const selectorKey = ref('');
+const selectorType = ref<'embedding' | 'transcription' | 'extraction'>('embedding');
 
 // Local copy of key models to edit
 const internalModels = ref<Record<string, string>>({});
@@ -188,8 +255,100 @@ watch(
   { immediate: true, deep: true },
 );
 
+const currentSelectorModels = computed(() => {
+  if (selectorType.value === 'transcription') return props.supportedTranscriptionModels;
+  if (selectorType.value === 'extraction') return props.extractionSupportedModels;
+  return props.supportedModels;
+});
+
+const currentModelId = computed(() => {
+  return internalModels.value[selectorKey.value] || '';
+});
+
+function openModelSelector(key: string, type: 'embedding' | 'transcription' | 'extraction') {
+  selectorKey.value = key;
+  selectorType.value = type;
+  showModelSelector.value = true;
+}
+
+function handleModelSelect(modelId: string) {
+  if (selectorKey.value) {
+    internalModels.value[selectorKey.value] = modelId;
+  }
+}
+
+function getModelDisplayName(modelId: string | undefined, type: 'embedding' | 'transcription' | 'extraction'): string {
+  if (!modelId) return '—';
+  
+  let list = props.supportedModels;
+  if (type === 'transcription') list = props.supportedTranscriptionModels;
+  if (type === 'extraction') list = props.extractionSupportedModels;
+  
+  const found = list.find((m) => m.id === modelId);
+  return found ? found.name : modelId;
+}
+
 function handleSave() {
   emit('save', internalModels.value);
   isOpen.value = false;
 }
 </script>
+
+<style scoped>
+.model-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+}
+
+.model-select-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.model-select-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-select-label {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.model-select-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Light mode */
+.body--light .model-select-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.body--light .model-select-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+.body--light .model-select-label {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.body--light .model-select-value {
+  color: rgba(0, 0, 0, 0.85);
+}
+</style>

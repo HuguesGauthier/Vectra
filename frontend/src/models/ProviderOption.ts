@@ -19,4 +19,5 @@ export interface ProviderOption {
   value?: string;
   label?: string;
   supported_models?: ModelInfo[];
+  supported_transcription_models?: ModelInfo[];
 }

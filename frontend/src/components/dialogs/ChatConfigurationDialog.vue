@@ -98,12 +98,16 @@
                 dense
                 :hint="$t('baseUrlHint')"
               />
-              <q-input
-                v-model="internalModels.ollama_chat_model"
-                :label="$t('chatModel')"
-                outlined
-                dense
-              />
+              <!-- Model Selection Button -->
+              <div class="model-select-btn" @click="showModelSelector = true">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('chatModel') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.ollama_chat_model) }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
             </template>
 
             <q-separator class="q-my-sm" />
@@ -196,6 +200,7 @@ const modelKey = computed(() => {
     gemini: 'gemini_chat_model',
     openai: 'openai_chat_model',
     mistral: 'mistral_chat_model',
+    ollama: 'ollama_chat_model',
   };
   return map[props.providerId] || '';
 });

@@ -163,7 +163,7 @@ export default {
   popular: 'Popular',
   public: 'Public', // Added
   private: 'Private',
-  transcriptionModel: 'Transcription Model',
+  transcriptionModel: 'Audio Transcription Model',
   temperature: 'Temperature',
   topK: 'Top K',
   modelNameHint: 'e.g. models/text-embedding-004',

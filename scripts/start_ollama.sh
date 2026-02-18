@@ -17,6 +17,10 @@ echo "Retrieving model: bge-m3..."
 ollama pull bge-m3
 echo "Model bge-m3 pulled successfully."
 
+echo "Retrieving model: nomic-embed-text..."
+ollama pull nomic-embed-text
+echo "Model nomic-embed-text pulled successfully."
+
 echo "Retrieving model: mistral..."
 ollama pull mistral
 echo "Model mistral pulled successfully."
@@ -29,6 +33,10 @@ echo "Pre-loading model: bge-m3..."
 # For embedding models, we can use 'run' with a dummy input as well to force load into VRAM
 ollama run bge-m3 "warmup" > /dev/null
 echo "Model bge-m3 pre-loaded."
+
+echo "Pre-loading model: nomic-embed-text..."
+ollama run nomic-embed-text "warmup" > /dev/null
+echo "Model nomic-embed-text pre-loaded."
 
 # Wait for Ollama process to finish.
 wait $pid

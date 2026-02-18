@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     LOCAL_EXTRACTION_MODEL: Optional[str] = "mistral"
     LOCAL_EXTRACTION_URL: str = "http://localhost:11434"
 
+    # Whisper Configuration (Local)
+    WHISPER_BASE_URL: str = "http://localhost:8003/v1"
+
     # Observability
 
     ENABLE_TRENDING: bool = True  # Toggle trending analysis in ChatPipeline
@@ -151,7 +154,7 @@ class Settings(BaseSettings):
             logger.warning("⚠️  Config: QDRANT_API_KEY is empty or not set!")
         return v
 
-    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST")
+    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST", "WHISPER_BASE_URL")
     @classmethod
     def fix_ollama_host_for_windows(cls, v: str) -> str:
         """Fix Windows/Docker localhost issues for Ollama and Redis."""

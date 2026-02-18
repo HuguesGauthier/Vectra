@@ -17,6 +17,7 @@ export interface ProviderInfo {
   configured: boolean;
   is_active: boolean;
   supported_models?: Record<string, unknown>[];
+  supported_transcription_models?: Record<string, unknown>[];
 }
 
 /**
@@ -87,6 +88,9 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           badge: p.id === 'local' || p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'local' || p.id === 'ollama' ? 'warning' : 'info',
           disabled: !p.configured,
+          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
+          supported_transcription_models: (p.supported_transcription_models ||
+            []) as unknown as ModelInfo[],
         };
       });
   });
