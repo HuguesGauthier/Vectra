@@ -122,3 +122,27 @@ def test_nesting_sequence(metrics_manager):
     assert s3.sequence == 0
     assert s1.sequence == 1
     assert s2.sequence == 2
+
+
+def test_increment_total_false(metrics_manager):
+    # 1. Test record_completed_step
+    metrics_manager.record_completed_step("step1", "Label 1", 1.0, 10, 20, increment_total=False)
+    assert metrics_manager.total_input_tokens == 0
+    assert metrics_manager.total_output_tokens == 0
+    assert len(metrics_manager.completed_steps) == 1
+    assert metrics_manager.completed_steps[0].input_tokens == 10
+    assert metrics_manager.completed_steps[0].output_tokens == 20
+
+    # 2. Test end_span
+    span_id = metrics_manager.start_span("step2")
+    metrics_manager.end_span(span_id, input_tokens=30, output_tokens=40, increment_total=False)
+    assert metrics_manager.total_input_tokens == 0
+    assert metrics_manager.total_output_tokens == 0
+    assert len(metrics_manager.completed_steps) == 2
+    assert metrics_manager.completed_steps[1].input_tokens == 30
+    assert metrics_manager.completed_steps[1].output_tokens == 40
+
+    # 3. Test mixed
+    metrics_manager.record_completed_step("step3", "Label 3", 1.0, 5, 5, increment_total=True)
+    assert metrics_manager.total_input_tokens == 5
+    assert metrics_manager.total_output_tokens == 5

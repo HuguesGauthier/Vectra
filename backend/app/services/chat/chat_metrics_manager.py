@@ -97,7 +97,14 @@ class ChatMetricsManager:
         self._sequence_counter += 1
         return span_id
 
-    def end_span(self, span_id: str, payload: Optional[Dict] = None, input_tokens: int = 0, output_tokens: int = 0):
+    def end_span(
+        self,
+        span_id: str,
+        payload: Optional[Dict] = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        increment_total: bool = True,
+    ):
         """End a timing span and record metrics."""
         if span_id not in self.steps:
             return  # Should log warning
@@ -117,8 +124,9 @@ class ChatMetricsManager:
         if payload:
             step.metadata = payload
 
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
+        if increment_total:
+            self.total_input_tokens += input_tokens
+            self.total_output_tokens += output_tokens
 
         # Sequence is already assigned at start_span
         self.completed_steps.append(step)
@@ -132,6 +140,7 @@ class ChatMetricsManager:
         input_tokens: int = 0,
         output_tokens: int = 0,
         payload: Dict = None,
+        increment_total: bool = True,
     ):
         """Manually record a step that was tracked elsewhere (e.g. internally in a callback)."""
         # Create a synthetic step
@@ -146,8 +155,11 @@ class ChatMetricsManager:
             output_tokens=output_tokens,
             metadata=payload or {},
         )
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
+
+        if increment_total:
+            self.total_input_tokens += input_tokens
+            self.total_output_tokens += output_tokens
+
         step.sequence = self._sequence_counter
         self._sequence_counter += 1
         self.completed_steps.append(step)

@@ -585,6 +585,7 @@ class AgenticProcessor(BaseChatProcessor):
             stream_span,
             input_tokens=llm_input_tokens,
             output_tokens=llm_output_tokens or output_tokens,
+            increment_total=False,
         )
 
     # --- Metrics & Formatter Helpers ---
