@@ -342,7 +342,7 @@ const introMessage = computed(() => {
   if (!props.assistant) return undefined;
 
   return {
-    text: `Hello! I am ${props.assistant.name}.\n${props.assistant.description || 'How can I help you today?'}`,
+    text: `${t('welcomeMessage', { name: props.assistant.name })}\n${props.assistant.description || t('howCanIHelp')}`,
     role: 'ai',
   };
 });
@@ -358,8 +358,7 @@ const sttLanguage = computed(() => {
 });
 
 const speechToTextConfig = computed(() => ({
-  webSpeech: true, // Uses the browser's native Speech Recognition API
-  language: sttLanguage.value,
+  webSpeech: { language: sttLanguage.value }, // Uses the browser's native Speech Recognition API
   button: {
     position: 'inside-start', // Clean positioning inside the input
     default: {
@@ -369,10 +368,9 @@ const speechToTextConfig = computed(() => ({
           default: {
             width: '1.5em',
             height: '1.5em',
-            fill: $q.dark.isActive ? '#e8eaed' : '#757575', // Explicitly set fill in style
-            filter: 'none', // Ensure color is not affected by default filters
+            fill: $q.dark.isActive ? '#e8eaed' : '#757575',
+            filter: 'none',
             color: $q.dark.isActive ? '#e8eaed' : '#757575',
-            pointerEvents: 'none',
           },
         },
       },
@@ -385,26 +383,24 @@ const speechToTextConfig = computed(() => ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: 1,
+          opacity: '1',
           width: '24px',
           height: '24px',
+          zIndex: 100,
           cursor: 'pointer',
-          zIndex: 10,
-          pointerEvents: 'auto',
         },
       },
     },
     active: {
       svg: {
-        content: `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="${$q.dark.isActive ? '#e8eaed' : '#757575'}"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 3.01-2.55 5.49-5.5 5.5S6 14.01 6 11H4c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`,
+        content: `<svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="#f44336"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 3.01-2.55 5.49-5.5 5.5S6 14.01 6 11H4c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>`,
         styles: {
           default: {
             width: '1.5em',
             height: '1.5em',
-            fill: $q.dark.isActive ? '#e8eaed' : '#757575',
+            fill: '#f44336',
             filter: 'none',
-            color: $q.dark.isActive ? '#e8eaed' : '#757575',
-            pointerEvents: 'none',
+            color: '#f44336',
           },
         },
       },
@@ -417,12 +413,11 @@ const speechToTextConfig = computed(() => ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          opacity: 1,
+          opacity: '1',
           width: '24px',
           height: '24px',
+          zIndex: 100,
           cursor: 'pointer',
-          zIndex: 10,
-          pointerEvents: 'auto',
         },
       },
     },
