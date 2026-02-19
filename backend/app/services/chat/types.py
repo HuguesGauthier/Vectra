@@ -34,6 +34,7 @@ class PipelineStepType(str, Enum):
     QUERY_EXECUTION = "query_execution"
     STREAMING = "streaming"
     HISTORY_LOADING = "history_loading"
+    QUERY_REWRITE = "query_rewrite"
 
     # Granular Agentic Steps
     ROUTER_SELECTION = "router_selection"

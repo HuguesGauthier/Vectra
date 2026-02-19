@@ -1,14 +1,16 @@
 import logging
 import time
-from typing import Annotated, Any, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import Depends
 from llama_index.core import PromptTemplate, Settings
+from llama_index.core.base.response.schema import RESPONSE_TYPE
+from llama_index.core.callbacks.schema import CBEventType
 from llama_index.core.query_engine import BaseQueryEngine, RouterQueryEngine
-from llama_index.core.selectors import LLMSingleSelector
+from llama_index.core.selectors import LLMMultiSelector
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core.vector_stores import FilterOperator, MetadataFilter, MetadataFilters
-from llama_index.core.schema import QueryBundle
+from llama_index.core.schema import QueryBundle, QueryType
 
 from app.core.exceptions import ConfigurationError
 from app.core.prompts import AGENTIC_RESPONSE_PROMPT, AGENTIC_RESPONSE_PROMPT_FR
@@ -18,6 +20,7 @@ from app.factories.llm_factory import LLMFactory
 from app.services.settings_service import SettingsService
 from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
+from app.services.chat.tool_context import current_tool_name
 
 logger = logging.getLogger(__name__)
 
@@ -30,18 +33,29 @@ class IsolatedQueryEngine(BaseQueryEngine):
     causing dimension mismatches if the first tool caches its embedding.
     """
 
-    def __init__(self, engine: BaseQueryEngine):
+    def __init__(self, engine: BaseQueryEngine, tool_metadata: Optional[ToolMetadata] = None):
         super().__init__(callback_manager=engine.callback_manager)
         self._engine = engine
+        self.tool_metadata = tool_metadata
 
     def _query(self, query_bundle: QueryBundle) -> Any:
-        # Clone bundle (shallow copy is enough as we only modify embedding)
-        # We explicitly set embedding to None to force re-calculation
+        # Clone bundle to force re-calculation of embeddings per engine
         new_bundle = QueryBundle(
             query_str=query_bundle.query_str,
             custom_embedding_strs=query_bundle.custom_embedding_strs,
             image_path=query_bundle.image_path,
         )
+
+        if self.tool_metadata:
+            # Set ContextVar so callbacks.py can label the RETRIEVE event correctly.
+            # FUNCTION_CALL event kept for _has_used_tools flag (LLM classification).
+            token = current_tool_name.set(self.tool_metadata.name)
+            try:
+                with self.callback_manager.event(CBEventType.FUNCTION_CALL, payload={"tool": self.tool_metadata}):
+                    return self._engine.query(new_bundle)
+            finally:
+                current_tool_name.reset(token)
+
         return self._engine.query(new_bundle)
 
     async def _aquery(self, query_bundle: QueryBundle) -> Any:
@@ -50,7 +64,37 @@ class IsolatedQueryEngine(BaseQueryEngine):
             custom_embedding_strs=query_bundle.custom_embedding_strs,
             image_path=query_bundle.image_path,
         )
+
+        if self.tool_metadata:
+            # ContextVar propagates into child coroutines but NOT into sibling tasks
+            # started by asyncio.gather() — exactly what we need for LLMMultiSelector.
+            token = current_tool_name.set(self.tool_metadata.name)
+            try:
+                with self.callback_manager.event(CBEventType.FUNCTION_CALL, payload={"tool": self.tool_metadata}):
+                    return await self._engine.aquery(new_bundle)
+            finally:
+                current_tool_name.reset(token)
+
         return await self._engine.aquery(new_bundle)
+
+    async def aquery(self, str_or_query_bundle: QueryType) -> RESPONSE_TYPE:
+        """Async query. Bypasses default event dispatching to avoid duplicates."""
+        if isinstance(str_or_query_bundle, str):
+            str_or_query_bundle = QueryBundle(str_or_query_bundle)
+        return await self._aquery(str_or_query_bundle)
+
+    def query(self, str_or_query_bundle: QueryType) -> RESPONSE_TYPE:
+        """Sync query. Bypasses default event dispatching to avoid duplicates."""
+        if isinstance(str_or_query_bundle, str):
+            str_or_query_bundle = QueryBundle(str_or_query_bundle)
+        return self._query(str_or_query_bundle)
+
+    def _get_prompt_modules(self) -> Dict[str, Any]:
+        """
+        Required by BaseQueryEngine in recent llama-index versions.
+        Delegates to the wrapped engine to ensure prompt consistency.
+        """
+        return {"engine": self._engine}
 
 
 class UnifiedQueryEngineFactory:
@@ -171,17 +215,20 @@ class UnifiedQueryEngineFactory:
                 provider=provider, filters=provider_filters, **vector_kwargs
             )
 
-            # WRAPPER FIX: Isolate the engine to prevent embedding leakage
-            isolated_engine = IsolatedQueryEngine(engine)
-
             collection_name = await self.vector_service.get_collection_name(provider)
+            tool_metadata = ToolMetadata(
+                name=f"vector_search_{provider}",
+                description=f"Search in the {provider} knowledge base ({collection_name}). Use this for policies, documents, and general text search.",
+            )
+
+            # WRAPPER FIX: Isolate the engine to prevent embedding leakage
+            # AND pass metadata so we can emit FUNCTION_CALL events for tracking
+            isolated_engine = IsolatedQueryEngine(engine, tool_metadata=tool_metadata)
+
             vector_tools.append(
                 QueryEngineTool(
                     query_engine=isolated_engine,
-                    metadata=ToolMetadata(
-                        name=f"vector_search_{provider}",
-                        description=f"Search in the {provider} knowledge base ({collection_name}). Use this for policies, documents, and general text search.",
-                    ),
+                    metadata=tool_metadata,
                 )
             )
 
@@ -216,7 +263,7 @@ class UnifiedQueryEngineFactory:
         router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
 
         return RouterQueryEngine(
-            selector=LLMSingleSelector.from_defaults(llm=router_llm),
+            selector=LLMMultiSelector.from_defaults(llm=router_llm),
             query_engine_tools=all_tools,
             verbose=True,
         )

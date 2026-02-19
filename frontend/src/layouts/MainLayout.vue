@@ -91,22 +91,19 @@
       >
         <div class="column full-height">
           <q-list class="col" padding>
-            <q-item
-              class="q-ma-none q-pa-sm"
-              clickable
-              :to="isHomePage ? undefined : '/'"
-            >
+            <q-item class="q-ma-none q-pa-sm" clickable :to="isHomePage ? undefined : '/'">
               <q-item-section avatar>
                 <VectraLogo
                   :color-left="currentColors.left"
                   :color-right="currentColors.right"
                   :color-mid="currentColors.mid"
                   :disable-animation="true"
+                  :small="true"
                   style="width: 36px; height: 36px"
                 />
               </q-item-section>
               <q-item-section>
-                <span class="vectra-brand-name ">Vectra</span>
+                <span class="vectra-brand-name">Vectra</span>
               </q-item-section>
             </q-item>
 
@@ -453,8 +450,8 @@ async function setLanguage(lang: string) {
 // Initialisé avec les couleurs par défaut
 const currentColors = reactive({
   left: '#2A4B7C',
-  right: '#E08E45',
-  mid: '#7D6868',
+  right: '#b08989',
+  mid: '#a6a5a5',
 });
 
 // --- COMPUTED ---

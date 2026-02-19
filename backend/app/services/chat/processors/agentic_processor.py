@@ -204,7 +204,6 @@ class AgenticProcessor(BaseChatProcessor):
 
         try:
             # P0 FEATURE: Context Rehydration (Smart Caching)
-            # Check if previous turn has reusable structured data (e.g. SQL results from 10s ago)
             if ctx.history and len(ctx.history) > 0:
                 last_msg = ctx.history[-1]
                 if last_msg.role == "assistant" and last_msg.metadata:
@@ -214,14 +213,15 @@ class AgenticProcessor(BaseChatProcessor):
                         logger.info(f"💾 [Rehydration] Found reusable SQL context ({len(structured_ctx)} rows)")
 
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
             )
 
             start_time = time.time()
+            rewrite_tokens = None
 
-            # CIRCUIT BREAKER: Timeout protection
             try:
-                new_query = await asyncio.wait_for(self._perform_rewrite_call(ctx), timeout=TIMEOUT_LLM_REWRITE)
+                result = await asyncio.wait_for(self._perform_rewrite_call(ctx), timeout=TIMEOUT_LLM_REWRITE)
+                new_query, rewrite_tokens = result if isinstance(result, tuple) else (result, None)
 
                 if new_query and new_query != ctx.message:
                     logger.info(LOG_REWRITE, ctx.message, new_query)
@@ -231,35 +231,77 @@ class AgenticProcessor(BaseChatProcessor):
                 logger.warning(f"Rewrite Latency Exceeded ({TIMEOUT_LLM_REWRITE}s). Skipping rewrite.")
 
             duration = round(time.time() - start_time, 3)
+
+            # Build payload — include token counts if captured
+            payload: Dict = {"is_substep": True}
+            if rewrite_tokens:
+                payload["tokens"] = rewrite_tokens
+            try:
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                payload["model_name"] = model_val
+                payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
+
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING,
+                PipelineStepType.QUERY_REWRITE,
                 StepStatus.COMPLETED,
                 ctx.language,
                 duration=duration,
-                payload={"is_substep": True},
+                payload=payload,
             )
 
         except Exception as e:
             logger.warning(f"Failed to condense question: {e}")
-            # Yield failures to ensure UI cleanup
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING, StepStatus.FAILED, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE, StepStatus.FAILED, ctx.language, payload={"is_substep": True}
             )
 
-    async def _perform_rewrite_call(self, ctx: ChatContext) -> str:
-        """Calls the LLM to rewrite the question."""
+    async def _perform_rewrite_call(self, ctx: ChatContext) -> tuple:
+        """Calls the LLM to rewrite the question. Returns (rewritten_text, token_dict)."""
         relevant_history = ctx.history[-HISTORY_WINDOW_SIZE:]
         history_str = "\n".join([f"{msg.role}: {msg.content}" for msg in relevant_history])
 
         prompt = PromptTemplate(REWRITE_QUESTION_PROMPT)
 
-        # Use centralized Factory to get the correctly configured Chat Engine
-        # based on Assistant settings (provider, model version, API keys)
         from app.factories.chat_engine_factory import ChatEngineFactory
 
         llm = await ChatEngineFactory.create_from_assistant(ctx.assistant, ctx.settings_service)
-        response = await llm.apredict(prompt, chat_history=history_str, question=ctx.message)
-        return response.strip()
+        # Use astream_complete to capture token usage after generation
+        full_text = ""
+        input_tokens = 0
+        output_tokens = 0
+        try:
+            async for chunk in await llm.astream_complete(
+                prompt.format(chat_history=history_str, question=ctx.message)
+            ):
+                full_text = chunk.text  # astream_complete gives cumulative text
+                # Capture usage from last chunk
+                raw = getattr(chunk, "raw", None) or {}
+                meta = (
+                    (raw.get("usage_metadata") if isinstance(raw, dict) else getattr(raw, "usage_metadata", None))
+                    if raw
+                    else None
+                )
+                if meta:
+                    input_tokens = (
+                        meta.get("prompt_token_count")
+                        if isinstance(meta, dict)
+                        else getattr(meta, "prompt_token_count", 0)
+                    ) or 0
+                    output_tokens = (
+                        meta.get("candidates_token_count")
+                        if isinstance(meta, dict)
+                        else getattr(meta, "candidates_token_count", 0)
+                    ) or 0
+        except Exception:
+            # Fallback to simple apredict if streaming not supported
+            full_text = await llm.apredict(prompt, chat_history=history_str, question=ctx.message)
+
+        tokens = {"input": input_tokens, "output": output_tokens} if (input_tokens or output_tokens) else None
+        return full_text.strip(), tokens
 
     # --- 2. CSV Strategy ---
 
@@ -355,7 +397,9 @@ class AgenticProcessor(BaseChatProcessor):
 
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
-            # C. Consume Events
+            # C. Consume Events — simple pass-through.
+            # ROUTER_SYNTHESIS is handled explicitly below wrapping _stream_response_content,
+            # where we have the real duration and final token counts.
             async for event in self._consume_event_queue(event_queue, router_task):
                 yield self._process_router_event(event, ctx)
 
@@ -392,9 +436,39 @@ class AgenticProcessor(BaseChatProcessor):
             async for source_event in self._process_response_sources(ctx, response):
                 yield source_event
 
-            # E. Stream Content
+            # E. Stream Content — wrapped in ROUTER_SYNTHESIS for accurate timing.
+            # The LLM callbacks fire at ~0ms with streaming (they get a handle, not the full response).
+            # The REAL generation time lives here, in the token stream consumption.
+            synthesis_start = time.time()
+            yield EventFormatter.format(
+                PipelineStepType.ROUTER_SYNTHESIS, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+            )
+
             async for token_event in self._stream_response_content(ctx, response, stream_handler, event_queue):
                 yield token_event
+
+            synthesis_dur = round(time.time() - synthesis_start, 3)
+            # Get the final cumulative token counts from the handler
+            synth_input = getattr(stream_handler, "total_input_tokens", 0)
+            synth_output = getattr(stream_handler, "total_output_tokens", 0)
+            synth_payload: Dict = {"is_substep": True}
+            if synth_input or synth_output:
+                synth_payload["tokens"] = {"input": synth_input, "output": synth_output}
+            try:
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                synth_payload["model_name"] = model_val
+                synth_payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
+            yield EventFormatter.format(
+                PipelineStepType.ROUTER_SYNTHESIS,
+                StepStatus.COMPLETED,
+                ctx.language,
+                duration=synthesis_dur,
+                payload=synth_payload,
+            )
 
             # F. Finalize
             step_metric = ctx.metrics.end_span(parent_span_id)
@@ -620,7 +694,13 @@ class AgenticProcessor(BaseChatProcessor):
             step_type = PipelineStepType.SQL_SCHEMA_RETRIEVAL if is_sql_meta else PipelineStepType.ROUTER_RETRIEVAL
 
         # Inject model name for generation steps so the UI can display it
-        if step_type in (PipelineStepType.ROUTER_REASONING, PipelineStepType.ROUTER_SYNTHESIS):
+        if step_type in (
+            PipelineStepType.ROUTER_REASONING,
+            PipelineStepType.ROUTER_SYNTHESIS,
+            PipelineStepType.ROUTER_SELECTION,
+            PipelineStepType.QUERY_REWRITE,
+            PipelineStepType.SQL_GENERATION,
+        ):
             try:
                 # Prefer specific model from settings (e.g. "gpt-4o"), fallback to enum value (e.g. "openai")
                 model_val = ctx.metadata.get("specific_model_name") or (
@@ -645,7 +725,7 @@ class AgenticProcessor(BaseChatProcessor):
         if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
             del payload["source_count"]
 
-        return EventFormatter.format(step_type, status, ctx.language, payload, duration, label)
+        return EventFormatter.format(step_type, status, ctx.language, payload=payload, label=label)
 
     def _record_router_metric(self, ctx: ChatContext, step_type, label, duration, payload):
         tokens = payload.get("tokens", {})

@@ -113,16 +113,16 @@ async def test_create_engine_hybrid_with_sql_failure(factory, mock_vector_servic
         mock_settings.load_cache = AsyncMock()
 
         # Execute
-        await factory.create_engine(mock_assistant)
+        engine = await factory.create_engine(mock_assistant)
 
         # Verify
-        mock_router_cls.assert_called_once()
-        args, kwargs = mock_router_cls.call_args
-        tools = kwargs["query_engine_tools"]
+        # RouterQueryEngine should NOT be called because only 1 functional tool (docs) remains
+        mock_router_cls.assert_not_called()
 
-        # SQL tool should still be present but using vector_engine as fallback
-        sql_tool = next(t for t in tools if t.metadata.name == "transit_sql_db")
-        assert sql_tool.query_engine == mock_vector_service.get_query_engine.return_value
+        # Should return the vector engine directly (wrapped in IsolatedQueryEngine)
+        assert mock_vector_service.get_query_engine.call_count == 1
+        # Check that we returned an engine (it will be an IsolatedQueryEngine instance)
+        assert engine is not None
 
 
 @pytest.mark.asyncio
@@ -149,6 +149,7 @@ async def test_create_engine_hybrid_success(factory, mock_vector_service, mock_s
             "app.factories.query_engine_factory.ChatEngineFactory.create_from_provider", new_callable=AsyncMock
         ) as mock_chat_provider,
         patch("app.factories.query_engine_factory.RouterQueryEngine") as mock_router_cls,
+        patch("app.factories.query_engine_factory.LLMMultiSelector") as mock_selector_cls,
     ):
         mock_settings = mock_settings_cls.return_value
         mock_settings.load_cache = AsyncMock()
@@ -163,3 +164,6 @@ async def test_create_engine_hybrid_success(factory, mock_vector_service, mock_s
 
         # Verify Router LLM was created via ChatEngineFactory
         mock_chat_provider.assert_called_once_with(mock_assistant.model_provider, mock_settings)
+
+        # Verify LLMMultiSelector was used
+        mock_selector_cls.from_defaults.assert_called_once()

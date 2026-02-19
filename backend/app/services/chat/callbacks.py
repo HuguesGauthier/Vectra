@@ -7,6 +7,7 @@ from llama_index.core.callbacks.base import BaseCallbackHandler
 from llama_index.core.callbacks.schema import CBEventType
 
 from app.services.chat.types import PipelineStepType
+from app.services.chat.tool_context import current_tool_name as _tool_name_ctx
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         self._event_starts = {}
         self._has_used_tools = False
         self._is_sql_flow = False
+        self._llm_call_count = 0  # Sequence counter for LLM calls in this workflow
         # Token metrics
         self.total_input_tokens = 0
         self.total_output_tokens = 0
@@ -40,7 +42,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     ) -> str:
         """Run when an event starts."""
         self._event_starts[event_id] = time.time()
-        self._obs_event(event_type, "start", payload, event_id=event_id)
+        self._obs_event(event_type, "start", payload, event_id=event_id, parent_id=parent_id)
         return event_id
 
     def on_event_end(
@@ -53,7 +55,14 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         """Run when an event ends."""
         self._obs_event(event_type, "end", payload, event_id=event_id)
 
-    def _obs_event(self, event_type: CBEventType, phase: str, payload: Optional[Dict] = None, event_id: str = ""):
+    def _obs_event(
+        self,
+        event_type: CBEventType,
+        phase: str,
+        payload: Optional[Dict] = None,
+        event_id: str = "",
+        parent_id: str = "",
+    ):
         step_type = None
         label = None
 
@@ -61,6 +70,14 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         if phase == "start":
             step_type = self._determine_step_type(event_type, payload)
             if step_type:
+                if step_type == PipelineStepType.RETRIEVAL:
+                    # Read tool name from ContextVar set by IsolatedQueryEngine.
+                    # ContextVar is async-safe: each asyncio task (engine coroutine in
+                    # LLMMultiSelector's asyncio.gather) maintains its own copy, so
+                    # parallel executions don't overwrite each other.
+                    label = _tool_name_ctx.get(None)
+                else:
+                    label = None
                 self._event_map[event_id] = {"step_type": step_type, "label": label}
 
         # Phase 2: Processing & Recovery (End Phase)
@@ -131,21 +148,58 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         if event_type == CBEventType.AGENT_STEP:
             return PipelineStepType.ROUTER_PROCESSING
 
-        # LLM Calls (Reasoning, Synthesis, SQL, Selection)
+        # LLM Calls — use sequence position, not content heuristics.
+        # Gemini and other providers don't embed routing keywords in prompts,
+        # making content inspection unreliable. Sequence-based rules work
+        # for all providers.
         if event_type == CBEventType.LLM:
-            # If tools were used previously, this LLM call is likely the final synthesis
-            if self._has_used_tools:
-                return PipelineStepType.ROUTER_SYNTHESIS
-
-            # Otherwise, analyze payload to distinguish between SQL, Router, or Reasoning
-            return self._analyze_llm_payload(payload)
+            return self._classify_llm_by_sequence(payload)
 
         return None
 
+    def _classify_llm_by_sequence(self, payload: Optional[Dict]) -> PipelineStepType:
+        """
+        Classify LLM calls by their sequence in the agentic workflow.
+
+        Context: The query rewrite LLM call happens OUTSIDE this callback
+        (in AgenticProcessor._contextualize_query) and is already labeled
+        separately as QUERY_REWRITE. This callback only sees router-internal
+        LLM calls.
+
+        Typical flow inside the router (Gemini):
+          LLM #1  → ROUTER_SELECTION (decide which tool / source to use)
+          RETRIEVE (tool call happens)
+          LLM #2+ → ROUTER_REASONING (intermediate reasoning / multi-hop)
+          LLM #N  → ROUTER_SYNTHESIS (final synthesis — last call)
+
+        The AgenticProcessor retroactively upgrades the LAST completed
+        ROUTER_REASONING event to ROUTER_SYNTHESIS after the queue drains.
+        """
+        self._llm_call_count += 1
+        n = self._llm_call_count
+
+        # First call — before any tool was used — is the router's selection step
+        if n == 1 and not self._has_used_tools:
+            # Strong-signal override: if it's clearly SQL generation, trust payload
+            if payload:
+                analyzed = self._analyze_llm_payload(payload)
+                if analyzed == PipelineStepType.SQL_GENERATION:
+                    return analyzed
+            return PipelineStepType.ROUTER_SELECTION
+
+        # Second call before any tools — also selection/reasoning (e.g., two-stage router)
+        if not self._has_used_tools:
+            return self._analyze_llm_payload(payload)
+
+        # After tools have been used: mark as ROUTER_REASONING.
+        # The AgenticProcessor will promote the last one to ROUTER_SYNTHESIS.
+        return PipelineStepType.ROUTER_REASONING
+
     def _analyze_llm_payload(self, payload: Optional[Dict]) -> PipelineStepType:
-        """Deep inspection of LLM payload to guess the intent (SQL vs Select vs Reasoning)."""
+        """Deep inspection of LLM payload to guess the intent (SQL vs Select vs reasoning/rewrite)."""
         is_sql = False
         is_select = False
+        is_rewrite = False
 
         if not payload:
             return PipelineStepType.ROUTER_REASONING
@@ -154,6 +208,17 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         if "messages" in payload:
             for msg in payload["messages"]:
                 content = str(msg.content).lower()
+
+                # Query Rewrite / Ambiguity Guard detection
+                if (
+                    "rephrase" in content
+                    or "conversation context" in content
+                    or "standalone question" in content
+                    or "original question" in content
+                ):
+                    is_rewrite = True
+                    break
+
                 if "sql" in content and "table" in content:
                     is_sql = True
                 if "postgresql" in content:
@@ -162,7 +227,11 @@ class StreamingCallbackHandler(BaseCallbackHandler):
                     is_sql = True
 
                 # Selection keywords override SQL hints often found in router prompts
-                if "choices:" in content or ("select" in content and "tool" in content):
+                if (
+                    "choices:" in content
+                    or ("select" in content and "tool" in content)
+                    or ("useful" in content and "relevant" in content and "answer" in content)
+                ):
                     is_sql = False
                     is_select = True
 
@@ -170,23 +239,29 @@ class StreamingCallbackHandler(BaseCallbackHandler):
                     break
 
         # Strategy B: Check Serialized Class Names (Strong Signal)
-        if not is_sql and not is_select and "serialized" in payload:
+        if not any([is_rewrite, is_sql, is_select]) and "serialized" in payload:
             serialized = str(payload["serialized"])
             if "NLSQLRetriever" in serialized or "SQL" in serialized:
                 is_sql = True
             elif "Selector" in serialized:
                 is_select = True
+            elif "CondenseQuestion" in serialized:
+                is_rewrite = True
 
         # Strategy C: Check Template Vars (LlamaIndex specific)
-        if not is_sql and not is_select and "template_vars" in payload:
+        if not any([is_rewrite, is_sql, is_select]) and "template_vars" in payload:
             t_vars = payload["template_vars"]
             if isinstance(t_vars, dict):
                 if "choices" in t_vars and len(t_vars.get("choices", [])) > 1:
                     is_select = True
                 elif "schema" in t_vars or "dialect" in t_vars:
                     is_sql = True
+                elif "chat_history" in t_vars and "question" in t_vars:
+                    is_rewrite = True
 
         # Conclusion
+        if is_rewrite:
+            return PipelineStepType.QUERY_REWRITE
         if is_sql:
             self._is_sql_flow = True
             return PipelineStepType.SQL_GENERATION

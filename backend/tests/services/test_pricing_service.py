@@ -24,9 +24,9 @@ async def test_get_pricing_map_success(service, mock_settings_service):
 
     assert isinstance(result, PricingMapResponse)
     assert result.prices[local_model] == 0.0
-    assert "gemini-1.5-flash" in result.prices
+    assert "gemini-2.0-flash" in result.prices
     expected_prices = build_pricing_map()
-    assert result.prices["gemini-1.5-flash"] == expected_prices["gemini-1.5-flash"]
+    assert result.prices["gemini-2.0-flash"] == expected_prices["gemini-2.0-flash"]
 
 
 @pytest.mark.asyncio
@@ -52,15 +52,15 @@ async def test_get_pricing_map_fallback_on_error(service, mock_settings_service)
 
 
 def test_calculate_cost_known_model(service):
-    """Gemini 1.5 Flash: input $0.075/1M, output $0.30/1M"""
+    """Gemini 2.0 Flash: input $0.10/1M, output $0.40/1M"""
     cost = service.calculate_cost(
         provider="gemini",
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.0-flash",
         input_tokens=1_000_000,
         output_tokens=1_000_000,
     )
-    # (1M * 0.075 / 1M) + (1M * 0.30 / 1M) = 0.075 + 0.30 = 0.375
-    assert cost == pytest.approx(0.375, abs=0.001)
+    # (1M * 0.10 / 1M) + (1M * 0.40 / 1M) = 0.10 + 0.40 = 0.50
+    assert cost == pytest.approx(0.50, abs=0.001)
 
 
 def test_calculate_cost_unknown_model(service):

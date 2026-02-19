@@ -967,7 +967,6 @@ export default {
     cache_hit: 'Cache Hit: Answer restored',
     cache_miss: 'Cache Miss: Proceeding to search',
     history_loading: 'Loading Chat History',
-    query_rewrite: 'Query Rewrite',
     vectorization: 'Vectorization',
     retrieval: 'Retrieval',
     reranking: 'Reranking',
@@ -989,6 +988,7 @@ export default {
     router_reasoning: 'Generating Answer',
     router_retrieval: 'Retrieve Knowledge Base',
     router_selection: 'Tool Selection',
+    query_rewrite: 'Query Optimization',
     sql_generation: 'Generate SQL Query',
     sql_schema_retrieval: 'Retrieve SQL Metadata',
     tool_execution: 'Execute AI Tool',
@@ -999,10 +999,6 @@ export default {
   stepDescriptions: {
     connection:
       'Establishing a secure connection with the AI providers and database services. This initial handshaking ensures the environment is ready for processing.',
-    query_rewrite:
-      'Refining your question to improve search results by adding missing context from the conversation. This step makes the query clearer for the AI retrieval engines.',
-    cache_hit:
-      'The exact answer was found in the semantic cache, saving time and cost. The response is instantly restored without needing a fresh AI generation.',
     cache_miss:
       'Reference answer was not found in the semantic cache. The system is proceeding with full analysis and data retrieval to construct a new answer.',
     router_processing:

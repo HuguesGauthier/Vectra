@@ -57,9 +57,19 @@ class TestAgenticProcessor:
     async def test_perform_rewrite_call(self, mock_factory, mock_context):
         processor = AgenticProcessor()
 
-        # Mock LLM
-        mock_llm = AsyncMock()
-        mock_llm.apredict.return_value = "Rewritten Query"
+        # Mock LLM with astream_complete (new code path)
+        mock_chunk = MagicMock()
+        mock_chunk.text = "Rewritten Query"
+        mock_chunk.raw = None  # no usage metadata in the mock
+
+        async def fake_astream_complete(*args, **kwargs):
+            async def _gen():
+                yield mock_chunk
+
+            return _gen()
+
+        mock_llm = MagicMock()
+        mock_llm.astream_complete = fake_astream_complete
 
         # Configure Factory
         mock_factory.create_from_assistant = AsyncMock(return_value=mock_llm)
@@ -68,8 +78,11 @@ class TestAgenticProcessor:
 
         result = await processor._perform_rewrite_call(mock_context)
 
-        assert result == "Rewritten Query"
-        mock_llm.apredict.assert_called_once()
+        # Method now returns (text, tokens_dict_or_None)
+        assert isinstance(result, tuple)
+        text, tokens = result
+        assert text == "Rewritten Query"
+        assert tokens is None  # No usage metadata from mock
 
     @patch("app.factories.chat_engine_factory.ChatEngineFactory")
     @pytest.mark.asyncio

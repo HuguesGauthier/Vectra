@@ -341,38 +341,63 @@ export function useChatStream() {
     // Nested Step Update Logic
     if (!botMsg.steps) botMsg.steps = [];
 
+    // Suppress noisy internal steps that are redundant in the UI:
+    // - tool_execution: the RETRIEVAL step already shows the collection name
+    // - router_reasoning: intermediate LLM hops; ROUTER_SYNTHESIS captures the final output
+    if (event.step_type === 'tool_execution' || event.step_type === 'router_reasoning')
+      return false;
+
     // Dynamic Label Logic
-    let label = event.label || t(`pipelineSteps.${event.step_type}`);
+    const baseLabel = t(`pipelineSteps.${event.step_type}`);
+    let label = baseLabel;
+
     // Cache specific logic
     if (event.step_type === 'cache_lookup' && event.status === 'completed' && event.payload) {
       label = event.payload.hit ? t('pipelineSteps.cache_hit') : t('pipelineSteps.cache_miss');
     }
-    // Append model name for generation steps (e.g. "Génération de la réponse (Google - Gemini 2.5 Flash)")
-    const modelName = event.payload?.model_name;
-    const modelProvider = event.payload?.model_provider;
 
-    if (typeof modelName === 'string' && modelName && !event.label) {
-      let displayModel = modelName;
+    // Vector search label: backend sends "vector_search_{provider}", format to show collection
+    if (
+      event.label &&
+      typeof event.label === 'string' &&
+      event.label.startsWith('vector_search_')
+    ) {
+      const collectionMap: Record<string, string> = {
+        vector_search_gemini: 'documents_gemini',
+        vector_search_openai: 'documents_openai',
+        vector_search_ollama: 'documents_ollama',
+      };
+      const collectionName =
+        collectionMap[event.label] || event.label.replace('vector_search_', 'documents_');
+      label = `${baseLabel} (${collectionName})`;
+    } else {
+      // Append model name for generation steps (e.g. "Génération de la réponse (Google - Gemini 2.5 Flash)")
+      const modelName = event.payload?.model_name;
+      const modelProvider = event.payload?.model_provider;
 
-      // Format provider if available
-      if (typeof modelProvider === 'string' && modelProvider) {
-        // Map common providers to display names
-        const providerMap: Record<string, string> = {
-          openai: 'OpenAI',
-          gemini: 'Google',
-          mistral: 'Mistral',
-          ollama: 'Ollama',
-          anthropic: 'Anthropic',
-          cohere: 'Cohere',
-        };
-        const displayProvider =
-          providerMap[modelProvider.toLowerCase()] ||
-          modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1);
+      if (typeof modelName === 'string' && modelName && !event.label) {
+        let displayModel = modelName;
 
-        displayModel = `${displayProvider} - ${modelName}`;
+        // Format provider if available
+        if (typeof modelProvider === 'string' && modelProvider) {
+          // Map common providers to display names
+          const providerMap: Record<string, string> = {
+            openai: 'OpenAI',
+            gemini: 'Google',
+            mistral: 'Mistral',
+            ollama: 'Ollama',
+            anthropic: 'Anthropic',
+            cohere: 'Cohere',
+          };
+          const displayProvider =
+            providerMap[modelProvider.toLowerCase()] ||
+            modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1);
+
+          displayModel = `${displayProvider} - ${modelName}`;
+        }
+
+        label = `${label} (${displayModel})`;
       }
-
-      label = `${label} (${displayModel})`;
     }
 
     const payload = event.payload as

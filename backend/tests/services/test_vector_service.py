@@ -126,6 +126,6 @@ class TestVectorService:
     async def test_get_collection_name_logic(self, mock_settings_service):
         """Test collection naming mapping."""
         service = VectorService(mock_settings_service)
-        assert await service.get_collection_name(provider="gemini") == "gemini_collection"
-        assert await service.get_collection_name(provider="openai") == "openai_collection"
+        assert await service.get_collection_name(provider="gemini") == "documents_gemini"
+        assert await service.get_collection_name(provider="openai") == "documents_openai"
         assert await service.get_collection_name(provider="ollama") == "documents_ollama"

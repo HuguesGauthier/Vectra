@@ -326,8 +326,9 @@ export class MessageRenderer {
       const fontSize = isSubStep ? '12px' : '13px';
       const paddingLeft = isSubStep ? '20px' : '0';
 
-      // Duration Text - Always show, even if 0
-      const durationText = step.duration !== undefined ? `${step.duration.toFixed(2)}s` : '0.00s';
+      // Duration Text - Only show if meaningfully > 0 (streaming LLM callbacks report ~0ms)
+      const durationText =
+        step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
 
       // Tokens Text - Use up/down arrows
       let tokensText = '';

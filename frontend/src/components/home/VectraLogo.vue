@@ -13,6 +13,7 @@ const props = defineProps({
   colorRight: { type: String, default: '#E08E45' },
   colorMid: { type: String, default: '#7D6868' },
   disableAnimation: { type: Boolean, default: false },
+  small: { type: Boolean, default: false },
 });
 
 const canvasContainer = ref<HTMLElement | null>(null);
@@ -47,7 +48,7 @@ onMounted(() => {
   const whiteColor = new THREE.Color(0xb4cde9);
 
   // --- PARTIE 1 : La Network Sphere (Externe) ---
-  const geometry = new THREE.IcosahedronGeometry(10, 2);
+  const geometry = new THREE.IcosahedronGeometry(10, props.small ? 1 : 2);
 
   const applyGradient = (geo: THREE.BufferGeometry) => {
     const positions = geo.attributes.position;
@@ -75,7 +76,11 @@ onMounted(() => {
   });
   const lines = new THREE.LineSegments(wireframeGeo, lineMaterial);
 
-  const sphereGeo = new THREE.SphereGeometry(0.15, 16, 16);
+  const sphereGeo = new THREE.SphereGeometry(
+    props.small ? 0.25 : 0.15,
+    props.small ? 6 : 16,
+    props.small ? 6 : 16,
+  );
   const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const positionAttribute = geometry.attributes.position as THREE.BufferAttribute;
 
@@ -106,7 +111,7 @@ onMounted(() => {
 
   // --- PARTIE 2 : La sphère interne Shader ---
   const innerRadius = 8.2;
-  const innerGeo = new THREE.IcosahedronGeometry(innerRadius, 20);
+  const innerGeo = new THREE.IcosahedronGeometry(innerRadius, props.small ? 3 : 20);
 
   const vertexShader = `
     varying vec2 vUv;

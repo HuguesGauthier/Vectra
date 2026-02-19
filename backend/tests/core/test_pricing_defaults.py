@@ -39,7 +39,7 @@ class TestModelCatalog:
 
     def test_get_model_pricing_chat(self):
         """Should find a known chat model."""
-        result = get_model_pricing("gemini-1.5-flash")
+        result = get_model_pricing("gemini-2.0-flash")
         assert result is not None
         input_p, output_p = result
         assert input_p > 0
@@ -47,7 +47,7 @@ class TestModelCatalog:
 
     def test_get_model_pricing_embedding(self):
         """Should find a known embedding model."""
-        result = get_model_pricing("text-embedding-004")
+        result = get_model_pricing("text-embedding-3-small")
         assert result is not None
         input_p, output_p = result
         assert input_p > 0
@@ -60,10 +60,10 @@ class TestModelCatalog:
     def test_build_pricing_map_contains_key_models(self):
         """Pricing map should contain all known models plus free providers."""
         prices = build_pricing_map()
-        assert "gemini-1.5-flash" in prices
+        assert "gemini-2.0-flash" in prices
         assert "gpt-5" in prices
         assert "mistral-large-latest" in prices
-        assert "text-embedding-004" in prices
+        assert "text-embedding-3-small" in prices
         assert "ollama" in prices
         assert prices["ollama"] == 0.0
         assert prices["local"] == 0.0

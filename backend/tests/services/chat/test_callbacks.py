@@ -64,10 +64,16 @@ class TestStreamingCallbackHandler:
         assert handler._has_used_tools is True
 
     def test_determine_step_type_synthesis(self, handler):
-        """Test detection of Synthesis (LLM after Tool)."""
+        """Test detection of LLM after Tool (ROUTER_REASONING).
+
+        Note: ROUTER_SYNTHESIS is no longer emitted by the callback handler.
+        It is a dedicated step in AgenticProcessor that wraps the actual
+        streaming content generation (where real duration/tokens are available).
+        Post-tool LLM callbacks are classified as ROUTER_REASONING.
+        """
         handler._has_used_tools = True
         step_type = handler._determine_step_type(CBEventType.LLM, {})
-        assert step_type == PipelineStepType.ROUTER_SYNTHESIS
+        assert step_type == PipelineStepType.ROUTER_REASONING
 
     def test_enrich_retrieval_payload(self, handler):
         """Test retrieval payload enrichment."""

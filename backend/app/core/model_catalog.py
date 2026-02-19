@@ -318,7 +318,7 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
 #  Embedding Models  (input_price only — embeddings have no "output" tokens)
 # ---------------------------------------------------------------------------
 EMBEDDING_MODELS: dict[str, ModelEntry] = {
-    "gemini-embedding-001": {
+    "models/gemini-embedding-001": {
         "id": "models/gemini-embedding-001",
         "name": "Gemini Embedding 001",
         "input_price": 0.15,
