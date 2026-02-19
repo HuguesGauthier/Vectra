@@ -124,8 +124,8 @@ class VectraCustomVanna(VannaBase):
 
             # 3. Use Injected Collection Name
             if not self.collection_name:
-                logger.warning("No collection name provided to Vanna. Falling back to default 'gemini_collection'.")
-                self.collection_name = "gemini_collection"
+                logger.warning("No collection name provided to Vanna. Falling back to default 'documents_gemini'.")
+                self.collection_name = "documents_gemini"
 
             collection_name = self.collection_name
 

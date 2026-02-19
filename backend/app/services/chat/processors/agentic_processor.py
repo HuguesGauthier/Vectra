@@ -349,13 +349,9 @@ class AgenticProcessor(BaseChatProcessor):
             start_query = time.time()
 
             # Run the blocking query() call in a thread to avoid blocking the event loop
-            # P0 OPTIMIZATION: Reuse the embedding from cache lookup if it exists and matches
-            if ctx.question_embedding and ctx.message == ctx.original_message:
-                logger.info("🚀 [AgenticProcessor] Reusing pre-computed embedding via QueryBundle")
-                query_bundle = QueryBundle(query_str=ctx.message, embedding=ctx.question_embedding)
-                router_task = asyncio.create_task(asyncio.to_thread(engine.query, query_bundle))
-            else:
-                router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
+            # Execute the query. We avoid passing a pre-computed embedding via QueryBundle
+            # because the Router might delegate to tools with different dimensions (e.g., Ollama vs Gemini).
+            router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
 
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 

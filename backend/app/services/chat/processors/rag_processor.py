@@ -238,7 +238,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
 
         from app.strategies import HybridStrategy, VectorOnlyStrategy
 
-        vec_repo = VectorRepository(ctx.vector_service.get_async_qdrant_client())
+        vec_repo = VectorRepository(await ctx.vector_service.get_async_qdrant_client())
         strat_type = getattr(ctx.assistant, "search_strategy", "hybrid")
 
         if strat_type == "vector":

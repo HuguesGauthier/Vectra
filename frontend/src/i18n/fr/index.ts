@@ -161,7 +161,7 @@ export default {
   popular: 'Populaire',
   public: 'Public', // Added
   private: 'Privé',
-  transcriptionModel: "Modèle de transcription audio",
+  transcriptionModel: 'Modèle de transcription audio',
   temperature: 'Température',
   topK: 'Top K',
   modelNameHint: 'ex. models/text-embedding-004',
@@ -658,15 +658,21 @@ export default {
   // --- Parameter Explanations ---
   tempTitle: '🌡️ La Température (T)',
   tempSubtitle: 'Le curseur de créativité',
-  tempDesc: "La température contrôle le degré de hasard dans le choix des mots. Elle modifie la distribution de probabilité des tokens suivants.",
-  tempExpert: "Basse (0.1 - 0.3) : \"L'Expert Rigide\". L'IA choisit presque toujours le mot le plus probable. C'est idéal pour la génération SQL ou l'extraction précise. C'est factuel et reproductible.",
-  tempCollaborator: "Moyenne (0.7 - par défaut) : \"Le Collaborateur\". Un bon équilibre pour une discussion fluide sans trop s'égarer.",
-  tempPoet: "Haute (1.0 - 1.5) : \"Le Poète Halluciné\". L'IA prend des risques, utilise des mots rares. Très bon pour le brainstorming, mais risqué pour le RAG.",
+  tempDesc:
+    'La température contrôle le degré de hasard dans le choix des mots. Elle modifie la distribution de probabilité des tokens suivants.',
+  tempExpert:
+    "Basse (0.1 - 0.3) : \"L'Expert Rigide\". L'IA choisit presque toujours le mot le plus probable. C'est idéal pour la génération SQL ou l'extraction précise. C'est factuel et reproductible.",
+  tempCollaborator:
+    'Moyenne (0.7 - par défaut) : "Le Collaborateur". Un bon équilibre pour une discussion fluide sans trop s\'égarer.',
+  tempPoet:
+    'Haute (1.0 - 1.5) : "Le Poète Halluciné". L\'IA prend des risques, utilise des mots rares. Très bon pour le brainstorming, mais risqué pour le RAG.',
   topKTitle: '🎯 Le Top K',
   topKSubtitle: 'Le filtre de diversité',
-  topKDesc: "Le Top K limite le \"vocabulaire\" disponible pour chaque mot généré.",
-  topKSmall: "Petit K (ex: 10) : L'IA est très focalisée. Elle ne dira jamais rien de bizarre, mais ses phrases peuvent sembler répétitives.",
-  topKLarge: "Grand K (ex: 100+) : L'IA a accès à un vocabulaire beaucoup plus riche. Plus naturel, mais plus de chances de \"halluciner\" si la température est haute.",
+  topKDesc: 'Le Top K limite le "vocabulaire" disponible pour chaque mot généré.',
+  topKSmall:
+    "Petit K (ex: 10) : L'IA est très focalisée. Elle ne dira jamais rien de bizarre, mais ses phrases peuvent sembler répétitives.",
+  topKLarge:
+    'Grand K (ex: 100+) : L\'IA a accès à un vocabulaire beaucoup plus riche. Plus naturel, mais plus de chances de "halluciner" si la température est haute.',
 
   // Optimisation
   instructionsOptimized: 'Instructions optimisées !',
@@ -735,79 +741,131 @@ export default {
   },
   model_desc: {
     // ── Gemini Chat ──
-    'gemini-3-pro-preview': 'Le modèle le plus avancé et le plus "intelligent" actuellement disponible en avant-première. Idéal pour les tâches complexes nécessitant un raisonnement profond, de la créativité ou le traitement de très grandes quantités d’informations.',
-    'gemini-2.5-pro': 'Un modèle surpuissant de haut niveau conçu pour les tâches professionnelles complexes. Il excelle dans la compréhension de documents techniques approfondis et fournit des réponses argumentées de haute qualité.',
-    'gemini-1.5-pro': 'Le "cerveau" stable de la famille Gemini. Célèbre pour sa mémoire massive, il peut "lire" des livres entiers ou de longs codes sources en une seule fois pour répondre précisément à vos questions.',
-    'gemini-3-flash-preview': 'La version optimisée pour la vitesse du dernier Gemini 3. Il offre un excellent compromis : presque aussi intelligent que la version Pro mais beaucoup plus rapide et réactif.',
-    'gemini-2.5-flash': 'Le compagnon polyvalent. Rapide, fiable et économique. Parfait pour les conversations quotidiennes, la synthèse d’e-mails ou l’assistance générale.',
-    'gemini-2.0-flash': 'Un modèle haute vitesse de génération précédente. Bien qu’il soit plus ancien, il reste très fiable pour les tâches simples et répétitives où la rapidité prime sur la nuance profonde.',
-    'gemini-2.5-flash-lite': 'Une version "allégée" de Flash. Optimisée pour des réponses très simples et rapides tout en maintenant des coûts extrêmement bas. Idéal pour le classement de base ou les réponses courtes.',
-    'gemini-1.5-flash': 'Le choix standard et économique. Rapide, efficace et éprouvé pour la plupart des tâches d’IA courantes sans dépasser votre budget.',
-    'gemini-1.5-flash-8b': 'Le modèle Gemini le plus petit et le plus rapide. À utiliser de préférence pour des opérations simples à haute vitesse, comme le tri de données ou la détection du sentiment d’une phrase.',
+    'gemini-3-pro-preview':
+      'Modèle de pointe ultra-intelligent (Preview). Excellence absolue en raisonnement, code et analyse de documents complexes.',
+    'gemini-2.5-pro':
+      "Modèle phare ultra-performant. Conçu pour le raisonnement de haut niveau et l'analyse documentaire approfondie.",
+    'gemini-3-flash-preview':
+      "L'efficacité de nouvelle génération (Preview). Réponses ultra-rapides avec l'intelligence de la classe GPT-4.",
+    'gemini-2.5-flash':
+      'Le modèle polyvalent par excellence. Rapide, fiable et performant pour la majorité des tâches de production.',
+    'gemini-2.5-flash-lite':
+      'Modèle 2.5 haute efficacité. Optimisé pour la vitesse et les volumes massifs à un coût extrêmement compétitif.',
+    'gemini-2.0-flash':
+      'Vitesse de pointe inégalée. Performances incroyables avec des réponses quasi instantanées.',
+    'gemini-2.0-flash-lite':
+      "Notre modèle le plus rentable à ce jour. Conçu pour une mise à l'échelle massive sans compromis sur la logique de base.",
+    'gemini-embedding-001':
+      'Modèle de vectorisation stable et compatible. Idéal pour des résultats cohérents sur toutes les régions Google Cloud.',
 
     // ── OpenAI Chat ──
-    'gpt-5.2': 'Le dernier sommet de l’intelligence artificielle. Son raisonnement semble plus "humain" et il peut gérer des instructions extrêmement complexes à travers de vastes volumes de texte.',
-    'gpt-5.2-pro': 'Le modèle "Expert". Si vous avez besoin d’un scientifique virtuel, d’un développeur senior ou d’un stratège approfondi, c’est le modèle le plus précis et le plus capable offert par OpenAI.',
-    'gpt-5.1': 'Un modèle phare hautement capable et fiable. Il offre une expérience premium avec une grande stabilité pour la rédaction professionnelle et créative.',
-    'gpt-5': 'La fondation de la nouvelle génération. Un modèle polyvalent très intelligent qui traite presque toutes les tâches avec une grande clarté et des formulations naturelles.',
-    'o1': 'Le "Penseur Profond". Contrairement aux autres modèles, il "réfléchit" avant de parler. Idéal pour la logique complexe, les problèmes mathématiques et le raisonnement scientifique où la précision est primordiale.',
-    'o3': 'La nouvelle génération de raisonnement. Plus rapide et encore plus logique que ses prédécesseurs, il est passé maître dans la résolution d’énigmes difficiles et de défis de programmation.',
-    'o3-mini': 'Une version plus rapide et compacte des modèles de raisonnement. Idéal lorsque vous avez besoin d’un traitement logique lourd mais souhaitez un temps de réponse plus court.',
-    'o4-mini': 'Le penseur logique le plus abordable. Il offre des capacités de raisonnement avancées à une fraction du coût des modèles plus grands.',
-    'gpt-5-mini': 'Intelligent, rapide et abordable. Le meilleur choix pour la plupart des utilisateurs qui souhaitent la puissance de la dernière génération pour les tâches quotidiennes sans le coût élevé.',
-    'gpt-4.1-mini': 'Un modèle fiable et très rapide largement utilisé en production. Il est idéal pour créer des applications nécessitant des réponses rapides et intelligentes.',
-    'gpt-4o-mini': 'Un modèle classique et rentable. Très rapide, il fonctionne bien pour les interactions simples et le traitement de données de base.',
-    'gpt-5-nano': 'La version ultra-légère. Presque instantanée et extrêmement bon marché. Idéal pour les tâches très simples ou le traitement à haut volume de données basiques.',
+    'gpt-5.2':
+      'Le dernier sommet de l’intelligence artificielle. Son raisonnement semble plus "humain" et il peut gérer des instructions extrêmement complexes à travers de vastes volumes de texte.',
+    'gpt-5.2-pro':
+      'Le modèle "Expert". Si vous avez besoin d’un scientifique virtuel, d’un développeur senior ou d’un stratège approfondi, c’est le modèle le plus précis et le plus capable offert par OpenAI.',
+    'gpt-5.1':
+      'Un modèle phare hautement capable et fiable. Il offre une expérience premium avec une grande stabilité pour la rédaction professionnelle et créative.',
+    'gpt-5':
+      'La fondation de la nouvelle génération. Un modèle polyvalent très intelligent qui traite presque toutes les tâches avec une grande clarté et des formulations naturelles.',
+    o1: 'Le "Penseur Profond". Contrairement aux autres modèles, il "réfléchit" avant de parler. Idéal pour la logique complexe, les problèmes mathématiques et le raisonnement scientifique où la précision est primordiale.',
+    o3: 'La nouvelle génération de raisonnement. Plus rapide et encore plus logique que ses prédécesseurs, il est passé maître dans la résolution d’énigmes difficiles et de défis de programmation.',
+    'o3-mini':
+      'Une version plus rapide et compacte des modèles de raisonnement. Idéal lorsque vous avez besoin d’un traitement logique lourd mais souhaitez un temps de réponse plus court.',
+    'o4-mini':
+      'Le penseur logique le plus abordable. Il offre des capacités de raisonnement avancées à une fraction du coût des modèles plus grands.',
+    'gpt-5-mini':
+      'Intelligent, rapide et abordable. Le meilleur choix pour la plupart des utilisateurs qui souhaitent la puissance de la dernière génération pour les tâches quotidiennes sans le coût élevé.',
+    'gpt-4.1-mini':
+      'Un modèle fiable et très rapide largement utilisé en production. Il est idéal pour créer des applications nécessitant des réponses rapides et intelligentes.',
+    'gpt-4o-mini':
+      'Un modèle classique et rentable. Très rapide, il fonctionne bien pour les interactions simples et le traitement de données de base.',
+    'gpt-5-nano':
+      'La version ultra-légère. Presque instantanée et extrêmement bon marché. Idéal pour les tâches très simples ou le traitement à haut volume de données basiques.',
 
     // ── Mistral Chat ──
-    'mistral-large-latest': 'Le poids lourd de Mistral. Conçu pour rivaliser avec les modèles les plus intelligents au monde, il excelle dans le raisonnement complexe et le code de haute précision.',
-    'mistral-medium-latest': 'Le modèle "juste milieu" : assez intelligent pour le travail complexe mais optimisé pour la vitesse et le coût. Idéal pour les applications professionnelles.',
-    'mistral-small-latest': 'Efficace et concentré. Il possède une grande mémoire pour sa taille, ce qui le rend idéal pour les tâches routinières impliquant la lecture de plusieurs documents à la fois.',
-    'open-mistral-nemo': 'Un modèle spécialisé développé avec NVIDIA. Impressionnant de par son intelligence pour sa taille, il fonctionne particulièrement bien pour les cas d’usage techniques.',
-    'mistral-tiny': 'Le modèle Mistral le plus basique. Idéal pour les tâches rapides et simples comme l’identification de mots-clés ou le classement de texte basique.',
-    'ministral-3b-latest': 'Un modèle minuscule conçu pour fonctionner sur de petits appareils. Très rapide et concentré sur des instructions simples et directes.',
-    'ministral-8b-latest': 'Un petit modèle équilibré. Offre un raisonnement étonnamment bon pour sa taille compacte, parfait pour un traitement local efficace.',
-    'ministral-14b-latest': 'Le plus grand des petits modèles. Capable de gérer une logique plus complexe que les versions 3b ou 8b tout en restant très rapide.',
-    'codestral-latest': 'Le "Spécialiste du Code". Spécifiquement entraîné pour écrire et déboguer du code dans plus de 80 langages de programmation.',
-    'pixtral-large-latest': 'Un expert multimodal. Il peut non seulement lire du texte, mais aussi "voir" et analyser des images complexes, des graphiques et des diagrammes techniques avec une haute précision.',
-    'pixtral-12b-2409': 'Un modèle polyvalent capable de gérer efficacement le texte et les images. Idéal pour les tâches de vision générale comme la description de photos.',
-    'voxtral-latest': 'L’"Expert Audio". Spécialisé dans la compréhension et le traitement direct du langage parlé et des fichiers audio.',
-    'devstral-latest': 'Un outil expérimental conçu spécifiquement pour les développeurs. Optimisé pour agir comme assistant dans les tâches d’ingénierie logicielle.',
-    'open-mistral-7b': 'Un modèle classique et fiable qui a tout déclenché. Rapide et efficace pour les conversations simples et directes.',
+    'mistral-large-latest':
+      'Le poids lourd de Mistral. Conçu pour rivaliser avec les modèles les plus intelligents au monde, il excelle dans le raisonnement complexe et le code de haute précision.',
+    'mistral-medium-latest':
+      'Le modèle "juste milieu" : assez intelligent pour le travail complexe mais optimisé pour la vitesse et le coût. Idéal pour les applications professionnelles.',
+    'mistral-small-latest':
+      'Efficace et concentré. Il possède une grande mémoire pour sa taille, ce qui le rend idéal pour les tâches routinières impliquant la lecture de plusieurs documents à la fois.',
+    'open-mistral-nemo':
+      'Un modèle spécialisé développé avec NVIDIA. Impressionnant de par son intelligence pour sa taille, il fonctionne particulièrement bien pour les cas d’usage techniques.',
+    'mistral-tiny':
+      'Le modèle Mistral le plus basique. Idéal pour les tâches rapides et simples comme l’identification de mots-clés ou le classement de texte basique.',
+    'ministral-3b-latest':
+      'Un modèle minuscule conçu pour fonctionner sur de petits appareils. Très rapide et concentré sur des instructions simples et directes.',
+    'ministral-8b-latest':
+      'Un petit modèle équilibré. Offre un raisonnement étonnamment bon pour sa taille compacte, parfait pour un traitement local efficace.',
+    'ministral-14b-latest':
+      'Le plus grand des petits modèles. Capable de gérer une logique plus complexe que les versions 3b ou 8b tout en restant très rapide.',
+    'codestral-latest':
+      'Le "Spécialiste du Code". Spécifiquement entraîné pour écrire et déboguer du code dans plus de 80 langages de programmation.',
+    'pixtral-large-latest':
+      'Un expert multimodal. Il peut non seulement lire du texte, mais aussi "voir" et analyser des images complexes, des graphiques et des diagrammes techniques avec une haute précision.',
+    'pixtral-12b-2409':
+      'Un modèle polyvalent capable de gérer efficacement le texte et les images. Idéal pour les tâches de vision générale comme la description de photos.',
+    'voxtral-latest':
+      'L’"Expert Audio". Spécialisé dans la compréhension et le traitement direct du langage parlé et des fichiers audio.',
+    'devstral-latest':
+      'Un outil expérimental conçu spécifiquement pour les développeurs. Optimisé pour agir comme assistant dans les tâches d’ingénierie logicielle.',
+    'open-mistral-7b':
+      'Un modèle classique et fiable qui a tout déclenché. Rapide et efficace pour les conversations simples et directes.',
 
     // ── Ollama Chat ──
-    'mistral': 'Un modèle local puissant qui fonctionne entièrement sur votre propre ordinateur. Très efficace, bon en logique et offrant un excellent support de la langue française.',
+    mistral:
+      'Un modèle local puissant qui fonctionne entièrement sur votre propre ordinateur. Très efficace, bon en logique et offrant un excellent support de la langue française.',
 
     // ── Embedding (Recherche & Organisation) ──
-    'models/text-embedding-004': 'Le standard actuel pour la recherche. Il convertit le texte en un format mathématique permettant au système de trouver des documents selon leur "sens" plutôt que de simples mots-clés.',
-    'models/text-embedding-005': 'Le modèle de recherche de nouvelle génération. Plus rapide et efficace pour organiser de grandes quantités de données pour une récupération ultra-précise.',
-    'text-embedding-3-small': 'Le modèle de recherche hautement efficace d’OpenAI. Offre d’excellentes performances pour la recherche documentaire générale.',
-    'text-embedding-3-large': 'Le modèle de recherche le plus puissant d’OpenAI. Capture les nuances les plus subtiles du texte, idéal pour les recherches de haute précision.',
-    'bge-m3': 'Le modèle de recherche multilingue par excellence. Permet de trouver des documents dans plus de 100 langues différentes avec une grande précision.',
-    'nomic-embed-text': 'Un modèle de recherche open-source haute performance. Dispose d’une mémoire massive pour lire de très longs documents pendant le processus de recherche.',
+    'models/text-embedding-004':
+      'Le standard actuel pour la recherche. Il convertit le texte en un format mathématique permettant au système de trouver des documents selon leur "sens" plutôt que de simples mots-clés.',
+    'models/text-embedding-005':
+      'Le modèle de recherche de nouvelle génération. Plus rapide et efficace pour organiser de grandes quantités de données pour une récupération ultra-précise.',
+    'text-embedding-3-small':
+      'Le modèle de recherche hautement efficace d’OpenAI. Offre d’excellentes performances pour la recherche documentaire générale.',
+    'text-embedding-3-large':
+      'Le modèle de recherche le plus puissant d’OpenAI. Capture les nuances les plus subtiles du texte, idéal pour les recherches de haute précision.',
+    'bge-m3':
+      'Le modèle de recherche multilingue par excellence. Permet de trouver des documents dans plus de 100 langues différentes avec une grande précision.',
+    'nomic-embed-text':
+      'Un modèle de recherche open-source haute performance. Dispose d’une mémoire massive pour lire de très longs documents pendant le processus de recherche.',
 
     // ── Rerank (Affinage des Résultats) ──
-    'BAAI/bge-reranker-base': 'Un "vérificateur de qualité" local. Il reprend vos résultats de recherche et les réanalyse pour garantir que les plus pertinents sont tout en haut. Fonctionne de manière privée sur votre machine.',
-    'BAAI/bge-reranker-v2-m3': 'Vérificateur de qualité local de dernière génération. Plus précis et multilingue, il garantit que vos résultats de recherche sont toujours pertinents.',
-    'rerank-v3.5': 'La référence absolue pour affiner les recherches. Incroyablement doué pour comprendre l’intention de votre question afin de choisir le document parfait dans une liste.',
-    'rerank-multilingual-v3.0': 'Optimisé pour l’international. Affine les résultats de recherche dans des dizaines de langues pour garantir la précision, quelle que soit la langue du document.',
-    'rerank-english-v3.0': 'Un vérificateur de qualité spécialisé pour l’anglais. Très rapide et précis pour le contenu exclusivement en anglais.',
+    'BAAI/bge-reranker-base':
+      'Un "vérificateur de qualité" local. Il reprend vos résultats de recherche et les réanalyse pour garantir que les plus pertinents sont tout en haut. Fonctionne de manière privée sur votre machine.',
+    'BAAI/bge-reranker-v2-m3':
+      'Vérificateur de qualité local de dernière génération. Plus précis et multilingue, il garantit que vos résultats de recherche sont toujours pertinents.',
+    'rerank-v3.5':
+      'La référence absolue pour affiner les recherches. Incroyablement doué pour comprendre l’intention de votre question afin de choisir le document parfait dans une liste.',
+    'rerank-multilingual-v3.0':
+      'Optimisé pour l’international. Affine les résultats de recherche dans des dizaines de langues pour garantir la précision, quelle que soit la langue du document.',
+    'rerank-english-v3.0':
+      'Un vérificateur de qualité spécialisé pour l’anglais. Très rapide et précis pour le contenu exclusivement en anglais.',
 
     // ── Transcription (Parole vers Texte) ──
-    'whisper-1': 'Le leader du secteur pour convertir la parole en texte. Extrêmement précis pour transcrire des fichiers audio en documents écrits.',
-    'whisper': 'Une version locale et fiable de la reconnaissance vocale. Permet de transcrire vos audios en toute confidentialité sur votre propre ordinateur sans envoyer de données sur internet.',
+    'whisper-1':
+      'Le leader du secteur pour convertir la parole en texte. Extrêmement précis pour transcrire des fichiers audio en documents écrits.',
+    whisper:
+      'Une version locale et fiable de la reconnaissance vocale. Permet de transcrire vos audios en toute confidentialité sur votre propre ordinateur sans envoyer de données sur internet.',
   },
   model_desc_transcription: {
-    'gemini-1.5-flash': 'Le champion de la rapidité. Idéal pour convertir rapidement de grandes quantités d’audio en texte à moindre coût.',
-    'gemini-1.5-pro': 'Le choix de la précision. Capable de transcrire fidèlement des enregistrements complexes, longs ou avec plusieurs interlocuteurs.',
-    'whisper-1': 'Spécialiste mondial de la voix. Reconnaît la parole avec une précision incroyable, même avec des accents marqués ou du bruit de fond.',
-    'whisper': 'Transcription privée et locale. Transcrit vos fichiers directement sur votre ordinateur sans jamais envoyer vos données dans le cloud.',
+    'gemini-1.5-flash':
+      'Le champion de la rapidité. Idéal pour convertir rapidement de grandes quantités d’audio en texte à moindre coût.',
+    'gemini-1.5-pro':
+      'Le choix de la précision. Capable de transcrire fidèlement des enregistrements complexes, longs ou avec plusieurs interlocuteurs.',
+    'whisper-1':
+      'Spécialiste mondial de la voix. Reconnaît la parole avec une précision incroyable, même avec des accents marqués ou du bruit de fond.',
+    whisper:
+      'Transcription privée et locale. Transcrit vos fichiers directement sur votre ordinateur sans jamais envoyer vos données dans le cloud.',
   },
   model_desc_extraction: {
-    'gemini-1.5-flash': 'Rapide et précis pour extraire des informations clés de documents simples.',
-    'gemini-2.0-flash': 'Optimisé pour l’extraction de données complexes avec un excellent rapport vitesse/précision.',
-    'gpt-4o-mini': 'Modèle compact très performant pour comprendre la structure des données et isoler les points importants.',
-    'mistral': 'Modèle local efficace pour analyser vos documents en toute confidentialité.',
+    'gemini-1.5-flash':
+      'Rapide et précis pour extraire des informations clés de documents simples.',
+    'gemini-2.0-flash':
+      'Optimisé pour l’extraction de données complexes avec un excellent rapport vitesse/précision.',
+    'gpt-4o-mini':
+      'Modèle compact très performant pour comprendre la structure des données et isoler les points importants.',
+    mistral: 'Modèle local efficace pour analyser vos documents en toute confidentialité.',
   },
   // --- Assistant Wizard ---
   wizard: {

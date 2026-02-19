@@ -26,7 +26,7 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
         {
             "id": "gemini-3-pro-preview",
             "name": "Gemini 3 Pro Preview",
-            "description": "Most advanced Gemini 3 model (Preview). Superior reasoning and multimodal capabilities.",
+            "description": "Our most powerful frontier model. Superior reasoning, coding, and complex task handling with massive context.",
             "category": "flagship",
             "input_price": 2.00,
             "output_price": 12.00,
@@ -34,15 +34,7 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
         {
             "id": "gemini-2.5-pro",
             "name": "Gemini 2.5 Pro",
-            "description": "High-performance model with advanced context handling and reasoning.",
-            "category": "flagship",
-            "input_price": 1.25,
-            "output_price": 10.00,
-        },
-        {
-            "id": "gemini-1.5-pro",
-            "name": "Gemini 1.5 Pro",
-            "description": "Stable flagship model with 1M+ context window and balanced performance.",
+            "description": "Premium flagship model. Optimized for high-level reasoning and deep document analysis.",
             "category": "flagship",
             "input_price": 1.25,
             "output_price": 10.00,
@@ -51,7 +43,7 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
         {
             "id": "gemini-3-flash-preview",
             "name": "Gemini 3 Flash Preview",
-            "description": "Fastest Gemini 3 model (Preview). Optimized for low-latency and efficiency.",
+            "description": "Next-gen efficiency. Ultra-fast responses with GPT-4 class intelligence.",
             "category": "balanced",
             "input_price": 0.50,
             "output_price": 3.00,
@@ -59,43 +51,35 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
         {
             "id": "gemini-2.5-flash",
             "name": "Gemini 2.5 Flash",
-            "description": "Core balanced model for Gen 2.5. Excellent speed and reasoning ratio.",
+            "description": "The perfect all-rounder. Fast, reliable, and capable for most production tasks.",
             "category": "balanced",
-            "input_price": 0.15,
-            "output_price": 0.60,
-        },
-        {
-            "id": "gemini-2.0-flash",
-            "name": "Gemini 2.0 Flash",
-            "description": "Reliable fast model for production workloads.",
-            "category": "balanced",
-            "input_price": 0.10,
-            "output_price": 0.40,
+            "input_price": 0.30,
+            "output_price": 2.50,
         },
         # ── Economy ──
         {
             "id": "gemini-2.5-flash-lite",
             "name": "Gemini 2.5 Flash-Lite",
-            "description": "Lightweight 2.5 model for high-volume, low-cost operations.",
+            "description": "High-efficiency 2.5 model. Optimized for speed and massive volume at low cost.",
             "category": "economy",
             "input_price": 0.10,
             "output_price": 0.40,
         },
         {
-            "id": "gemini-1.5-flash",
-            "name": "Gemini 1.5 Flash",
-            "description": "Standard economy model. Fast and well-tested.",
+            "id": "gemini-2.0-flash",
+            "name": "Gemini 2.0 Flash",
+            "description": "Industry-leading speed. Incredible performance with near-instant responses.",
+            "category": "economy",
+            "input_price": 0.10,
+            "output_price": 0.40,
+        },
+        {
+            "id": "gemini-2.0-flash-lite",
+            "name": "Gemini 2.0 Flash-Lite",
+            "description": "Our most cost-effective model ever. Built for massive scale without sacrificing core logic.",
             "category": "economy",
             "input_price": 0.075,
             "output_price": 0.30,
-        },
-        {
-            "id": "gemini-1.5-flash-8b",
-            "name": "Gemini 1.5 Flash 8B",
-            "description": "Ultra-efficient small model for high-throughput tasks.",
-            "category": "economy",
-            "input_price": 0.0375,
-            "output_price": 0.15,
         },
     ],
     "openai": [
@@ -334,22 +318,10 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
 #  Embedding Models  (input_price only — embeddings have no "output" tokens)
 # ---------------------------------------------------------------------------
 EMBEDDING_MODELS: dict[str, ModelEntry] = {
-    "text-embedding-004": {
-        "id": "text-embedding-004",
-        "name": "Gemini Text Embedding 004",
-        "input_price": 0.025,  # $0.025 / 1M tokens
-        "output_price": 0.0,
-    },
-    "text-embedding-005": {
-        "id": "text-embedding-005",
-        "name": "Gemini Text Embedding 005",
-        "input_price": 0.025,
-        "output_price": 0.0,
-    },
     "gemini-embedding-001": {
-        "id": "gemini-embedding-001",
+        "id": "models/gemini-embedding-001",
         "name": "Gemini Embedding 001",
-        "input_price": 0.025,
+        "input_price": 0.15,
         "output_price": 0.0,
     },
     "text-embedding-3-small": {
@@ -383,19 +355,11 @@ EMBEDDING_MODELS: dict[str, ModelEntry] = {
 SUPPORTED_EMBEDDING_MODELS: dict[str, list[ModelEntry]] = {
     "gemini": [
         {
-            "id": "models/text-embedding-004",
-            "name": "Gemini Text Embedding 004",
-            "description": "Google's latest state-of-the-art model with 768 dimensions. Optimized for semantic search and retrieval tasks.",
-            "category": "flagship",
-            "input_price": 0.025,
-            "output_price": 0.0,
-        },
-        {
-            "id": "models/text-embedding-005",
-            "name": "Gemini Text Embedding 005",
-            "description": "Latest generation model with improved latency and higher compression quality. Ideal for large-scale production apps.",
-            "category": "balanced",
-            "input_price": 0.025,
+            "id": "gemini-embedding-001",
+            "name": "Gemini Embedding 001",
+            "description": "Stable, legacy-compatible embedding model. Great for consistent results across all Google Cloud regions.",
+            "category": "economy",
+            "input_price": 0.15,
             "output_price": 0.0,
         },
     ],

@@ -254,12 +254,16 @@ class VectorService:
     def _determine_dimension(self, provider: str) -> int:
         provider = provider.lower().strip()
         if "openai" in provider:
-            return 1536  # Default for v3-small/ada-002. Larger models handled via config check in callers if needed.
+            # We default to 1536 (v3-small), but users might use 3072 (v3-large).
+            # Recreating the collection with the wrong dimension is a common P0 issue.
+            return 1536
         if "ollama" in provider:
-            # Default to 1024 for bge-m3, but this might vary by model (e.g. nomic is 768)
-            # Ideally we'd check the model name, but for now we align with the default bge-m3.
-            return 1024
-        return 768  # Default (Gemini/Mistral/etc)
+            return 1024  # Standard for bge-m3
+        if "gemini" in provider:
+            # Gemini models like text-embedding-004 can be 768 or 3072.
+            # Host setup shows 3072 is in use for documents_gemini.
+            return 3072
+        return 768  # Default fallback
 
     async def get_collection_name(self, provider: Optional[str] = None) -> str:
         """Returns the collection name for a given provider."""
@@ -269,8 +273,8 @@ class VectorService:
                 provider = "ollama"
 
         collection_map = {
-            "openai": "openai_collection",
-            "gemini": "gemini_collection",
+            "openai": "documents_openai",
+            "gemini": "documents_gemini",
             "ollama": "documents_ollama",
         }
 
