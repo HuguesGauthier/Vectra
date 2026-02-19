@@ -513,10 +513,14 @@ class AnalyticsService:
         input_tokens = int(getattr(row, "input_tokens", 0) or 0)
         output_tokens = int(getattr(row, "output_tokens", 0) or 0)
 
-        # Costs are calculated per 1k tokens
-        estimated_cost = ((input_tokens / 1000.0) * FALLBACK_INPUT_TOKEN_COST) + (
-            (output_tokens / 1000.0) * FALLBACK_OUTPUT_TOKEN_COST
-        )
+        # Priority 1: Use persisted cost from DB if available (reliable per-request calculation)
+        if hasattr(row, "cost") and row.cost is not None:
+            estimated_cost = float(row.cost)
+        else:
+            # Priority 2: Fallback to token-based calculation (estimate)
+            estimated_cost = ((input_tokens / 1000.0) * FALLBACK_INPUT_TOKEN_COST) + (
+                (output_tokens / 1000.0) * FALLBACK_OUTPUT_TOKEN_COST
+            )
 
         return AssistantCost(
             assistant_id=str(getattr(row, "id", "unknown")),

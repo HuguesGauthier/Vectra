@@ -93,7 +93,6 @@
                       :providers="embeddingProviderOptions"
                       show-config-button
                       :config-label="$t('configure')"
-                      :config-tooltip="$t('configureProvider')"
                       :selectable="false"
                       :compact="true"
                       grid-cols="col-12 col-sm-6 col-md-3"
@@ -127,7 +126,6 @@
                       :providers="rerankProviderOptions"
                       show-config-button
                       :config-label="$t('configure')"
-                      :config-tooltip="$t('configureProvider')"
                       :selectable="false"
                       :compact="true"
                       grid-cols="col-12 col-sm-6 col-md-3"
@@ -141,6 +139,7 @@
                     :provider-id="configRerankProviderId"
                     :provider-name="configRerankProviderName"
                     :models="models"
+                    :supported-models="rerankSupportedModels"
                     @save="handleConfigSave"
                   />
                 </div>
@@ -158,7 +157,6 @@
                       :providers="chatProviderOptions"
                       show-config-button
                       :config-label="$t('configure')"
-                      :config-tooltip="$t('configureProvider')"
                       :selectable="false"
                       :compact="true"
                       grid-cols="col-12 col-sm-6 col-md-3"
@@ -257,6 +255,17 @@ const models = reactive<Record<string, string>>({
   // Shared Parameters
   ai_temperature: '0.2',
   ai_top_k: '5',
+
+  // Provider Specific Parameters
+  gemini_temperature: '',
+  gemini_top_k: '',
+  openai_temperature: '',
+  openai_top_k: '',
+  mistral_temperature: '',
+  mistral_top_k: '',
+  ollama_temperature: '',
+  ollama_top_k: '',
+
   system_proxy: '',
 });
 
@@ -303,6 +312,11 @@ const configRerankProviderId = ref('');
 const configRerankProviderName = computed(() => {
   const provider = rerankProviderOptions.value.find((p) => p.id === configRerankProviderId.value);
   return provider ? provider.name : '';
+});
+
+const rerankSupportedModels = computed(() => {
+  const provider = rerankProviderOptions.value.find((p) => p.id === configRerankProviderId.value);
+  return provider?.supported_models || [];
 });
 
 // --- COMPUTED ---
@@ -441,7 +455,7 @@ async function saveSpecificSettings(updatedSettings: Record<string, string>) {
 
       updates.push({
         key,
-        value,
+        value: String(value ?? ''),
         group,
         is_secret: isSecret,
       });

@@ -184,7 +184,14 @@ services:
       - ./scripts/start_ollama.sh:/start_ollama.sh
     environment:
       - OLLAMA_KEEP_ALIVE=-1
+      - OLLAMA_MODELS=mistral,bge-m3
     entrypoint: ["/bin/bash", "/start_ollama.sh"]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     deploy:
       resources:
         reservations:

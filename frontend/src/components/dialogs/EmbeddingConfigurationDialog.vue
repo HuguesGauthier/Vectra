@@ -110,13 +110,19 @@
 
             <!-- Local Configuration -->
             <template v-if="providerId === 'local'">
-              <q-input
-                v-model="internalModels.local_embedding_model"
-                :label="$t('modelName')"
-                outlined
-                dense
-                hint="ex. nomic-embed-text"
-              />
+              <div class="row items-center q-mb-sm">
+                <div class="text-subtitle2">{{ $t('embeddingEngine') }}</div>
+              </div>
+              <!-- Embedding Model Selection -->
+              <div class="model-select-btn" @click="openModelSelector('local_embedding_model', 'embedding')">
+                <div class="model-select-inner">
+                  <div class="model-select-label">{{ $t('modelName') }}</div>
+                  <div class="model-select-value">
+                    {{ getModelDisplayName(internalModels.local_embedding_model, 'embedding') }}
+                  </div>
+                </div>
+                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </div>
 
               <!-- Extraction Model Selection -->
               <div class="model-select-btn" @click="openModelSelector('local_extraction_model', 'extraction')">
@@ -193,12 +199,12 @@
     </q-card>
   </q-dialog>
 
-  <!-- Model Selector Dialog -->
   <ModelSelectorDialog
     v-model:is-open="showModelSelector"
     :provider-name="providerName"
     :models="currentSelectorModels"
-    :current-model-id="currentModelId"
+    :current-model-id="String(currentModelId ?? '')"
+    :context="selectorType"
     @select="handleModelSelect"
   />
 </template>
@@ -218,7 +224,7 @@ const props = defineProps({
     default: '',
   },
   models: {
-    type: Object as PropType<Record<string, string>>,
+    type: Object as PropType<Record<string, string | number | null | undefined>>,
     default: () => ({}),
   },
   supportedModels: {
@@ -244,7 +250,7 @@ const selectorKey = ref('');
 const selectorType = ref<'embedding' | 'transcription' | 'extraction'>('embedding');
 
 // Local copy of key models to edit
-const internalModels = ref<Record<string, string>>({});
+const internalModels = ref<Record<string, string | number | null | undefined>>({});
 
 watch(
   () => props.models,
@@ -277,7 +283,7 @@ function handleModelSelect(modelId: string) {
   }
 }
 
-function getModelDisplayName(modelId: string | undefined, type: 'embedding' | 'transcription' | 'extraction'): string {
+function getModelDisplayName(modelId: string | number | null | undefined, type: 'embedding' | 'transcription' | 'extraction'): string {
   if (!modelId) return '—';
   
   let list = props.supportedModels;
@@ -285,7 +291,7 @@ function getModelDisplayName(modelId: string | undefined, type: 'embedding' | 't
   if (type === 'extraction') list = props.extractionSupportedModels;
   
   const found = list.find((m) => m.id === modelId);
-  return found ? found.name : modelId;
+  return found ? found.name : String(modelId ?? '');
 }
 
 function handleSave() {

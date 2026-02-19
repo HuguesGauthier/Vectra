@@ -60,7 +60,7 @@
               />
 
               <div class="model-name">{{ model.name }}</div>
-              <div class="model-desc">{{ model.description }}</div>
+              <div class="model-desc">{{ getModelDescription(model) }}</div>
 
               <!-- Pricing -->
               <div class="model-pricing">
@@ -106,7 +106,7 @@ import { ref, computed, watch, type PropType } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { ModelInfo } from 'src/models/ProviderOption';
 
-const { t } = useI18n();
+const i18n = useI18n();
 
 const props = defineProps({
   providerName: {
@@ -120,6 +120,10 @@ const props = defineProps({
   currentModelId: {
     type: String,
     default: '',
+  },
+  context: {
+    type: String as PropType<'chat' | 'embedding' | 'transcription' | 'rerank' | 'extraction'>,
+    default: 'chat',
   },
 });
 
@@ -137,15 +141,31 @@ watch(isOpen, (val) => {
   }
 });
 
+function getModelDescription(model: ModelInfo) {
+  // Try contextual key first (e.g. model_desc_transcription["id"])
+  if (props.context && props.context !== 'chat') {
+    const contextKey = `model_desc_${props.context}["${model.id}"]`;
+    if (i18n.te(contextKey)) {
+      return i18n.t(contextKey);
+    }
+  }
+
+  // Fallback to common model_desc
+  const key = `model_desc["${model.id}"]`;
+  return i18n.te(key) ? i18n.t(key) : model.description;
+}
+
 const filteredModels = computed(() => {
   if (!searchQuery.value) return props.models;
   const q = searchQuery.value.toLowerCase();
-  return props.models.filter(
-    (m) =>
+  return props.models.filter((m) => {
+    const localizedDesc = getModelDescription(m).toLowerCase();
+    return (
       m.name.toLowerCase().includes(q) ||
-      m.description.toLowerCase().includes(q) ||
-      m.id.toLowerCase().includes(q),
-  );
+      localizedDesc.includes(q) ||
+      m.id.toLowerCase().includes(q)
+    );
+  });
 });
 
 const categoryOrder = ['flagship', 'reasoning', 'balanced', 'economy'] as const;
@@ -189,10 +209,10 @@ function getCategoryColor(category: string): string {
 
 function getCategoryLabel(category: string): string {
   const map: Record<string, string> = {
-    flagship: t('categoryFlagship'),
-    reasoning: t('categoryReasoning'),
-    balanced: t('categoryBalanced'),
-    economy: t('categoryEconomy'),
+    flagship: i18n.t('categoryFlagship'),
+    reasoning: i18n.t('categoryReasoning'),
+    balanced: i18n.t('categoryBalanced'),
+    economy: i18n.t('categoryEconomy'),
   };
   return map[category] || category;
 }

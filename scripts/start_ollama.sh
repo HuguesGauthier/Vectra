@@ -13,30 +13,24 @@ until ollama list > /dev/null 2>&1; do
 done
 echo "Ollama service is ready!"
 
-echo "Retrieving model: bge-m3..."
-ollama pull bge-m3
-echo "Model bge-m3 pulled successfully."
+# Pull models from OLLAMA_MODELS environment variable
+if [ -n "$OLLAMA_MODELS" ]; then
+    IFS=',' read -ra MODELS <<< "$OLLAMA_MODELS"
+    for model in "${MODELS[@]}"; do
+        echo "Retrieving model: $model..."
+        ollama pull "$model"
+        echo "Model $model pulled successfully."
+        
+        echo "Pre-loading model: $model..."
+        # Use a simple prompt to force load the model into VRAM
+        ollama run "$model" "ok" > /dev/null
+        echo "Model $model pre-loaded."
+    done
+else
+    echo "No models specified in OLLAMA_MODELS. Skipping pulls."
+fi
 
-echo "Retrieving model: nomic-embed-text..."
-ollama pull nomic-embed-text
-echo "Model nomic-embed-text pulled successfully."
-
-echo "Retrieving model: mistral..."
-ollama pull mistral
-echo "Model mistral pulled successfully."
-
-echo "Pre-loading model: mistral..."
-ollama run mistral "say ok" > /dev/null
-echo "Model mistral pre-loaded."
-
-echo "Pre-loading model: bge-m3..."
-# For embedding models, we can use 'run' with a dummy input as well to force load into VRAM
-ollama run bge-m3 "warmup" > /dev/null
-echo "Model bge-m3 pre-loaded."
-
-echo "Pre-loading model: nomic-embed-text..."
-ollama run nomic-embed-text "warmup" > /dev/null
-echo "Model nomic-embed-text pre-loaded."
+echo "All specified models are ready!"
 
 # Wait for Ollama process to finish.
 wait $pid

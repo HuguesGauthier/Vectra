@@ -207,9 +207,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
         # Use centralized Factory to get the correctly configured Chat Engine
         from app.factories.chat_engine_factory import ChatEngineFactory
 
-        llm = await ChatEngineFactory.create_from_assistant(
-            ctx.assistant, ctx.settings_service, temperature=ctx.assistant.configuration.get("temperature", 0.7)
-        )
+        llm = await ChatEngineFactory.create_from_assistant(ctx.assistant, ctx.settings_service)
 
         # Decouple Collection from Chat Provider.
         # Collection depends on the Embedding Provider (Global/Connector), not the Chat LLM.

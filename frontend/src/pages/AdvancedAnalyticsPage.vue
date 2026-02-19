@@ -109,22 +109,22 @@
           </q-card>
         </div>
 
-        <!-- Topic Diversity -->
+        <!-- Reranking Impact -->
         <div class="col-12 col-md-3">
-          <q-card flat class="kpi-card kpi-card--info">
-            <div class="card-border-top card-border-top--teal"></div>
+          <q-card flat class="kpi-card kpi-card--red">
+            <div class="card-border-top card-border-top--red"></div>
             <q-card-section>
               <div class="metric-group">
                 <div class="metric-item">
                   <div class="metric-label">
-                    <q-icon name="diversity_3" size="16px" class="q-mr-xs" />
-                    Topic Diversity
+                    <q-icon name="compress" size="16px" class="q-mr-xs" />
+                    Reranking Impact
                   </div>
-                  <div class="metric-value metric-value--primary text-teal-4">
-                    {{ (store.stats?.topic_diversity?.diversity_score || 0).toFixed(2) }}
+                  <div class="metric-value metric-value--primary text-red-4">
+                    {{ (store.stats?.reranking_impact?.avg_score_improvement || 0).toFixed(3) }}
                   </div>
                   <div class="metric-value metric-value--small q-mt-xs">
-                    {{ store.stats?.topic_diversity?.total_topics || 0 }} topics
+                    from {{ store.stats?.reranking_impact?.reranking_enabled_count || 0 }} sessions
                   </div>
                 </div>
               </div>
@@ -351,6 +351,92 @@
           </q-card>
         </div>
       </div>
+
+      <!-- Charts Row 3 (New) -->
+      <div v-if="store.stats" class="row q-col-gutter-sm q-mt-sm">
+        <!-- Document Utilization -->
+        <div class="col-12 col-md-8">
+          <q-card flat class="analytics-card">
+            <div class="card-border-top card-border-top--green"></div>
+            <q-card-section>
+              <div class="row items-center q-mb-md">
+                <q-icon name="insights" size="28px" color="green-5" class="q-mr-sm" />
+                <div class="text-h6 text-weight-bold">Top Utilized Documents</div>
+              </div>
+              <q-list dense padding class="cost-list">
+                <q-item
+                  v-for="doc in store.stats?.document_utilization"
+                  :key="doc.file_name"
+                  class="cost-item"
+                >
+                  <q-item-section>
+                    <q-item-label class="text-weight-medium">{{ doc.file_name }}</q-item-label>
+                    <q-item-label caption>{{ doc.connector_name }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <div class="row items-center">
+                      <q-badge :color="getDocStatusColor(doc.status)" class="q-mr-sm">
+                        {{ doc.status.toUpperCase() }}
+                      </q-badge>
+                      <q-item-label class="text-weight-bold"
+                        >{{ doc.retrieval_count }}x</q-item-label
+                      >
+                    </div>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+              <div v-if="!store.stats?.document_utilization.length" class="text-center q-pa-md">
+                No utilization data
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- Connector Sync Rates -->
+        <div class="col-12 col-md-4">
+          <q-card flat class="analytics-card">
+            <div class="card-border-top card-border-top--orange"></div>
+            <q-card-section>
+              <div class="row items-center q-mb-md">
+                <q-icon name="sync" size="28px" color="orange-5" class="q-mr-sm" />
+                <div class="text-h6 text-weight-bold">Connector Sync Reliability</div>
+              </div>
+              <q-list dense padding class="cost-list">
+                <q-item
+                  v-for="sync in store.stats?.connector_sync_rates"
+                  :key="sync.connector_id"
+                  class="cost-item"
+                >
+                  <q-item-section>
+                    <q-item-label class="text-weight-medium">{{
+                      sync.connector_name
+                    }}</q-item-label>
+                    <q-item-label caption>
+                      {{ sync.successful_syncs }}/{{ sync.total_syncs }} success
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <div class="text-right">
+                      <div
+                        :class="getSyncRateColorClass(sync.success_rate)"
+                        class="text-weight-bold"
+                      >
+                        {{ sync.success_rate.toFixed(1) }}%
+                      </div>
+                      <div v-if="sync.avg_sync_duration" class="text-caption text-grey-6">
+                        {{ sync.avg_sync_duration.toFixed(1) }}s avg
+                      </div>
+                    </div>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+              <div v-if="!store.stats?.connector_sync_rates.length" class="text-center q-pa-md">
+                No sync data
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
     </div>
   </q-page>
 </template>
@@ -405,6 +491,18 @@ function getFreshnessColor(category: string) {
   if (category.includes('Fresh')) return 'blue-4';
   if (category.includes('Aging')) return 'warning';
   return 'negative';
+}
+
+function getDocStatusColor(status: string) {
+  if (status === 'hot') return 'negative';
+  if (status === 'warm') return 'warning';
+  return 'positive';
+}
+
+function getSyncRateColorClass(rate: number) {
+  if (rate > 95) return 'text-positive';
+  if (rate > 80) return 'text-warning';
+  return 'text-negative';
 }
 
 function formatLargeNumber(num: number): string {

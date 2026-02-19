@@ -160,6 +160,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           badge: p.id === 'local' ? t('private') : t('public'),
           badgeColor: p.id === 'local' ? 'warning' : 'info',
           disabled: !p.configured,
+          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
         };
       });
   });

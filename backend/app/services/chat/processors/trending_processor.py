@@ -206,6 +206,28 @@ class TrendingProcessor(BaseChatProcessor):
         if not actual_model:
             actual_model = str(ctx.assistant.model)
 
+        # 1. Check for Cache Hit
+        cache_step = ctx.metrics.get_summary().get("step_breakdown", [])
+        cache_hit = any(s.get("step_type") == "cache_lookup" and s.get("metadata", {}).get("hit") for s in cache_step)
+
+        # 2. Extract Document IDs and Reranking Impact
+        # We look into the step payloads
+        retrieved_doc_ids = []
+        reranking_impact = 0.0
+        
+        for step in cache_step:
+            if step.get("step_type") == "retrieval":
+                retrieved_doc_ids = step.get("metadata", {}).get("retrieved_document_ids", [])
+            elif step.get("step_type") == "reranking":
+                reranking_impact = step.get("metadata", {}).get("reranking_impact", 0.0)
+
+        # 3. Enrich breakdown with analytics metadata
+        step_breakdown = ctx.metrics.get(METRIC_STEP_BREAKDOWN) or {}
+        if retrieved_doc_ids:
+            step_breakdown["retrieved_document_ids"] = retrieved_doc_ids
+        if reranking_impact:
+            step_breakdown["reranking_impact"] = reranking_impact
+
         data = {
             "assistant_id": ctx.assistant.id,
             "session_id": ctx.session_id,
@@ -215,10 +237,10 @@ class TrendingProcessor(BaseChatProcessor):
             "ttft": ctx.metrics.get(METRIC_TTFT),
             "input_tokens": ctx.metrics.get(METRIC_INPUT_TOKENS, 0),
             "output_tokens": ctx.metrics.get(METRIC_OUTPUT_TOKENS, 0),
-            "step_duration_breakdown": ctx.metrics.get(METRIC_STEP_BREAKDOWN),
+            "step_duration_breakdown": step_breakdown,
             "step_token_breakdown": ctx.metrics.get(METRIC_TOKEN_BREAKDOWN),
             "provider": provider,
-            "is_cached": False,
+            "is_cached": cache_hit,
             "message_id": None,
         }
 

@@ -60,6 +60,14 @@ class RerankingProcessor(BaseProcessor):
             # Update Context
             ctx.retrieved_nodes = reranked_nodes
 
+            # Calculate Impact
+            avg_improvement = 0.0
+            if reranked_nodes and nodes_to_rank:
+                # Average score of top nodes after vs before (heuristic)
+                # Or specifically the delta if we have matching pairs
+                # Cohere and local return scores in different scales usually, so we trust their own scores
+                avg_improvement = sum(n.score or 0.0 for n in reranked_nodes) / len(reranked_nodes)
+
             yield PipelineEvent(
                 type="step",
                 step_type="reranking",
@@ -67,6 +75,7 @@ class RerankingProcessor(BaseProcessor):
                 payload={
                     "count": len(reranked_nodes),
                     "tokens": {"input": total_input_tokens, "output": 0},
+                    "reranking_impact": round(avg_improvement, 4),
                 },
             )
             yield PipelineEvent(type="sources", payload=self._format_payload(reranked_nodes))

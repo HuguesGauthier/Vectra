@@ -24,6 +24,7 @@ class LLMFactory:
         model_name: str,
         api_key: str,
         temperature: float = DEFAULT_TEMP,
+        top_k: Optional[int] = None,
         output_class: Any = None,
         base_url: Optional[str] = None,
     ) -> Any:
@@ -39,11 +40,13 @@ class LLMFactory:
             from llama_index.llms.google_genai import GoogleGenAI
 
             full_model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
-            llm = GoogleGenAI(model=full_model_name, api_key=api_key, temperature=temperature)
+            # top_k is supported by GoogleGenAI
+            llm = GoogleGenAI(model=full_model_name, api_key=api_key, temperature=temperature, top_k=top_k)
         elif provider_clean == PROVIDER_OPENAI:
             from llama_index.llms.openai import OpenAI
 
             # FIX: Enable stream_options to receive token usage in streaming mode
+            # OpenAI doesn't use top_k (it uses top_p)
             llm = OpenAI(
                 model=model_name,
                 api_key=api_key,
@@ -53,6 +56,8 @@ class LLMFactory:
         elif provider_clean == PROVIDER_MISTRAL:
             from llama_index.llms.mistralai import MistralAI
 
+            # MistralAI doesn't directly expose top_k in LLM class, but might support it in additional_kwargs
+            # For now keep it simple to match existing contract
             llm = MistralAI(model=model_name, api_key=api_key, temperature=temperature)
         elif provider_clean == PROVIDER_OLLAMA:
             from llama_index.llms.ollama import Ollama
@@ -63,7 +68,18 @@ class LLMFactory:
                 final_base_url = api_key if api_key and "http" in api_key else "http://localhost:11434"
                 logger.warning(f"Ollama base_url missing in factory call, falling back to: {final_base_url}")
 
-            llm = Ollama(model=model_name, base_url=final_base_url, temperature=temperature, request_timeout=360.0)
+            # Top K supported via additional_kwargs in llama-index Ollama
+            additional_kwargs = {}
+            if top_k is not None:
+                additional_kwargs["top_k"] = top_k
+
+            llm = Ollama(
+                model=model_name,
+                base_url=final_base_url,
+                temperature=temperature,
+                additional_kwargs=additional_kwargs,
+                request_timeout=360.0,
+            )
         elif provider_clean == "local":
             # Support for Local LLMs (LM Studio, Ollama, etc.) via OpenAILike
             from llama_index.llms.openai_like import OpenAILike

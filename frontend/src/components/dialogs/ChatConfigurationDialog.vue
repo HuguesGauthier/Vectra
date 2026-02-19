@@ -112,26 +112,96 @@
 
             <q-separator class="q-my-sm" />
 
-            <div class="text-subtitle2">{{ $t('parameters') }}</div>
-            <div class="row q-col-gutter-md">
-              <div class="col-6">
-                <q-input
-                  v-model="internalModels.ai_temperature"
-                  :label="$t('temperature')"
-                  outlined
-                  dense
-                  type="number"
-                  step="0.1"
-                />
+            <div class="row q-col-gutter-lg q-pt-sm">
+              <!-- Temperature Card -->
+              <div class="col-12">
+                <q-card flat class="param-card border-sixth bg-secondary">
+                  <q-card-section class="q-pb-none">
+                    <div class="row items-center justify-between">
+                      <div class="column">
+                        <div class="text-subtitle2 text-weight-bold">{{ $t('tempTitle') }}</div>
+                        <div class="text-caption opacity-70">{{ $t('tempSubtitle') }}</div>
+                      </div>
+                      <div class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold">
+                        {{ internalModels[`${providerId}_temperature`] || internalModels.ai_temperature }}
+                      </div>
+                    </div>
+                  </q-card-section>
+
+                  <q-card-section class="q-pt-sm">
+                    <div class="text-caption q-mb-md line-height-1-4">
+                      {{ $t('tempDesc') }}
+                    </div>
+                    
+                    <div class="q-gutter-y-xs q-mb-lg">
+                      <div class="explanation-note expert border-expert">
+                        {{ $t('tempExpert') }}
+                      </div>
+                      <div class="explanation-note collab border-collab">
+                        {{ $t('tempCollaborator') }}
+                      </div>
+                      <div class="explanation-note poet border-poet text-italic">
+                        {{ $t('tempPoet') }}
+                      </div>
+                    </div>
+
+                    <q-slider
+                      :model-value="Number(internalModels[`${providerId}_temperature`] ?? internalModels.ai_temperature ?? 0.7)"
+                      @update:model-value="(val: number | null) => internalModels[`${providerId}_temperature`] = val ?? undefined"
+                      :min="0.0"
+                      :max="2.0"
+                      :step="0.1"
+                      label
+                      color="accent"
+                      markers
+                      snap
+                      class="q-px-sm"
+                    />
+                  </q-card-section>
+                </q-card>
               </div>
-              <div class="col-6">
-                <q-input
-                  v-model="internalModels.ai_top_k"
-                  :label="$t('topK')"
-                  outlined
-                  dense
-                  type="number"
-                />
+
+              <!-- Top K Card -->
+              <div class="col-12">
+                <q-card flat class="param-card border-sixth bg-secondary">
+                  <q-card-section class="q-pb-none">
+                    <div class="row items-center justify-between">
+                      <div class="column">
+                        <div class="text-subtitle2 text-weight-bold">{{ $t('topKTitle') }}</div>
+                        <div class="text-caption opacity-70">{{ $t('topKSubtitle') }}</div>
+                      </div>
+                      <div class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold">
+                        {{ internalModels[`${providerId}_top_k`] || internalModels.ai_top_k }}
+                      </div>
+                    </div>
+                  </q-card-section>
+
+                  <q-card-section class="q-pt-sm">
+                    <div class="text-caption q-mb-md line-height-1-4">
+                      {{ $t('topKDesc') }}
+                    </div>
+
+                    <div class="q-gutter-y-xs q-mb-lg">
+                      <div class="explanation-note focus border-focus">
+                        {{ $t('topKSmall') }}
+                      </div>
+                      <div class="explanation-note diver border-diver">
+                        {{ $t('topKLarge') }}
+                      </div>
+                    </div>
+
+                    <q-slider
+                      :model-value="Number(internalModels[`${providerId}_top_k`] ?? internalModels.ai_top_k ?? 40)"
+                      @update:model-value="(val: number | null) => internalModels[`${providerId}_top_k`] = val ?? undefined"
+                      :min="0"
+                      :max="100"
+                      :step="1"
+                      label
+                      color="accent"
+                      class="q-px-sm"
+                    />
+                  </q-card-section>
+                </q-card>
               </div>
             </div>
           </div>
@@ -145,12 +215,12 @@
     </q-card>
   </q-dialog>
 
-  <!-- Model Selector Dialog -->
   <ModelSelectorDialog
     v-model:is-open="showModelSelector"
     :provider-name="providerName"
     :models="supportedModels"
-    :current-model-id="currentModelId"
+    :current-model-id="String(currentModelId ?? '')"
+    :context="'chat'"
     @select="handleModelSelect"
   />
 </template>
@@ -170,7 +240,7 @@ const props = defineProps({
     default: '',
   },
   models: {
-    type: Object as PropType<Record<string, string>>,
+    type: Object as PropType<Record<string, string | number | null | undefined>>,
     default: () => ({}),
   },
   supportedModels: {
@@ -184,7 +254,7 @@ const isOpen = defineModel<boolean>('isOpen', { default: false });
 const showModelSelector = ref(false);
 
 // Local copy of key models to edit
-const internalModels = ref<Record<string, string>>({});
+const internalModels = ref<Record<string, string | number | null | undefined>>({});
 
 watch(
   () => props.models,
@@ -209,10 +279,10 @@ const currentModelId = computed(() => {
   return internalModels.value[modelKey.value] || '';
 });
 
-function getModelDisplayName(modelId: string | undefined): string {
+function getModelDisplayName(modelId: string | number | null | undefined): string {
   if (!modelId) return '—';
-  const found = props.supportedModels.find((m) => m.id === modelId);
-  return found ? found.name : modelId;
+  const found = props.supportedModels.find((m) => m.id === String(modelId));
+  return found ? found.name : String(modelId);
 }
 
 function handleModelSelect(modelId: string) {
@@ -282,5 +352,50 @@ function handleSave() {
 
 .body--light .model-select-value {
   color: rgba(0, 0, 0, 0.85);
+}
+
+.param-card {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.border-sixth {
+  border-color: var(--q-sixth) !important;
+}
+
+.param-value-badge {
+  border-radius: 6px;
+  border: 1px solid;
+  font-family: monospace;
+  font-size: 1.1rem;
+}
+
+.line-height-1-4 {
+  line-height: 1.4;
+}
+
+.opacity-70 {
+  opacity: 0.7;
+}
+
+.explanation-note {
+  font-size: 0.78rem;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-left: 3px solid transparent;
+  line-height: 1.35;
+}
+
+.border-expert { border-left-color: #4caf50; }
+.border-collab { border-left-color: #2196f3; }
+.border-poet { border-left-color: #9c27b0; }
+.border-focus { border-left-color: #ff9800; }
+.border-diver { border-left-color: #f44336; }
+
+.body--light .explanation-note {
+  background: rgba(0, 0, 0, 0.03);
 }
 </style>

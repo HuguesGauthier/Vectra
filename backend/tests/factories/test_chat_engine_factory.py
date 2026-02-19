@@ -3,7 +3,7 @@ Unit tests for ChatEngineFactory.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 from app.factories.chat_engine_factory import ChatEngineFactory
 
@@ -21,7 +21,7 @@ class TestChatEngineFactory:
 
         mock_settings = AsyncMock()
 
-        def get_setting_value(key):
+        def get_setting_value(key, default=None):
             if "chat_model" in key:
                 return "gpt-4"
             if "api_key" in key:
@@ -34,7 +34,9 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_assistant(mock_assistant, mock_settings, temperature=0.5)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("openai", "gpt-4", "sk-test-key", temperature=0.5, base_url=None)
+        mock_llm_factory.create_llm.assert_called_once_with(
+            "openai", "gpt-4", "sk-test-key", temperature=0.5, top_k=ANY, base_url=None
+        )
 
 
     @pytest.mark.asyncio
@@ -49,7 +51,9 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_provider("gemini", mock_settings)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("gemini", "gemini-pro", "genai-key", base_url=None)
+        mock_llm_factory.create_llm.assert_called_once_with(
+            "gemini", "gemini-pro", "genai-key", temperature=ANY, top_k=ANY, base_url=None
+        )
 
     @pytest.mark.asyncio
     @patch("app.factories.chat_engine_factory.LLMFactory")
@@ -63,4 +67,6 @@ class TestChatEngineFactory:
         await ChatEngineFactory.create_from_provider("mistral", mock_settings)
 
         # 3. Verify
-        mock_llm_factory.create_llm.assert_called_once_with("mistral", None, None, base_url=None)
+        mock_llm_factory.create_llm.assert_called_once_with(
+            "mistral", None, None, temperature=ANY, top_k=ANY, base_url=None
+        )

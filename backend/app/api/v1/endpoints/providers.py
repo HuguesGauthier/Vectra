@@ -6,6 +6,7 @@ from app.core.model_catalog import (
     SUPPORTED_CHAT_MODELS,
     SUPPORTED_EMBEDDING_MODELS,
     SUPPORTED_TRANSCRIPTION_MODELS,
+    SUPPORTED_RERANK_MODELS,
 )
 from app.schemas.provider import ProviderInfo
 from app.services.settings_service import SettingsService, get_settings_service
@@ -139,6 +140,7 @@ async def get_providers(
             description="Private & Efficient (CPU)",
             configured=True,  # FastEmbed is built-in
             is_active=True,
+            supported_models=SUPPORTED_RERANK_MODELS.get("local", []),
         )
     )
 
@@ -151,6 +153,7 @@ async def get_providers(
             description="Industry leader in Relevance",
             configured=await is_configured("cohere_api_key"),
             is_active=True,
+            supported_models=SUPPORTED_RERANK_MODELS.get("cohere", []),
         )
     )
 

@@ -42,11 +42,11 @@ class TestLLMFactory:
     async def test_create_gemini_success(self):
         """Should create GoogleGenAI instance with models/ prefix."""
         llm = LLMFactory.create_llm(
-            provider="gemini", model_name="gemini-1.5-flash", api_key="test-key", temperature=0.5
+            provider="gemini", model_name="gemini-1.5-flash", api_key="test-key", temperature=0.5, top_k=20
         )
 
         self.mock_google_class.assert_called_once_with(
-            model="models/gemini-1.5-flash", api_key="test-key", temperature=0.5
+            model="models/gemini-1.5-flash", api_key="test-key", temperature=0.5, top_k=20
         )
         assert llm == self.mock_google_class.return_value
 
@@ -73,10 +73,14 @@ class TestLLMFactory:
     @pytest.mark.asyncio
     async def test_create_ollama_success(self):
         """Should create Ollama instance with default base_url."""
-        llm = LLMFactory.create_llm(provider="ollama", model_name="llama3", api_key="")  # Not needed for Ollama
+        llm = LLMFactory.create_llm(provider="ollama", model_name="llama3", api_key="", temperature=0.7, top_k=10)
 
         self.mock_ollama_class.assert_called_once_with(
-            model="llama3", base_url="http://localhost:11434", temperature=0.7, request_timeout=360.0
+            model="llama3",
+            base_url="http://localhost:11434",
+            temperature=0.7,
+            additional_kwargs={"top_k": 10},
+            request_timeout=360.0,
         )
 
     @pytest.mark.asyncio

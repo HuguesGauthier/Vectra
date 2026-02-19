@@ -99,7 +99,6 @@
                 class="full-width"
                 show-config-button
                 :config-label="$t('configure')"
-                :config-tooltip="$t('advancedIndexingSettings')"
                 @configure="showAdvancedSettings = true"
               />
             </q-step>

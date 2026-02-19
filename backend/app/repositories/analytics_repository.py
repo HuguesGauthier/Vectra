@@ -135,6 +135,7 @@ class AnalyticsRepository:
                     func.sum(UsageStat.input_tokens).label("input_tokens"),
                     func.sum(UsageStat.output_tokens).label("output_tokens"),
                     (func.sum(UsageStat.input_tokens) + func.sum(UsageStat.output_tokens)).label("total_tokens"),
+                    func.sum(UsageStat.cost).label("cost"),
                 )
                 .join(UsageStat, UsageStat.assistant_id == Assistant.id)
                 .where(UsageStat.timestamp > cutoff)

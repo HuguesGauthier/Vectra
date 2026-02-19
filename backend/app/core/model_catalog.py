@@ -531,3 +531,51 @@ def build_pricing_map() -> Dict[str, float]:
     prices["default"] = 0.0001
 
     return prices
+
+
+SUPPORTED_RERANK_MODELS: dict[str, list[ModelEntry]] = {
+    "local": [
+        {
+            "id": "BAAI/bge-reranker-base",
+            "name": "BGE Reranker Base (FastEmbed)",
+            "description": "Balanced performance and efficiency. Good for general ranking tasks.",
+            "category": "balanced",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+        {
+            "id": "BAAI/bge-reranker-v2-m3",
+            "name": "BGE Reranker v2 M3 (FastEmbed)",
+            "description": "Latest generation M3 reranker. Superior accuracy and multilingual support.",
+            "category": "flagship",
+            "input_price": 0.0,
+            "output_price": 0.0,
+        },
+    ],
+    "cohere": [
+        {
+            "id": "rerank-v3.5",
+            "name": "Cohere Rerank v3.5",
+            "description": "Cohere's most advanced reranking model. Unmatched accuracy.",
+            "category": "flagship",
+            "input_price": 2.0,
+            "output_price": 0.0,
+        },
+        {
+            "id": "rerank-multilingual-v3.0",
+            "name": "Cohere Rerank Multilingual v3.0",
+            "description": "Optimized for high-accuracy reranking across 100+ languages.",
+            "category": "balanced",
+            "input_price": 1.0,
+            "output_price": 0.0,
+        },
+        {
+            "id": "rerank-english-v3.0",
+            "name": "Cohere Rerank English v3.0",
+            "description": "Fast and precise reranking for English-only content.",
+            "category": "balanced",
+            "input_price": 1.0,
+            "output_price": 0.0,
+        },
+    ],
+}

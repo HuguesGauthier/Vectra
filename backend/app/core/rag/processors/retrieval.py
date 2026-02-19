@@ -61,6 +61,7 @@ class RetrievalProcessor(BaseProcessor):
                 step_type="retrieval",
                 status="completed",
                 label=f"Retrieved {len(nodes)} documents (Filtered {filtered_count})",
+                payload={"retrieved_document_ids": retrieved_doc_ids},
             )
 
             # CRITICAL FIX: Pass nodes to next processor

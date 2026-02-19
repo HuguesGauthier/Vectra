@@ -257,6 +257,7 @@ async def test_get_assistant_costs_calculation(service, monkeypatch):
     row.input_tokens = 2000
     row.output_tokens = 1000
     row.total_tokens = 3000
+    row.cost = None
     async def _usage(*args, **kwargs): return [row]
     mock_repo.get_assistant_usage_sums.side_effect = _usage
     monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
@@ -265,6 +266,26 @@ async def test_get_assistant_costs_calculation(service, monkeypatch):
     assert len(result) == 1
     # Costs: (2000 / 1000 * 0.00001) + (1000 / 1000 * 0.00003) = 0.00002 + 0.00003 = 0.00005
     assert result[0].estimated_cost_usd == 0.00005
+
+
+@pytest.mark.asyncio
+async def test_get_assistant_costs_persisted_priority(service, monkeypatch):
+    """Verify that persisted cost takes priority over token calculation."""
+    mock_repo = MagicMock()
+    row = MagicMock()
+    row.id = uuid4()
+    row.name = "Bot Alpha"
+    row.input_tokens = 2000
+    row.output_tokens = 1000
+    row.total_tokens = 3000
+    row.cost = 0.50  # Persisted cost
+    async def _usage(*args, **kwargs): return [row]
+    mock_repo.get_assistant_usage_sums.side_effect = _usage
+    monkeypatch.setattr("app.services.analytics_service.AnalyticsRepository", MagicMock(return_value=mock_repo))
+
+    result = await service.get_assistant_costs(24)
+    assert len(result) == 1
+    assert result[0].estimated_cost_usd == 0.50
 
 
 @pytest.mark.asyncio
