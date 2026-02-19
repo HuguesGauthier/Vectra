@@ -10,7 +10,7 @@
             <div
               class="avatar-container"
               @mousedown="startDrag"
-              @touchstart="startDrag"
+              @touchstart.passive="startDrag"
               :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
             >
               <q-avatar :style="avatarStyle" size="120px" class="shadow-10">
@@ -503,7 +503,7 @@ function startDrag(e: MouseEvent | TouchEvent) {
   document.addEventListener('touchmove', onDrag);
   document.addEventListener('touchend', stopDrag);
 
-  e.preventDefault();
+  // e.preventDefault();
 }
 
 function onDrag(e: MouseEvent | TouchEvent) {
@@ -601,6 +601,7 @@ onUnmounted(() => {
   /* border-radius removed logic handled by q-avatar mask, container is square for drag zone */
   cursor: grab;
   transition: transform 0.1s;
+  touch-action: none;
 }
 
 .avatar-container:active {

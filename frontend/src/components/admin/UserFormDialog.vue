@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" persistent>
+  <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleCancel">
     <q-card style="width: 500px; max-width: 90vw; background-color: var(--q-fifth)">
       <q-card-section>
         <div class="text-h6">{{ isEditing ? $t('editUser') : $t('addUser') }}</div>
@@ -8,7 +8,7 @@
       <q-card-section>
         <!-- Avatar Upload Section -->
         <div class="column items-center q-mb-md">
-          <div class="avatar-container" @mousedown="startDrag" @touchstart="startDrag">
+          <div class="avatar-container" @mousedown="startDrag" @touchstart.passive="startDrag">
             <q-avatar size="100px" :color="formData.avatar_url ? 'transparent' : 'grey-7'">
               <img
                 v-if="formData.avatar_url"
@@ -76,6 +76,7 @@
             color="accent"
             bg-color="primary"
             lazy-rules
+            autocomplete="email"
             :rules="emailRules"
           />
 
@@ -85,6 +86,7 @@
             outlined
             color="accent"
             bg-color="primary"
+            autocomplete="given-name"
           />
 
           <q-input
@@ -93,6 +95,7 @@
             outlined
             color="accent"
             bg-color="primary"
+            autocomplete="family-name"
           />
 
           <q-input
@@ -102,6 +105,7 @@
             outlined
             color="accent"
             bg-color="primary"
+            autocomplete="new-password"
             :rules="passwordRules"
           />
 
@@ -144,6 +148,7 @@ import { useI18n } from 'vue-i18n';
 import { type QForm } from 'quasar';
 import { api } from 'boot/axios';
 import { useNotification } from 'src/composables/useNotification';
+import { useDialog } from 'src/composables/useDialog';
 import AppTooltip from 'components/common/AppTooltip.vue';
 
 // --- TYPES ---
@@ -195,6 +200,7 @@ const emit = defineEmits<{
 // --- STATE ---
 const { t } = useI18n();
 const { notifyBackendError } = useNotification();
+const { confirm } = useDialog();
 const loading = ref(false);
 
 const formData = ref<UserFormData>({
@@ -209,6 +215,7 @@ const formData = ref<UserFormData>({
   avatar_vertical_position: 50,
 });
 
+const initialData = ref<UserFormData>({ ...formData.value });
 const avatarFile = ref<File | null>(null);
 const formRef = ref<QForm | null>(null);
 
@@ -244,6 +251,11 @@ const passwordRules = computed(() =>
   isEditing.value ? [] : [(val: string) => !!val || t('fieldRequired')],
 );
 
+const isDirty = computed(() => {
+  if (avatarFile.value) return true;
+  return JSON.stringify(formData.value) !== JSON.stringify(initialData.value);
+});
+
 // --- WATCHERS ---
 watch(
   () => props.userToEdit,
@@ -261,11 +273,38 @@ watch(
         avatar_vertical_position: user.avatar_vertical_position || 50,
       };
       avatarFile.value = null;
+      initialData.value = { ...formData.value };
     } else {
       resetForm();
     }
   },
   { immediate: true },
+);
+
+// Re-sync when dialog opens to avoid stale data from previous unsaved edits
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) {
+      if (props.userToEdit) {
+        formData.value = {
+          id: props.userToEdit.id,
+          email: props.userToEdit.email,
+          first_name: props.userToEdit.first_name || '',
+          last_name: props.userToEdit.last_name || '',
+          password: '',
+          role: props.userToEdit.role,
+          is_active: props.userToEdit.is_active,
+          avatar_url: props.userToEdit.avatar_url || '',
+          avatar_vertical_position: props.userToEdit.avatar_vertical_position || 50,
+        };
+        avatarFile.value = null;
+        initialData.value = { ...formData.value };
+      } else {
+        resetForm();
+      }
+    }
+  },
 );
 
 // --- FUNCTIONS ---
@@ -282,6 +321,7 @@ function resetForm() {
     avatar_vertical_position: 50,
   };
   avatarFile.value = null;
+  initialData.value = { ...formData.value };
 }
 
 function handleAvatarChange(file: File | null) {
@@ -444,8 +484,22 @@ async function uploadAvatar(userId: string): Promise<string> {
 }
 
 function handleCancel() {
-  emit('cancel');
-  isOpen.value = false;
+  if (isDirty.value) {
+    confirm({
+      title: t('unsavedChanges'),
+      message: t('unsavedChangesMessage'),
+      confirmLabel: t('yes'),
+      cancelLabel: t('no'),
+      confirmColor: 'negative',
+      onConfirm: () => {
+        emit('cancel');
+        isOpen.value = false;
+      },
+    });
+  } else {
+    emit('cancel');
+    isOpen.value = false;
+  }
 }
 </script>
 
@@ -457,6 +511,7 @@ function handleCancel() {
   border-radius: 50%;
   transition: all 0.2s;
   cursor: move;
+  touch-action: none;
 }
 
 .avatar-container:hover .drag-hint {

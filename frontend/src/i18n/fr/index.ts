@@ -8,6 +8,8 @@ export default {
   close: 'Fermer',
   search: 'Recherche',
   actions: 'Actions',
+  yes: 'Oui',
+  no: 'Non',
   healthy: 'Sain',
   statusDegraded: 'Dégradé',
   statusError: 'Erreur',

@@ -141,7 +141,21 @@ watch(
 watch(
   () => data.value,
   (newValue) => {
-    localData.value = createCopy(newValue);
+    // Only update if it's a different content to avoid loops
+    // Compare JSON to avoid re-cloning if the prop update came from our own sync-back
+    if (JSON.stringify(newValue) !== JSON.stringify(localData.value)) {
+      localData.value = createCopy(newValue);
+    }
+  },
+  { deep: true },
+);
+
+// Sync changes back to parent immediately for dirty state detection
+watch(
+  localData,
+  (newValue) => {
+    Object.assign(data.value, newValue);
+    data.value.configuration = { ...newValue.configuration };
   },
   { deep: true },
 );

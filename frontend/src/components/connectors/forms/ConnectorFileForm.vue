@@ -128,8 +128,21 @@ const activeFile = ref<File | null>(null);
 watch(
   () => data.value,
   (newValue) => {
-    localData.value = createCopy(newValue);
-    activeFile.value = null; // Reset file input when data changes
+    // Compare JSON to avoid re-cloning if the prop update came from our own sync-back
+    if (JSON.stringify(newValue) !== JSON.stringify(localData.value)) {
+      localData.value = createCopy(newValue);
+      activeFile.value = null; // Reset file input when data changes
+    }
+  },
+  { deep: true },
+);
+
+// Sync changes back to parent immediately for dirty state detection
+watch(
+  [localData, activeFile],
+  ([newLocalData]) => {
+    Object.assign(data.value, newLocalData);
+    data.value.configuration = { ...newLocalData.configuration };
   },
   { deep: true },
 );

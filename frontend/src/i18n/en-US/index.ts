@@ -8,6 +8,8 @@ export default {
   close: 'Close',
   search: 'Search',
   actions: 'Actions',
+  yes: 'Yes',
+  no: 'No',
   status: 'Status',
   name: 'Name',
   firstName: 'First Name',

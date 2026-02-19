@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" persistent>
+  <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleClose">
     <q-card class="bg-primary column full-height" style="min-width: 55vw">
       <!-- Header -->
       <div class="q-pa-md bg-primary border-bottom row items-center justify-between">
@@ -61,7 +61,7 @@
             <component
               :is="currentForm"
               ref="activeForm"
-              :data="connectorData"
+              v-model:data="connectorData"
               hide-ai-provider
               hide-acl
               hide-schedule
@@ -467,17 +467,17 @@ function initializeEditMode() {
 
 const initialStateJSON = ref('');
 
-function hasUnsavedChanges(): boolean {
+const isDirty = computed(() => {
   // If not edit mode and step > 1, assume likely changes if user entered data
   // But strict comparison is better.
   // For create mode, we can stick to step > 1 check OR compare with empty default.
   // Let's rely on JSON comparison even for create if we captured "empty" state.
-  // Although simplify: Edit mode -> compare JSON. Create mode -> step > 1.
+  // Although simplify: Edit mode -> compare JSON. Create mode -> step > 1 or type selected.
   if (props.isEdit) {
     return JSON.stringify(connectorData.value) !== initialStateJSON.value;
   }
-  return step.value > 1;
-}
+  return selectedType.value !== '' || step.value > 1;
+});
 
 function mapBackendToUiType(connector: Connector): string {
   if (connector.connector_type === ConnectorType.LOCAL_FOLDER) return 'local_folder';
@@ -487,13 +487,13 @@ function mapBackendToUiType(connector: Connector): string {
 
 function handleClose() {
   // Check for unsaved changes
-  if (hasUnsavedChanges()) {
+  if (isDirty.value) {
     confirm({
       title: t('unsavedChanges'),
       message: t('unsavedChangesMessage'),
-      confirmLabel: t('discard'),
+      confirmLabel: t('yes'),
       confirmColor: 'negative',
-      cancelLabel: t('keepEditing'),
+      cancelLabel: t('no'),
       onConfirm: () => {
         // Clean up uploaded file if exists
         void cleanupTempFile();

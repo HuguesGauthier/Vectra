@@ -270,7 +270,7 @@ const handleSave = async (data: Record<string, unknown>) => {
         payload.password = data.password;
       }
 
-      await api.patch(`/users/${editingUser.value.id}/`, payload);
+      await api.patch(`/users/${editingUser.value.id}`, payload);
       notifySuccess(t('userUpdated'));
     } else {
       // Create new user
@@ -332,7 +332,7 @@ const confirmDelete = (user: User) => {
 
 const deleteUser = async (user: User) => {
   try {
-    await api.delete(`/users/${user.id}/`);
+    await api.delete(`/users/${user.id}`);
     notifySuccess(t('userDeleted'));
     await fetchUsers();
   } catch (err) {
