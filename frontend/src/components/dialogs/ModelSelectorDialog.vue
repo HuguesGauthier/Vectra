@@ -1,6 +1,7 @@
 <template>
   <q-dialog v-model="isOpen"  >
-    <q-card class="model-selector-card" style="min-width: 1000px">
+    <q-card class="model-selector-card" style="min-width: 1000px; max-height: 85vh;">
+
       <!-- Header -->
       <q-card-section class="model-selector-header">
         <div class="row items-center no-wrap">
@@ -29,7 +30,8 @@
       </q-card-section>
 
       <!-- Model Grid -->
-      <q-card-section class="model-grid-container q-pt-none">
+      <q-card-section class="model-grid-container q-pt-none col scroll">
+
         <template v-for="cat in visibleCategories" :key="cat.key">
           <div class="category-label">
             <q-icon :name="cat.icon" size="18px" :color="cat.color" class="q-mr-xs" />
@@ -232,8 +234,8 @@ function confirmSelection() {
   background: var(--q-dark, #1a1a2e);
   display: flex;
   flex-direction: column;
-  max-height: 100vh;
 }
+
 
 .model-selector-header {
   background: rgba(255, 255, 255, 0.03);
@@ -248,10 +250,10 @@ function confirmSelection() {
 }
 
 .model-grid-container {
-  overflow-y: auto;
   flex: 1;
-  padding-bottom: 80px;
+  padding-bottom: 20px;
 }
+
 
 .category-label {
   display: flex;

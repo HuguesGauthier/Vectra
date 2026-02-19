@@ -1,24 +1,28 @@
 <template>
   <q-dialog v-model="isOpen">
-    <q-card class="bg-primary" style="min-width: 500px">
+    <q-card class="bg-primary" style="min-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+
+
       <q-card-section class="row items-center q-pb-none bg-secondary">
         <div class="text-h6">{{ providerName }} Configuration</div>
         <q-space />
         <q-btn icon="close" flat round dense v-close-popup />
       </q-card-section>
 
-      <q-form @submit="handleSave" class="column q-gutter-y-md">
-        <q-card-section class="q-pt-md">
-          <!-- Hidden username to satisfy browser heuristics for password forms -->
-          <input
-            type="text"
-            name="username"
-            autocomplete="username"
-            style="display: none; opacity: 0; position: absolute; left: -9999px"
-            tabindex="-1"
-          />
+      <q-form @submit="handleSave" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
 
-          <div class="column q-gutter-y-md">
+        <div class="dialog-body">
+          <q-card-section class="q-pt-md">
+            <!-- Hidden username to satisfy browser heuristics for password forms -->
+            <input
+              type="text"
+              name="username"
+              autocomplete="username"
+              style="display: none; opacity: 0; position: absolute; left: -9999px"
+              tabindex="-1"
+            />
+
+            <div class="column q-gutter-y-md">
             <!-- Gemini Chat Configuration -->
             <template v-if="providerId === 'gemini'">
               <div class="text-subtitle2 q-mb-sm">{{ $t('geminiConfiguration') }}</div>
@@ -204,14 +208,16 @@
                 </q-card>
               </div>
             </div>
-          </div>
-        </q-card-section>
+            </div>
+          </q-card-section>
+        </div>
 
-        <q-card-actions align="right" class="bg-secondary text-primary">
+        <q-card-actions align="right" class="bg-secondary text-primary border-top">
           <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
           <q-btn flat :label="$t('save')" type="submit" color="accent" />
         </q-card-actions>
       </q-form>
+
     </q-card>
   </q-dialog>
 
@@ -363,6 +369,15 @@ function handleSave() {
 
 .border-sixth {
   border-color: var(--q-sixth) !important;
+}
+
+.border-top {
+  border-top: 1px solid var(--q-sixth);
+}
+
+.dialog-body {
+  overflow-y: auto;
+  flex: 1;
 }
 
 .param-value-badge {
