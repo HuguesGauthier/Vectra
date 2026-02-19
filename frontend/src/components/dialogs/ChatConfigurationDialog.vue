@@ -1,12 +1,14 @@
 <template>
-  <q-dialog v-model="isOpen">
+  <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleClose">
+
     <q-card class="bg-primary" style="min-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
 
 
       <q-card-section class="row items-center q-pb-none bg-secondary">
         <div class="text-h6">{{ providerName }} Configuration</div>
         <q-space />
-        <q-btn icon="close" flat round dense v-close-popup />
+        <q-btn icon="close" flat round dense @click="handleClose" />
+
       </q-card-section>
 
       <q-form @submit="handleSave" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
@@ -213,9 +215,10 @@
         </div>
 
         <q-card-actions align="right" class="bg-secondary text-primary border-top">
-          <q-btn flat :label="$t('cancel')" v-close-popup color="grey-7" />
+          <q-btn flat :label="$t('cancel')" @click="handleClose" color="grey-7" />
           <q-btn flat :label="$t('save')" type="submit" color="accent" />
         </q-card-actions>
+
       </q-form>
 
     </q-card>
@@ -235,6 +238,9 @@
 import { ref, watch, computed, type PropType } from 'vue';
 import ModelSelectorDialog from './ModelSelectorDialog.vue';
 import type { ModelInfo } from 'src/models/ProviderOption';
+import { useDialog } from 'src/composables/useDialog';
+import { useI18n } from 'vue-i18n';
+
 
 const props = defineProps({
   providerId: {
@@ -258,17 +264,26 @@ const props = defineProps({
 const emit = defineEmits(['update:isOpen', 'save']);
 const isOpen = defineModel<boolean>('isOpen', { default: false });
 const showModelSelector = ref(false);
+const { confirm } = useDialog();
+const { t } = useI18n();
 
 // Local copy of key models to edit
 const internalModels = ref<Record<string, string | number | null | undefined>>({});
+const initialModels = ref<Record<string, string | number | null | undefined>>({});
+
+const isDirty = computed(() => JSON.stringify(internalModels.value) !== JSON.stringify(initialModels.value));
 
 watch(
-  () => props.models,
-  (newVal) => {
-    internalModels.value = { ...newVal };
+  isOpen,
+  (val) => {
+    if (val) {
+      internalModels.value = { ...props.models };
+      initialModels.value = { ...props.models };
+    }
   },
-  { immediate: true, deep: true },
+  { immediate: true },
 );
+
 
 // Model key for the current provider
 const modelKey = computed(() => {
@@ -301,6 +316,24 @@ function handleSave() {
   emit('save', internalModels.value);
   isOpen.value = false;
 }
+
+function handleClose() {
+  if (isDirty.value) {
+    confirm({
+      title: t('unsavedChanges'),
+      message: t('unsavedChangesMessage'),
+      confirmLabel: t('yes'),
+      confirmColor: 'negative',
+      cancelLabel: t('no'),
+      onConfirm: () => {
+        isOpen.value = false;
+      },
+    });
+  } else {
+    isOpen.value = false;
+  }
+}
+
 </script>
 
 <style scoped>
