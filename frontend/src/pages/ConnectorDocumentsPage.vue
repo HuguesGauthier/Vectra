@@ -207,7 +207,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { date, useQuasar, type QTableColumn } from 'quasar';
 
@@ -233,6 +233,7 @@ defineOptions({
 });
 
 const route = useRoute();
+const router = useRouter();
 
 const i18n = useI18n();
 const { t } = i18n;
@@ -338,6 +339,7 @@ onMounted(async () => {
   window.addEventListener('doc-update', handleDocUpdate as EventListener);
   window.addEventListener('doc-created', handleDocCreated as EventListener);
   window.addEventListener('doc-deleted', handleDocDeleted as EventListener);
+  window.addEventListener('keydown', handleKeydown);
 
   await loadConnector();
   await onRequest();
@@ -348,7 +350,14 @@ onUnmounted(() => {
   window.removeEventListener('doc-update', handleDocUpdate as EventListener);
   window.removeEventListener('doc-created', handleDocCreated as EventListener);
   window.removeEventListener('doc-deleted', handleDocDeleted as EventListener);
+  window.removeEventListener('keydown', handleKeydown);
 });
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && !drawerOpen.value) {
+    void router.push({ name: 'Connectors' });
+  }
+}
 
 // --- FUNCTIONS ---
 

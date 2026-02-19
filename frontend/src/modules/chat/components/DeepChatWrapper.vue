@@ -144,14 +144,11 @@ const avatars = computed(() => {
         },
       };
     } else {
-      // Generate fallback for user if no image
-      const initials = (
-        authStore.user.first_name?.[0] ||
-        authStore.user.email?.[0] ||
-        'U'
-      ).toUpperCase();
+      // Fallback: person icon SVG
+      const personIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="12" fill="#555"/><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v1h16v-1c0-2.66-5.33-4-8-4z" fill="#ccc"/></svg>`;
+      const personIconUri = `data:image/svg+xml;utf8,${encodeURIComponent(personIconSvg)}`;
       config.user = {
-        src: createAvatarSvg(initials, 'var(--q-primary)', 'var(--q-text-main)'),
+        src: personIconUri,
         styles: {
           avatar: {
             width: '40px',
