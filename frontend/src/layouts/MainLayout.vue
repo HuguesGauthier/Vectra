@@ -92,18 +92,22 @@
         <div class="column full-height">
           <q-list class="col" padding>
             <q-item
-              class="q-ma-none q-pa-md justify-center"
+              class="q-ma-none q-pa-sm"
               clickable
-              to="/"
-              :style="{ visibility: isHomePage ? 'hidden' : 'visible' }"
+              :to="isHomePage ? undefined : '/'"
             >
-              <VectraLogo
-                :color-left="currentColors.left"
-                :color-right="currentColors.right"
-                :color-mid="currentColors.mid"
-                :disable-animation="true"
-                style="width: 150px; height: 150px"
-              />
+              <q-item-section avatar>
+                <VectraLogo
+                  :color-left="currentColors.left"
+                  :color-right="currentColors.right"
+                  :color-mid="currentColors.mid"
+                  :disable-animation="true"
+                  style="width: 36px; height: 36px"
+                />
+              </q-item-section>
+              <q-item-section>
+                <span class="vectra-brand-name ">Vectra</span>
+              </q-item-section>
             </q-item>
 
             <!-- Admin Menu Items -->
@@ -631,6 +635,14 @@ function handleDocUpdate(event: Event) {
 .hover-white:hover {
   color: var(--q-text-main) !important;
   background-color: var(--q-hover-bg); /* Darker hover for buttons */
+}
+
+.vectra-brand-name {
+  font-size: 2.5em;
+  font-weight: 700;
+  color: var(--q-text-main);
+  letter-spacing: 0.5px;
+  padding-left: 4px;
 }
 
 .chat-header-portal {
