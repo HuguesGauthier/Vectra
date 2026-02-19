@@ -227,9 +227,9 @@
           />
 
           <template v-if="isEdit">
-            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
             <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
           </template>
+
 
           <q-btn
             color="accent"
@@ -241,8 +241,8 @@
         </div>
         <div v-else class="row items-center q-gutter-sm">
           <template v-if="isEdit">
-            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
           </template>
+
           <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
         </div>
       </div>

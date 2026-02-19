@@ -1,5 +1,5 @@
 <template>
-  <q-dialog v-model="isOpen" persistent>
+  <q-dialog v-model="isOpen" :persistent="hasUnsavedChanges()" @shake="handleClose">
     <q-card class="column bg-primary" style="width: 1200px; max-width: 95vw; height: 90vh">
       <!-- Header -->
       <div class="q-pa-md bg-primary border-bottom row items-center justify-between">
@@ -242,8 +242,7 @@
             />
           </template>
           <template v-else>
-            <!-- In Edit Mode, always show Save, maybe Cancel too -->
-            <q-btn :label="$t('cancel')" flat color="grey-5" @click="handleClose" />
+            <!-- In Edit Mode, always show Save -->
             <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
           </template>
 
@@ -380,8 +379,9 @@ function handleClose() {
     confirm({
       title: t('unsavedChanges'),
       message: t('unsavedChangesMessage'),
-      confirmLabel: t('discard'),
+      confirmLabel: t('yes'),
       confirmColor: 'negative',
+      cancelLabel: t('no'),
       onConfirm: () => {
         isOpen.value = false;
       },

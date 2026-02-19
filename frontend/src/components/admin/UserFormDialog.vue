@@ -2,8 +2,10 @@
   <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleCancel">
     <q-card style="width: 500px; max-width: 90vw; background-color: var(--q-fifth); max-height: 85vh; display: flex; flex-direction: column;">
 
-      <q-card-section class="bg-secondary border-bottom">
+      <q-card-section class="bg-secondary border-bottom row items-center q-pb-none">
         <div class="text-h6">{{ isEditing ? $t('editUser') : $t('addUser') }}</div>
+        <q-space />
+        <q-btn icon="close" flat round dense @click="handleCancel" />
       </q-card-section>
 
       <div class="dialog-body">
@@ -139,7 +141,6 @@
       </div>
 
       <q-card-actions align="right" class="bg-secondary border-top q-pa-md">
-        <q-btn :label="$t('cancel')" color="grey" flat @click="handleCancel" />
         <q-btn :label="$t('save')" @click="handleSubmit" color="accent" unelevated :loading="loading" />
       </q-card-actions>
     </q-card>
