@@ -1,1 +1,1 @@
-.\.venv\Scripts\python -m pytest --cov=app --cov-report=term-missing
+.\venv\Scripts\python.exe -m pytest --cov=app --cov-report=term-missing

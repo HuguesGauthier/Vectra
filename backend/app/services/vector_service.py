@@ -45,6 +45,47 @@ class VectorService:
     _cache_lock: threading.Lock = threading.Lock()
 
     @classmethod
+    def _is_loop_alive(cls, lock: Optional[asyncio.Lock]) -> bool:
+        """
+        Returns True if the lock is not yet created (=fresh) OR if it belongs
+        to the *current* running loop.  Returns False only when a lock EXISTS
+        but is bound to an old, closed loop — that's the stale state we care
+        about after a uvicorn --reload.
+        """
+        if lock is None:
+            # Not yet initialised — not stale, just fresh.
+            return True
+        try:
+            loop = asyncio.get_event_loop()
+            # Lock stores its loop on _loop (CPython implementation detail)
+            lock_loop = getattr(lock, "_loop", None)
+            if lock_loop is None:
+                return True  # Can't introspect — assume alive
+            return lock_loop is loop and not loop.is_closed()
+        except RuntimeError:
+            return False
+
+    @classmethod
+    def _reset_stale_singletons(cls) -> None:
+        """Discard clients, locks, and embedding models that belong to a dead event loop."""
+        with cls._cache_lock:
+            async_stale = not cls._is_loop_alive(cls._aclient_lock)
+            sync_stale = not cls._is_loop_alive(cls._client_lock)
+
+            if async_stale or sync_stale:
+                logger.warning(
+                    "[VectorService] Detected stale event loop. " "Resetting Qdrant clients and embedding model cache."
+                )
+                cls._aclient = None
+                cls._aclient_lock = None
+                cls._client = None
+                cls._client_lock = None
+                # Embedding models (Gemini, OpenAI) hold internal async clients /
+                # gRPC channels bound to the old loop — clear them so they are
+                # re-created on the current running loop.
+                cls._model_cache.clear()
+
+    @classmethod
     def _get_lock(cls, is_async_client: bool) -> asyncio.Lock:
         """Lazy initialization of asyncio locks."""
         if is_async_client:
@@ -153,12 +194,14 @@ class VectorService:
 
     async def get_qdrant_client(self) -> qdrant_client.QdrantClient:
         """Returns a Shared instance of QdrantClient (Sync)."""
+        VectorService._reset_stale_singletons()
         return await self._get_client_singleton(
             is_async=False, storage=VectorService, attribute_name="_client", lock=VectorService._get_lock(False)
         )
 
     async def get_async_qdrant_client(self) -> qdrant_client.AsyncQdrantClient:
         """Returns a Shared instance of AsyncQdrantClient (Async)."""
+        VectorService._reset_stale_singletons()
         return await self._get_client_singleton(
             is_async=True, storage=VectorService, attribute_name="_aclient", lock=VectorService._get_lock(True)
         )

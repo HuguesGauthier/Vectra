@@ -147,7 +147,8 @@ export function useChatStream() {
               const parent_id = step.parent_id || inherited_parent_id;
               const isSubStep = !!parent_id;
 
-              let label = t(`pipelineSteps.${step.step_type}`) || step.step_type;
+              // Let the backend override the default translated label if specified
+              let label = step.label || t(`pipelineSteps.${step.step_type}`) || step.step_type;
 
               const modelName = step.metadata?.model_name as string | undefined;
               const modelProvider = step.metadata?.model_provider as string | undefined;

@@ -132,14 +132,12 @@ class TrendingProcessor(BaseChatProcessor):
             )
 
             dur = round(time.time() - start_time, 3)
-            self._record_metrics(ctx, dur)  # Assuming end_span is handled in record_metrics or manually
             ctx.metrics.end_span(sid)
             yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=dur)
 
         except asyncio.TimeoutError:
             logger.error(f"Trending Analysis timed out after {TIMEOUT_TRENDING_ANALYSIS}s")
             # Graceful degrade
-            self._record_metrics(ctx, TIMEOUT_TRENDING_ANALYSIS)
 
             sid = locals().get("sid", "trend_fail")
             if "sid" in locals() and ctx.metrics:

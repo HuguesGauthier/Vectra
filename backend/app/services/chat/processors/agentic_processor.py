@@ -627,7 +627,7 @@ class AgenticProcessor(BaseChatProcessor):
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
 
@@ -651,7 +651,7 @@ class AgenticProcessor(BaseChatProcessor):
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
             else:
@@ -669,6 +669,17 @@ class AgenticProcessor(BaseChatProcessor):
                             ctx.metadata["content_blocks"] = []
                         ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
                         yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
+
+                # Drain the queue — the non-streaming path also fires on_llm_end
+                # callbacks (e.g. ROUTER_REASONING completed) that must be forwarded
+                # to the frontend so the step transitions from orange → green.
+                if event_queue:
+                    while not event_queue.empty():
+                        try:
+                            cb_event = event_queue.get_nowait()
+                            yield self._process_router_event(ctx, cb_event)
+                        except asyncio.QueueEmpty:
+                            break
 
         except Exception as e:
             logger.error(f"Stream Error: {e}")

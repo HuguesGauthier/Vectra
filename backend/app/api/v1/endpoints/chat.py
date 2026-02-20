@@ -240,6 +240,14 @@ def _format_step(step: Dict[str, Any]) -> Dict[str, Any]:
     if not step.get("label"):
         # Let frontend handle missing labels via i18n
         pass
+    else:
+        # Strip provider suffix if this is nested under a tool
+        # In French UI: "Recherche Base de Connaissances (Openai)" -> "Recherche Base de Connaissances"
+        label = step["label"]
+        if label.startswith("Recherche Base de Connaissances (") and label.endswith(")"):
+            step["label"] = "Recherche Base de Connaissances"
+        elif label.startswith("Knowledge Base Search (") and label.endswith(")"):
+            step["label"] = "Knowledge Base Search"
 
     # Map nesting metadata (backend 'is_substep' -> frontend 'isSubStep')
     step_meta = step.get("metadata", {})
