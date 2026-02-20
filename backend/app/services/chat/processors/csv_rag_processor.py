@@ -70,28 +70,32 @@ class CSVRAGProcessor(BaseChatProcessor):
             logger.info(f"🔥 Starting CSV RAG Pipeline for Session: {ctx.session_id}")
 
             # 1. Initialization
-            yield EventFormatter.format(STEP_CONNECTION, "running", ctx.language, payload={"is_substep": True})
+            conn_id = ctx.metrics.start_span(STEP_CONNECTION)
+            yield EventFormatter.format(STEP_CONNECTION, "running", conn_id, payload={"is_substep": True})
             t0 = time.time()
             try:
                 # Pure Async Call (No Yields)
                 components = await asyncio.wait_for(self._prepare_csv_components(ctx), timeout=45.0)
                 dur = round(time.time() - t0, 3)
+                ctx.metrics.end_span(conn_id)
                 yield EventFormatter.format(
-                    STEP_CONNECTION, "completed", ctx.language, duration=dur, payload={"is_substep": True}
+                    STEP_CONNECTION, "completed", conn_id, duration=dur, payload={"is_substep": True}
                 )
             except asyncio.TimeoutError:
+                ctx.metrics.end_span(conn_id)
                 yield EventFormatter.format(
                     STEP_CONNECTION,
                     StepStatus.FAILED,
-                    ctx.language,
+                    conn_id,
                     label="CSV Setup Timeout",
                     payload={"is_substep": True},
                 )
                 return
             except Exception as e:
                 logger.error(f"Setup failed: {e}")
+                ctx.metrics.end_span(conn_id)
                 yield EventFormatter.format(
-                    STEP_CONNECTION, StepStatus.FAILED, ctx.language, label="Setup Error", payload={"is_substep": True}
+                    STEP_CONNECTION, StepStatus.FAILED, conn_id, label="Setup Error", payload={"is_substep": True}
                 )
                 return
 
@@ -174,8 +178,9 @@ class CSVRAGProcessor(BaseChatProcessor):
         self, ctx: ChatContext, llm: Any, ai_schema: Dict[str, Any]
     ) -> AsyncGenerator[str, None]:
         t0 = time.time()
+        sid = ctx.metrics.start_span(PipelineStepType.AMBIGUITY_GUARD)
         yield EventFormatter.format(
-            PipelineStepType.AMBIGUITY_GUARD, "running", ctx.language, payload={"is_substep": True}
+            PipelineStepType.AMBIGUITY_GUARD, "running", sid, payload={"is_substep": True}
         )
 
         try:
@@ -235,10 +240,11 @@ class CSVRAGProcessor(BaseChatProcessor):
             }
 
             dur = round(time.time() - t0, 3)
+            ctx.metrics.end_span(sid, payload={"decision": decision.action, "is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.AMBIGUITY_GUARD,
                 "completed",
-                ctx.language,
+                sid,
                 payload={"decision": decision.action, "is_substep": True},
                 duration=dur,
             )
@@ -246,10 +252,11 @@ class CSVRAGProcessor(BaseChatProcessor):
         except Exception as e:
             logger.error(f"Ambiguity guard failed: {e}")
             ctx.metadata["ambiguity_decision"] = {"action": "PROCEED", "extracted_filters": {}, "message": None}
+            ctx.metrics.end_span(sid, payload={"is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.AMBIGUITY_GUARD,
                 "completed",
-                ctx.language,
+                sid,
                 duration=round(time.time() - t0, 3),
                 payload={"is_substep": True},
             )
@@ -280,7 +287,8 @@ class CSVRAGProcessor(BaseChatProcessor):
         self, ctx: ChatContext, components: CSVComponents, decision: Dict, connector_id: UUID
     ) -> AsyncGenerator[str, None]:
         t0 = time.time()
-        yield EventFormatter.format(STEP_RETRIEVAL, "running", ctx.language, payload={"is_substep": True})
+        sid = ctx.metrics.start_span(STEP_RETRIEVAL)
+        yield EventFormatter.format(STEP_RETRIEVAL, "running", sid, payload={"is_substep": True})
 
         try:
             filters = decision.get("extracted_filters", {})
@@ -301,24 +309,27 @@ class CSVRAGProcessor(BaseChatProcessor):
             ctx.metadata["csv_retrieved_nodes"] = nodes
 
             dur = round(time.time() - t0, 3)
+            ctx.metrics.end_span(sid, payload={"count": len(nodes), "is_substep": True})
             yield EventFormatter.format(
                 STEP_RETRIEVAL,
                 "completed",
-                ctx.language,
+                sid,
                 payload={"count": len(nodes), "is_substep": True},
                 duration=dur,
             )
 
         except Exception as e:
             logger.error(f"Retrieval failed: {e}", exc_info=True)
-            yield EventFormatter.format(STEP_RETRIEVAL, "failed", ctx.language, payload={"is_substep": True})
+            ctx.metrics.end_span(sid, payload={"is_substep": True})
+            yield EventFormatter.format(STEP_RETRIEVAL, "failed", sid, payload={"is_substep": True})
 
     # --- Phase 4: Synthesis ---
 
     async def _process_csv_synthesis(self, ctx: ChatContext, llm: Any, ai_schema: Dict) -> AsyncGenerator[str, None]:
         t0 = time.time()
+        sid = ctx.metrics.start_span(PipelineStepType.CSV_SYNTHESIS)
         yield EventFormatter.format(
-            PipelineStepType.CSV_SYNTHESIS, "running", ctx.language, payload={"is_substep": True}
+            PipelineStepType.CSV_SYNTHESIS, "running", sid, payload={"is_substep": True}
         )
 
         try:
@@ -343,8 +354,9 @@ class CSVRAGProcessor(BaseChatProcessor):
             ctx.full_response_text = str(summary)
 
             dur = round(time.time() - t0, 3)
+            ctx.metrics.end_span(sid, payload={"is_substep": True})
             yield EventFormatter.format(
-                PipelineStepType.CSV_SYNTHESIS, "completed", ctx.language, duration=dur, payload={"is_substep": True}
+                PipelineStepType.CSV_SYNTHESIS, "completed", sid, duration=dur, payload={"is_substep": True}
             )
 
             # Stream Outputs using the standard protocol
@@ -353,8 +365,9 @@ class CSVRAGProcessor(BaseChatProcessor):
 
         except Exception as e:
             logger.error(f"Synthesis failed: {e}", exc_info=True)
+            ctx.metrics.end_span(sid, payload={"is_substep": True})
             yield EventFormatter.format(
-                PipelineStepType.CSV_SYNTHESIS, "failed", ctx.language, payload={"is_substep": True}
+                PipelineStepType.CSV_SYNTHESIS, "failed", sid, payload={"is_substep": True}
             )
 
     async def _stream_synthesis_content(self, ctx: ChatContext, data: Dict) -> AsyncGenerator[str, None]:

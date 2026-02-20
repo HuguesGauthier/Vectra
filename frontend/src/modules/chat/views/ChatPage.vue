@@ -58,18 +58,15 @@
         <q-btn flat round dense icon="whatshot" @click="showTrending = !showTrending">
           <q-tooltip>Questions fréquentes</q-tooltip>
         </q-btn>
+
+        <!-- Pipeline Steps: Header Menu Location -->
+        <PipelineStepsPanel
+          v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
+          :steps="lastBotSteps"
+        />
       </div>
     </template>
-
     <template #messages>
-      <!-- Real-time Pipeline Steps: Shows ONLY during active NEW streaming (not history) -->
-      <div
-        v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
-        class="q-px-md q-pt-md row justify-center"
-      >
-        <PipelineStepsPanel :steps="lastBotSteps" />
-      </div>
-
       <!-- Warning for non-vectorized assistant -->
       <div
         v-if="currentAssistant && currentAssistant.is_vectorized === false"

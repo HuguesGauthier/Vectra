@@ -120,6 +120,8 @@ class StreamingCallbackHandler(BaseCallbackHandler):
 
         # Dispatch
         event_data = {
+            "step_id": event_id,
+            "parent_id": parent_id,
             "step_type": step_type,
             "status": "running" if phase == "start" else "completed",
             "payload": out_payload,

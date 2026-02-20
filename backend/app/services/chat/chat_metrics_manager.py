@@ -8,12 +8,15 @@ class StepMetric:
     step_type: str
     label: str
     start_time: float
+    step_id: str = ""  # Unique ID for nesting
+    parent_id: Optional[str] = None  # Reference to parent span
     end_time: float = 0.0
     duration: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
     sequence: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
+    sub_steps: List["StepMetric"] = field(default_factory=list)
 
     @property
     def is_completed(self) -> bool:
@@ -83,7 +86,7 @@ class ChatMetricsManager:
         except KeyError:
             return default
 
-    def start_span(self, step_type: str, label: Optional[str] = None) -> str:
+    def start_span(self, step_type: str, label: Optional[str] = None, parent_id: Optional[str] = None) -> str:
         """Start a new timing span. Returns a unique span ID."""
         if not label:
             label = step_type.replace("_", " ").title()
@@ -91,7 +94,13 @@ class ChatMetricsManager:
         span_id = f"{step_type}_{self._step_counter}"
         self._step_counter += 1
 
-        self.steps[span_id] = StepMetric(step_type=step_type, label=label, start_time=time.time())
+        self.steps[span_id] = StepMetric(
+            step_type=step_type, 
+            label=label, 
+            start_time=time.time(),
+            step_id=span_id,
+            parent_id=parent_id
+        )
         # Assign sequence at START to preserve nesting order (Parent < Children)
         self.steps[span_id].sequence = self._sequence_counter
         self._sequence_counter += 1
@@ -141,10 +150,15 @@ class ChatMetricsManager:
         output_tokens: int = 0,
         payload: Dict = None,
         increment_total: bool = True,
+        parent_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ):
         """Manually record a step that was tracked elsewhere (e.g. internally in a callback)."""
         # Create a synthetic step
         now = time.time()
+        sid = step_id or f"{step_type}_sync_{self._step_counter}"
+        self._step_counter += 1
+
         step = StepMetric(
             step_type=step_type,
             label=label,
@@ -154,6 +168,8 @@ class ChatMetricsManager:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             metadata=payload or {},
+            step_id=sid,
+            parent_id=parent_id,
         )
 
         if increment_total:
@@ -163,6 +179,7 @@ class ChatMetricsManager:
         step.sequence = self._sequence_counter
         self._sequence_counter += 1
         self.completed_steps.append(step)
+        return sid
 
     def get_summary(self) -> Dict:
         """Return compatible dictionary for existing frontend/API contracts."""
@@ -176,14 +193,29 @@ class ChatMetricsManager:
             "output_tokens": self.total_output_tokens,
             "step_breakdown": [
                 {
+                    "step_id": s.step_id,
+                    "parent_id": s.parent_id,
                     "step_type": s.step_type,
                     "label": s.label,
                     "duration": s.duration,
                     "sequence": s.sequence,
                     "tokens": {"input": s.input_tokens, "output": s.output_tokens},
                     "metadata": s.metadata,
+                    **({"sub_steps": [
+                        {
+                            "step_id": ss.step_id,
+                            "parent_id": ss.parent_id,
+                            "step_type": ss.step_type,
+                            "label": ss.label,
+                            "duration": ss.duration,
+                            "sequence": ss.sequence,
+                            "tokens": {"input": ss.input_tokens, "output": ss.output_tokens},
+                            "metadata": ss.metadata,
+                        }
+                        for ss in s.sub_steps
+                    ]} if s.sub_steps else {}),
                 }
-                for s in sorted_steps  # Use sorted list
+                for s in sorted_steps
             ],
             # Merged dict for legacy analytics/DB persistence
             "legacy_step_breakdown": self._get_merged_durations(),

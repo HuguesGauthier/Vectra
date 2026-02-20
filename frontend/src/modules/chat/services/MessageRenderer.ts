@@ -214,7 +214,6 @@ export class MessageRenderer {
     if (!steps || steps.length === 0) return '';
 
     // FIX: Use the "Completed" step's values directly (it already contains correct totals)
-    // If no "Completed" step exists, fall back to summing non-substeps
     const completedStep = steps.find(
       (s) => s.step_type === 'completed' && s.status === 'completed',
     );
@@ -224,33 +223,64 @@ export class MessageRenderer {
     let totalOutputTokens: number;
 
     if (completedStep) {
-      // Use the Completed step's values (already accurate)
       totalDuration = completedStep.duration || 0;
       totalInputTokens = completedStep.tokens?.input || 0;
       totalOutputTokens = completedStep.tokens?.output || 0;
     } else {
-      // Fallback: sum non-substeps only
-      totalDuration = steps.reduce((sum, s) => sum + (s.isSubStep ? 0 : s.duration || 0), 0);
-      totalInputTokens = steps.reduce(
-        (sum, s) => sum + (s.isSubStep ? 0 : s.tokens?.input || 0),
-        0,
-      );
-      totalOutputTokens = steps.reduce(
-        (sum, s) => sum + (s.isSubStep ? 0 : s.tokens?.output || 0),
-        0,
-      );
+      // Fallback: sum top-level non-substeps
+      totalDuration = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.duration || 0), 0);
+      totalInputTokens = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.input || 0), 0);
+      totalOutputTokens = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.output || 0), 0);
     }
 
-    // Count completed steps (excluding the "Completed" summary step itself)
-    const completedCount = steps.filter(
-      (s) => s.status === 'completed' && s.step_type !== 'completed',
-    ).length;
-    const failedCount = steps.filter((s) => s.status === 'failed').length;
+    const completedCount = steps.filter((s) => s.status === 'completed' && s.step_type !== 'completed' && !s.parent_id).length;
+    const failedCount = steps.filter((s) => s.status === 'failed' && !s.parent_id).length;
 
-    // Access i18n messages for static rendering
+    // --- HIERARCHY RECONSTRUCTION (Recursive & Non-Destructive) ---
+    const stepMap = new Map<string, ChatStep>();
+    const rootTree: ChatStep[] = [];
+
+    // 1. First pass: Recursively flatten all levels into a map
+    const flattenToMap = (itemList: ChatStep[]) => {
+      itemList.forEach((s) => {
+        // Create a copy without the sub_steps array to rebuild it
+        const copy = { ...s, sub_steps: [] as ChatStep[] };
+        if (!copy.step_id) copy.step_id = `step_${Math.random()}`;
+        stepMap.set(copy.step_id, copy);
+        
+        // Flatten children too
+        if (s.sub_steps && s.sub_steps.length > 0) {
+          flattenToMap(s.sub_steps);
+        }
+      });
+    };
+    flattenToMap(steps);
+
+    // 2. Second pass: Link based on parent_id
+    stepMap.forEach((step) => {
+      if (step.parent_id && stepMap.has(step.parent_id)) {
+        const parent = stepMap.get(step.parent_id)!;
+        if (!parent.sub_steps) parent.sub_steps = [];
+        // Avoid adding the same step twice
+        if (!parent.sub_steps.some(c => c.step_id === step.step_id)) {
+          parent.sub_steps.push(step);
+        }
+      } else {
+        rootTree.push(step);
+      }
+    });
+
+    // 3. Final cleanup: Remove orphans that are actually children
+    const filteredRoot = rootTree.filter(s => !(s.parent_id && stepMap.has(s.parent_id)));
+
     const locale = localStorage.getItem('app_language') || 'en-US';
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const appMessages = messages[locale as keyof typeof messages] as any;
+    const appMessages = messages[locale as keyof typeof messages] as {
+      pipelineSteps?: {
+        title?: string;
+        completed?: string;
+        failed?: string;
+      };
+    };
     const pipelineTitle = appMessages?.pipelineSteps?.title || 'Pipeline Steps';
     const completedLabel = appMessages?.pipelineSteps?.completed || 'completed';
     const failedLabel = appMessages?.pipelineSteps?.failed || 'failed';
@@ -265,14 +295,8 @@ export class MessageRenderer {
         cursor: pointer;
       ">
         <summary style="
-          list-style: none;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          font-size: 13px;
-          font-weight: 500;
-          user-select: none;
-          outline: none;
+          list-style: none; display: flex; align-items: center; gap: 12px;
+          font-size: 13px; font-weight: 500; user-select: none; outline: none;
         ">
           <span style="font-size: 16px;">📊</span>
           <span style="flex: 1;">
@@ -281,163 +305,73 @@ export class MessageRenderer {
               (${completedCount} ${completedLabel}${failedCount > 0 ? `, ${failedCount} ${failedLabel}` : ''})
             </span>
           </span>
-          <span style="
-            background: rgba(255, 255, 255, 0.1);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 11px;
-            opacity: 0.8;
-          ">
+          <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; opacity: 0.8;">
             ${totalDuration.toFixed(2)}s
           </span>
-          ${
-            totalInputTokens > 0 || totalOutputTokens > 0
-              ? `
-          <span style="
-            background: rgba(255, 255, 255, 0.1);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 11px;
-            opacity: 0.8;
-          ">
+          ${totalInputTokens > 0 || totalOutputTokens > 0 ? `
+          <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; opacity: 0.8;">
             ↑${totalInputTokens} ↓${totalOutputTokens}
-          </span>
-          `
-              : ''
-          }
-          <span class="expand-arrow" style="
-            transition: transform 0.2s;
-            font-size: 12px;
-            opacity: 0.6;
-          ">▼</span>
+          </span>` : ''}
+          <span class="expand-arrow" style="transition: transform 0.2s; font-size: 12px; opacity: 0.6;">▼</span>
         </summary>
-
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; flex-direction: column; width: 100%;">
     `;
 
-    // Render each step
-    steps.forEach((step, index) => {
-      const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
-      const statusColor =
-        step.status === 'completed' ? '#4caf50' : step.status === 'failed' ? '#f44336' : '#ff9800';
+    // Recursive helper
+    const renderLevel = (currentSteps: ChatStep[], level: number): string => {
+      let levelHtml = '';
+      currentSteps.forEach((step, index) => {
+        const isLastAtThisLevel = index === currentSteps.length - 1;
+        levelHtml += this.renderSingleStepRow(step, level, isLastAtThisLevel);
+        if (step.sub_steps && step.sub_steps.length > 0) {
+          levelHtml += renderLevel(step.sub_steps, level + 1);
+        }
+      });
+      return levelHtml;
+    };
 
-      const isSubStep = step.isSubStep || false;
-      const opacity = isSubStep ? '0.7' : '1';
-      const fontSize = isSubStep ? '12px' : '13px';
-      const paddingLeft = isSubStep ? '20px' : '0';
-
-      // Duration Text - Only show if meaningfully > 0 (streaming LLM callbacks report ~0ms)
-      const durationText =
-        step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
-
-      // Tokens Text - Use up/down arrows
-      let tokensText = '';
-      if (step.tokens && (step.tokens.input > 0 || step.tokens.output > 0)) {
-        tokensText = `↑${step.tokens.input || 0} ↓${step.tokens.output || 0}`;
-      }
-
-      html += `
-        <div style="
-          display: grid;
-          grid-template-columns: 24px 1fr 60px 100px;
-          align-items: center;
-          gap: 8px;
-          font-size: ${fontSize};
-          margin-bottom: ${index < steps.length - 1 ? '8px' : '0'};
-          padding-left: ${paddingLeft};
-          opacity: ${opacity};
-          width: 100%;
-          box-sizing: border-box;
-        ">
-          <!-- 1. Icon -->
-          <span style="
-            color: ${statusColor};
-            font-weight: bold;
-            text-align: center;
-          ">${statusIcon}</span>
-          
-          <!-- 2. Label -->
-          <span 
-            style="
-              font-weight: ${isSubStep ? '400' : '500'};
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-              cursor: help;
-            "
-            title="${this.getStepDescription(step.step_type)}"
-          >
-            ${step.label}
-          </span>
-
-          <!-- 3. Duration (Fixed Width) -->
-          <span style="
-            text-align: right;
-            font-family: monospace;
-            font-size: 11px;
-            opacity: 0.7;
-          ">
-            ${
-              durationText
-                ? `
-              <span style="
-                background: rgba(255, 255, 255, 0.08);
-                padding: 2px 6px;
-                border-radius: 6px;
-                display: inline-block;
-                min-width: 45px;
-              ">${durationText}</span>
-            `
-                : ''
-            }
-          </span>
-
-          <!-- 4. Tokens (Fixed Width) -->
-          <span style="
-            text-align: right;
-            font-family: monospace;
-            font-size: 11px;
-            opacity: 0.7;
-          ">
-             ${
-               tokensText
-                 ? `
-              <span style="
-                background: rgba(255, 255, 255, 0.08);
-                padding: 2px 6px;
-                border-radius: 6px;
-                display: inline-block;
-                min-width: 60px;
-              ">${tokensText}</span>
-            `
-                 : ''
-             }
-          </span>
-          
-          <!-- Sources (Optional - absolute positioned or just appened if we want? 
-               Grid forbids extra items unless defined, or they wrap. 
-               Let's keep it simple: Sources are rare in the summary, 
-               but if they exist, we might need a 5th column or overlay.
-               For now, let's add a 5th column just in case: minmax(0, auto) -->
-        </div>
-      `;
-    });
+    // Filter out the summary step from the lists to avoid double rendering
+    const visibleTopSteps = filteredRoot.filter((s) => s.step_type !== 'completed');
+    html += renderLevel(visibleTopSteps, 0);
 
     html += `
         </div>
       </details>
-
       <style>
-        .pipeline-steps-details[open] .expand-arrow {
-          transform: rotate(180deg);
-        }
-        .pipeline-steps-details:hover {
-          background: rgba(255, 255, 255, 0.08);
-        }
+        .pipeline-steps-details[open] .expand-arrow { transform: rotate(180deg); }
+        .pipeline-steps-details:hover { background: rgba(255, 255, 255, 0.08); }
       </style>
     `;
-
     return html;
+  }
+
+  private static renderSingleStepRow(step: ChatStep, level: number, isLast: boolean): string {
+    const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
+    const statusColor = step.status === 'completed' ? '#4caf50' : step.status === 'failed' ? '#f44336' : '#ff9800';
+    const paddingLeft = level * 16;
+    const durationText = step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
+    const tokensText = step.tokens && (step.tokens.input > 0 || step.tokens.output > 0) ? `↑${step.tokens.input} ↓${step.tokens.output}` : '';
+
+    return `
+      <div style="
+        display: grid; grid-template-columns: 24px 1fr 60px 100px;
+        align-items: center; gap: 8px; font-size: ${level > 0 ? '12px' : '13px'};
+        margin-bottom: ${isLast && level === 0 ? '0' : '8px'};
+        padding-left: ${paddingLeft}px; opacity: ${level > 0 ? '0.8' : '1'};
+        width: 100%; box-sizing: border-box;
+      ">
+        <span style="color: ${statusColor}; font-weight: bold; text-align: center;">${level > 0 ? '↳' : ''}${statusIcon}</span>
+        <span style="font-weight: ${level > 0 ? '400' : '500'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help;" title="${this.getStepDescription(step.step_type)}">
+          ${step.label}
+        </span>
+        <span style="text-align: right; font-family: monospace; font-size: 11px; opacity: 0.7;">
+          ${durationText ? `<span style="background: rgba(255, 255, 255, 0.08); padding: 2px 6px; border-radius: 6px; display: inline-block; min-width: 45px;">${durationText}</span>` : ''}
+        </span>
+        <span style="text-align: right; font-family: monospace; font-size: 11px; opacity: 0.7;">
+          ${tokensText ? `<span style="background: rgba(255, 255, 255, 0.08); padding: 2px 6px; border-radius: 6px; display: inline-block; min-width: 60px;">${tokensText}</span>` : ''}
+        </span>
+      </div>
+    `;
   }
 
   /**

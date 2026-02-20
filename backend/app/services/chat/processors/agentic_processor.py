@@ -75,40 +75,48 @@ class AgenticProcessor(BaseChatProcessor):
 
         self._ensure_metrics(ctx)
 
-        # START SPAN: Agentic Workflow (Wraps Contextualization + Router)
-        # We start it here so "Context Preparation" appears nested in the UI.
-        agentic_span_id = ctx.metrics.start_span(PipelineStepType.ROUTER)
-        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.RUNNING, ctx.language)
+        try:
+            # START SPAN: Agentic Workflow (Wraps Contextualization + Router)
+            # We start it here so "Context Preparation" appears nested in the UI.
+            agentic_span_id = ctx.metrics.start_span(PipelineStepType.ROUTER)
+            yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.RUNNING, agentic_span_id)
 
-        # 1. Contextual Rewriting (Fail Safe with Timeout)
-        async for event in self._contextualize_query(ctx):
-            yield event
-
-        # 2. CSV Pipeline (Strategy Pattern Delegation)
-        csv_handled = False
-        async for event in self._handle_csv_mode_strategy(ctx, agentic_span_id):
-            if isinstance(event, bool):
-                csv_handled = event
-            else:
+            # 1. Contextual Rewriting (Fail Safe with Timeout)
+            async for event in self._contextualize_query(ctx, agentic_span_id):
                 yield event
 
-        # 2b. Visualization Shortcut (P0 Feature)
-        # If we have cached structured data AND the user just wants to visualize it, SKIP the expensive router.
-        viz_shortcut = False
-        if not csv_handled and ctx.metadata.get("cached_sql_results"):
-            # Check intent with fast LLM
-            if await self._detect_visualization_intent(ctx):
-                viz_shortcut = True
-                async for event in self._execute_cached_visualization_workflow(ctx, agentic_span_id):
+            # 2. CSV Pipeline (Strategy Pattern Delegation)
+            csv_handled = False
+            async for event in self._handle_csv_mode_strategy(ctx, agentic_span_id):
+                if isinstance(event, bool):
+                    csv_handled = event
+                else:
                     yield event
 
-        # 3. Router Execution (only if CSV/Viz didn't handle the request)
-        if not csv_handled and not viz_shortcut:
-            async for event in self._execute_router_workflow(ctx, agentic_span_id):
-                yield event
-        else:
-            # CSV handled the request, close the agentic span
-            ctx.metrics.end_span(agentic_span_id)
+            # 2b. Visualization Shortcut (P0 Feature)
+            # If we have cached structured data AND the user just wants to visualize it, SKIP the expensive router.
+            viz_shortcut = False
+            if not csv_handled and ctx.metadata.get("cached_sql_results"):
+                # Check intent with fast LLM
+                if await self._detect_visualization_intent(ctx):
+                    viz_shortcut = True
+                    async for event in self._execute_cached_visualization_workflow(ctx, agentic_span_id):
+                        yield event
+
+            # 3. Router Execution (only if CSV/Viz didn't handle the request)
+            if not csv_handled and not viz_shortcut:
+                async for event in self._execute_router_workflow(ctx, agentic_span_id):
+                    yield event
+
+        finally:
+            # Clean up ephemeral processing metadata to avoid serialization issues later
+            if "_emitted_step_ids" in ctx.metadata:
+                del ctx.metadata["_emitted_step_ids"]
+            
+            # Close the agentic span if not done (e.g. on error)
+            if not csv_handled and not viz_shortcut:
+                # We try to end it; MetricsManager will ignore if already ended
+                ctx.metrics.end_span(agentic_span_id)
 
     # --- Pre-conditions ---
 
@@ -129,16 +137,20 @@ class AgenticProcessor(BaseChatProcessor):
         ctx.sql_results = ctx.metadata.get("cached_sql_results")
 
         # 2. Yield standard events to simulate progress (for UI consistency)
+        sid = ctx.metrics.start_span(PipelineStepType.ROUTER_PROCESSING, parent_id=parent_span_id)
+        ctx.metrics.end_span(sid, payload={"is_substep": True})
         yield EventFormatter.format(
             PipelineStepType.ROUTER_PROCESSING,
             StepStatus.COMPLETED,
-            ctx.language,
+            sid,
+            parent_id=parent_span_id,
             duration=0.01,
             payload={"is_substep": True},
         )
 
         # 3. Simulate Router Completion
-        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.COMPLETED, ctx.language, duration=0.05)
+        ctx.metrics.end_span(parent_span_id)
+        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.COMPLETED, parent_span_id, duration=0.05)
 
         # 4. Trigger Visualization Service manually or let standard flow handle it?
         # Standard flow is: Agentic -> VisualizationProcessor
@@ -194,7 +206,7 @@ class AgenticProcessor(BaseChatProcessor):
 
     # --- 1. Contextual Rewriting ---
 
-    async def _contextualize_query(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
+    async def _contextualize_query(self, ctx: ChatContext, parent_id: str) -> AsyncGenerator[str, None]:
         """Rewrites the user query based on chat history to preserve context."""
         if not ctx.history:
             logger.debug("[AgenticProcessor:Rewrite] No history. Skipping.")
@@ -212,8 +224,9 @@ class AgenticProcessor(BaseChatProcessor):
                         ctx.metadata["cached_sql_results"] = structured_ctx
                         logger.info(f"💾 [Rehydration] Found reusable SQL context ({len(structured_ctx)} rows)")
 
+            sid = ctx.metrics.start_span(PipelineStepType.QUERY_REWRITE, parent_id=parent_id)
             yield EventFormatter.format(
-                PipelineStepType.QUERY_REWRITE, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE, StepStatus.RUNNING, sid, parent_id=parent_id, payload={"is_substep": True}
             )
 
             start_time = time.time()
@@ -245,13 +258,18 @@ class AgenticProcessor(BaseChatProcessor):
             except Exception:
                 pass
 
+            ctx.metrics.end_span(sid, payload=payload)
+            ctx.metadata["_manual_rewrite_done"] = True
+
             yield EventFormatter.format(
                 PipelineStepType.QUERY_REWRITE,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid,
+                parent_id=parent_id,
                 duration=duration,
                 payload=payload,
             )
+            ctx.metrics.end_span(sid, payload=payload)
 
         except Exception as e:
             logger.warning(f"Failed to condense question: {e}")
@@ -325,7 +343,7 @@ class AgenticProcessor(BaseChatProcessor):
 
                 # NOW we close the Router span and yield completion
                 ctx.metrics.end_span(agentic_span_id)
-                yield EventFormatter.format(PipelineStepType.ROUTER, "completed", ctx.language)
+                yield EventFormatter.format(PipelineStepType.ROUTER, "completed", agentic_span_id)
 
                 ctx.should_stop = True
                 yield True  # Handled
@@ -355,28 +373,30 @@ class AgenticProcessor(BaseChatProcessor):
             # A. Initialize Engine
             logger.info("[AgenticProcessor:Router] Initializing Query Engine...")
             # Use ROUTER_PROCESSING type to avoid confusion with global INITIALIZATION step
+            sid_init = ctx.metrics.start_span(PipelineStepType.ROUTER_PROCESSING, parent_id=parent_span_id)
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.RUNNING,
-                ctx.language,
-                label=None,
+                sid_init,
+                parent_id=parent_span_id,
                 payload={"is_substep": True},
             )
             start_init = time.time()
             engine = await self._initialize_engine(ctx, stream_handler)
             dur_init = round(time.time() - start_init, 3)
+            ctx.metrics.end_span(sid_init)
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid_init,
+                parent_id=parent_span_id,
                 duration=dur_init,
-                label=None,
                 payload={"is_substep": True},
             )
 
             logger.info(f"[AgenticProcessor:Router] Engine ready in {dur_init}s. Launching query...")
 
-            self._record_router_metric(ctx, PipelineStepType.ROUTER_PROCESSING, None, dur_init, {"is_substep": True})
+            self._record_router_metric(ctx, PipelineStepType.ROUTER_PROCESSING, None, dur_init, {"is_substep": True}, parent_id=parent_span_id)
 
             # B. Launch Query & Background Tasks
             # CRITICAL FIX: RouterQueryEngine doesn't have astream_query()
@@ -385,8 +405,9 @@ class AgenticProcessor(BaseChatProcessor):
             logger.info("[AgenticProcessor] Calling query() for Router...")
 
             # Emit step to show user we're executing the query
+            sid_query = ctx.metrics.start_span(PipelineStepType.QUERY_EXECUTION, parent_id=parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.QUERY_EXECUTION, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_EXECUTION, StepStatus.RUNNING, sid_query, parent_id=parent_span_id, payload={"is_substep": True}
             )
             start_query = time.time()
 
@@ -397,11 +418,9 @@ class AgenticProcessor(BaseChatProcessor):
 
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
-            # C. Consume Events — simple pass-through.
-            # ROUTER_SYNTHESIS is handled explicitly below wrapping _stream_response_content,
-            # where we have the real duration and final token counts.
+            # C. Consume Events — parent all internal reasoning to the query execution span
             async for event in self._consume_event_queue(event_queue, router_task):
-                yield self._process_router_event(event, ctx)
+                yield self._process_router_event(ctx, event, parent_id=sid_query)
 
             # Wait for result with Circuit Breaker
             try:
@@ -417,21 +436,21 @@ class AgenticProcessor(BaseChatProcessor):
 
             # Mark query as completed
             dur_query = round(time.time() - start_query, 3)
+            ctx.metrics.end_span(sid_query)
             yield EventFormatter.format(
                 PipelineStepType.QUERY_EXECUTION,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid_query,
+                parent_id=parent_span_id,
                 duration=dur_query,
                 payload={"is_substep": True},
             )
 
-            # Record metric for persistence
-            self._record_router_metric(
-                ctx, PipelineStepType.QUERY_EXECUTION, "Query Execution", dur_query, {"is_substep": True}
-            )
-
             # D. Handle Results
             self._capture_sql_results(ctx, response)
+
+            # Update the stream handler with the parent_id for callback events
+            stream_handler.parent_id = parent_span_id
 
             async for source_event in self._process_response_sources(ctx, response):
                 yield source_event
@@ -440,8 +459,9 @@ class AgenticProcessor(BaseChatProcessor):
             # The LLM callbacks fire at ~0ms with streaming (they get a handle, not the full response).
             # The REAL generation time lives here, in the token stream consumption.
             synthesis_start = time.time()
+            sid_synth = ctx.metrics.start_span(PipelineStepType.ROUTER_SYNTHESIS, parent_id=parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_SYNTHESIS, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.ROUTER_SYNTHESIS, StepStatus.RUNNING, sid_synth, parent_id=parent_span_id, payload={"is_substep": True}
             )
 
             async for token_event in self._stream_response_content(ctx, response, stream_handler, event_queue):
@@ -465,15 +485,17 @@ class AgenticProcessor(BaseChatProcessor):
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_SYNTHESIS,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid_synth,
+                parent_id=parent_span_id,
                 duration=synthesis_dur,
                 payload=synth_payload,
             )
+            ctx.metrics.end_span(sid_synth, payload=synth_payload)
 
             # F. Finalize
             step_metric = ctx.metrics.end_span(parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER, StepStatus.COMPLETED, ctx.language, duration=step_metric.duration
+                PipelineStepType.ROUTER, StepStatus.COMPLETED, parent_span_id, duration=step_metric.duration
             )
 
             await embedding_task
@@ -482,7 +504,7 @@ class AgenticProcessor(BaseChatProcessor):
         except Exception as e:
             logger.error(f"Agentic Router Critical Failure: {e}", exc_info=True)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER, StepStatus.FAILED, ctx.language, label=LABEL_ROUTER_ERROR % str(e)
+                PipelineStepType.ROUTER, StepStatus.FAILED, parent_span_id, label=LABEL_ROUTER_ERROR % str(e)
             )
 
     async def _initialize_engine(self, ctx: ChatContext, handler: StreamingCallbackHandler):
@@ -556,14 +578,8 @@ class AgenticProcessor(BaseChatProcessor):
         ctx.retrieved_sources = await SourceService.process_sources(response.source_nodes, ctx.db)
 
         # Emit final accurate source count. The frontend will merge this with previous timing info.
-        num_sources = len(ctx.retrieved_sources) if ctx.retrieved_sources else 0
-        yield EventFormatter.format(
-            PipelineStepType.ROUTER_RETRIEVAL,
-            StepStatus.COMPLETED,
-            ctx.language,
-            payload={"is_substep": True, "source_count": num_sources},
-        )
-
+        # USER_REQUEST: Removing this redundant generic event to avoid "plain" label in UI.
+        # Sub-steps already provide the necessary info.
         if ctx.retrieved_sources:
             yield self._format_json_event({"type": "sources", "data": ctx.retrieved_sources})
 
@@ -571,7 +587,8 @@ class AgenticProcessor(BaseChatProcessor):
         self, ctx: ChatContext, response: Any, stream_handler: Any, event_queue: Optional[asyncio.Queue] = None
     ) -> AsyncGenerator[str, None]:
         """Handles streaming the text tokens to the client using Robust Stream Parser."""
-        stream_span = ctx.metrics.start_span(PipelineStepType.STREAMING)
+        # Streaming is technically a background child of the synthesis process in the UI
+        stream_id = ctx.metrics.start_span(PipelineStepType.STREAMING)
 
         full_text = ""
         output_tokens = 0
@@ -668,7 +685,7 @@ class AgenticProcessor(BaseChatProcessor):
 
         # Pass to metrics system
         ctx.metrics.end_span(
-            stream_span,
+            stream_id,
             input_tokens=llm_input_tokens,
             output_tokens=llm_output_tokens or output_tokens,
             increment_total=True,
@@ -676,24 +693,31 @@ class AgenticProcessor(BaseChatProcessor):
 
     # --- Metrics & Formatter Helpers ---
 
-    def _process_router_event(self, event_data: Dict, ctx: ChatContext) -> str:
-        step_type = event_data.get("step_type")
-        status = event_data.get("status")
-        payload = SourceService._sanitize_data(event_data.get("payload", {}))
-        duration = event_data.get("duration")
-        label = event_data.get("label")
+    def _process_router_event(self, ctx: ChatContext, event: Any, parent_id: Optional[str] = None) -> str:
+        """Helper to format router/agentic events for SSE."""
+        # Extract fields from the router/callback event
+        # (This handles both EventObject and dict-like objects)
+        if isinstance(event, dict):
+            step_type = event.get("step_type")
+            status = event.get("status", "running")
+            payload = SourceService._sanitize_data(event.get("payload", {}))
+            label = event.get("label")
+            duration = event.get("duration")
+        else:
+            step_type = event.step_type if hasattr(event, "step_type") else getattr(event, "event_type", "unknown")
+            status = event.status if hasattr(event, "status") else "running"
+            payload = event.payload if hasattr(event, "payload") else {}
+            label = getattr(event, "label", None)
+            duration = getattr(event, "duration", None)
+
+        if step_type == "unknown" or not step_type:
+            return ""
 
         if step_type == PipelineStepType.RETRIEVAL:
-            # P0 FIX: Use the 'is_sql' hint from callbacks for consistent start/end mapping.
-            # This prevents the "Zombie" line issue where start/end have different types.
             is_sql_meta = payload.get("is_sql", False)
-
-            # Fallback for very old traces is risky for Folder Connectors (small count != SQL)
-            # We strictly rely on the hint now.
-
             step_type = PipelineStepType.SQL_SCHEMA_RETRIEVAL if is_sql_meta else PipelineStepType.ROUTER_RETRIEVAL
 
-        # Inject model name for generation steps so the UI can display it
+        # Inject model info for display
         if step_type in (
             PipelineStepType.ROUTER_REASONING,
             PipelineStepType.ROUTER_SYNTHESIS,
@@ -702,7 +726,6 @@ class AgenticProcessor(BaseChatProcessor):
             PipelineStepType.SQL_GENERATION,
         ):
             try:
-                # Prefer specific model from settings (e.g. "gpt-4o"), fallback to enum value (e.g. "openai")
                 model_val = ctx.metadata.get("specific_model_name") or (
                     ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
                 )
@@ -711,23 +734,78 @@ class AgenticProcessor(BaseChatProcessor):
             except Exception:
                 pass
 
-        # FIX: Ensure completed events ALWAYS have duration (even if 0.0) so they appear in UI
-        if status == StepStatus.COMPLETED:
-            if duration is None:
-                duration = 0.0
-            self._record_router_metric(ctx, step_type, label, duration, payload)
-
         if "is_substep" not in payload:
             payload["is_substep"] = True
 
-        # Hide intermediate counts (likely schema retrieval) to avoid confusing the user
-        # The final accurate count will be sent by _process_response_sources
         if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
             del payload["source_count"]
 
-        return EventFormatter.format(step_type, status, ctx.language, payload=payload, label=label)
+        # 1. Resolve IDs for this event
+        if isinstance(event, dict):
+            step_id = event.get("step_id")
+            incoming_parent_id = event.get("parent_id")
+        else:
+            step_id = getattr(event, "step_id", None)
+            incoming_parent_id = getattr(event, "parent_id", None)
 
-    def _record_router_metric(self, ctx: ChatContext, step_type, label, duration, payload):
+        # Point 1: Parent Normalization
+        # Force orphans to be children of the main router span if their parent is unknown/not emitted
+        emitted_ids = ctx.metadata.get("_emitted_step_ids", set())
+        if incoming_parent_id and incoming_parent_id != parent_id and incoming_parent_id not in emitted_ids:
+            logger.debug(f"Hiearchy: Normalizing orphaned parent {incoming_parent_id} -> {parent_id}")
+            final_parent_id = parent_id
+        else:
+            final_parent_id = incoming_parent_id or parent_id
+
+        if not step_id:
+            # Fallback to stable ID for events without explicit ID (like manual spans)
+            step_val = step_type.value if hasattr(step_type, "value") else str(step_type)
+            step_id = f"router_{step_val}_{parent_id or 'global'}"
+
+        # Track this ID as emitted for future children
+        if "_emitted_step_ids" not in ctx.metadata:
+            ctx.metadata["_emitted_step_ids"] = set()
+        ctx.metadata["_emitted_step_ids"].add(step_id)
+
+        # 2. Record completion metric if finished
+        if status == StepStatus.COMPLETED:
+            if duration is None:
+                duration = 0.0
+
+            # Double-Recording Prevention: If we handled this manually (e.g. QUERY_REWRITE),
+            # don't record the internal LlamaIndex callback event as a separate step.
+            if step_type == PipelineStepType.QUERY_REWRITE and ctx.metadata.get("_manual_rewrite_done"):
+                return ""
+
+            self._record_router_metric(ctx, step_type, label, duration, payload, parent_id=final_parent_id, step_id=step_id)
+
+        # 3. Clean up payload
+        if "is_substep" not in payload:
+            payload["is_substep"] = True # Still hint for simple renderers
+
+        if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
+            del payload["source_count"]
+
+        return EventFormatter.format(
+            step_type, 
+            status, 
+            step_id, 
+            parent_id=final_parent_id, 
+            payload=payload, 
+            label=label, 
+            duration=duration
+        )
+
+    def _record_router_metric(
+        self, 
+        ctx: ChatContext, 
+        step_type: Any, 
+        label: Optional[str], 
+        duration: float, 
+        payload: Dict,
+        parent_id: Optional[str] = None,
+        step_id: Optional[str] = None
+    ):
         tokens = payload.get("tokens", {})
         ctx.metrics.record_completed_step(
             step_type=step_type,
@@ -736,6 +814,8 @@ class AgenticProcessor(BaseChatProcessor):
             input_tokens=int(tokens.get("input", 0)),
             output_tokens=int(tokens.get("output", 0)),
             payload=payload,
+            parent_id=parent_id,
+            step_id=step_id
         )
 
     def _format_token(self, content: str) -> str:

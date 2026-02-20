@@ -33,10 +33,16 @@ class IsolatedQueryEngine(BaseQueryEngine):
     causing dimension mismatches if the first tool caches its embedding.
     """
 
-    def __init__(self, engine: BaseQueryEngine, tool_metadata: Optional[ToolMetadata] = None):
+    def __init__(
+        self,
+        engine: BaseQueryEngine,
+        tool_metadata: Optional[ToolMetadata] = None,
+        display_name: Optional[str] = None,
+    ):
         super().__init__(callback_manager=engine.callback_manager)
         self._engine = engine
         self.tool_metadata = tool_metadata
+        self.display_name = display_name
 
     def _query(self, query_bundle: QueryBundle) -> Any:
         # Clone bundle to force re-calculation of embeddings per engine
@@ -46,10 +52,11 @@ class IsolatedQueryEngine(BaseQueryEngine):
             image_path=query_bundle.image_path,
         )
 
-        if self.tool_metadata:
+        if self.display_name or self.tool_metadata:
             # Set ContextVar so callbacks.py can label the RETRIEVE event correctly.
-            # FUNCTION_CALL event kept for _has_used_tools flag (LLM classification).
-            token = current_tool_name.set(self.tool_metadata.name)
+            # We prefer display_name for UI, but fallback to technical tool name.
+            label = self.display_name or self.tool_metadata.name
+            token = current_tool_name.set(label)
             try:
                 with self.callback_manager.event(CBEventType.FUNCTION_CALL, payload={"tool": self.tool_metadata}):
                     return self._engine.query(new_bundle)
@@ -65,10 +72,11 @@ class IsolatedQueryEngine(BaseQueryEngine):
             image_path=query_bundle.image_path,
         )
 
-        if self.tool_metadata:
+        if self.display_name or self.tool_metadata:
             # ContextVar propagates into child coroutines but NOT into sibling tasks
             # started by asyncio.gather() — exactly what we need for LLMMultiSelector.
-            token = current_tool_name.set(self.tool_metadata.name)
+            label = self.display_name or self.tool_metadata.name
+            token = current_tool_name.set(label)
             try:
                 with self.callback_manager.event(CBEventType.FUNCTION_CALL, payload={"tool": self.tool_metadata}):
                     return await self._engine.aquery(new_bundle)
@@ -221,9 +229,21 @@ class UnifiedQueryEngineFactory:
                 description=f"Search in the {provider} knowledge base ({collection_name}). Use this for policies, documents, and general text search.",
             )
 
+            # Determine display name for UI
+            is_fr = "fr" in language.lower()
+            p_lower = provider.lower() if provider else ""
+            
+            if p_lower == "ollama":
+                display_name = "Recherche Base de Connaissances (Local)" if is_fr else "Knowledge Base Search (Local)"
+            elif p_lower == "gemini":
+                display_name = "Recherche Base de Connaissances (Gemini)" if is_fr else "Knowledge Base Search (Gemini)"
+            else:
+                p_label = provider.capitalize() if provider else "Unknown"
+                display_name = f"Recherche Base de Connaissances ({p_label})" if is_fr else f"Knowledge Base Search ({p_label})"
+
             # WRAPPER FIX: Isolate the engine to prevent embedding leakage
             # AND pass metadata so we can emit FUNCTION_CALL events for tracking
-            isolated_engine = IsolatedQueryEngine(engine, tool_metadata=tool_metadata)
+            isolated_engine = IsolatedQueryEngine(engine, tool_metadata=tool_metadata, display_name=display_name)
 
             vector_tools.append(
                 QueryEngineTool(
@@ -262,11 +282,26 @@ class UnifiedQueryEngineFactory:
         router_provider = assistant.model_provider or (active_providers[0] if active_providers else "ollama")
         router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
 
-        return RouterQueryEngine(
-            selector=LLMMultiSelector.from_defaults(llm=router_llm),
-            query_engine_tools=all_tools,
-            verbose=True,
-        )
+        # CRITICAL: Override LlamaIndex global Settings.llm so LLMMultiSelector
+        # doesn't fall back to its OpenAI default for internal components.
+        # Scoped locally — this is intentional since we're in an async context
+        # (each request gets its own coroutine stack, but Settings is global so
+        # we restore it after the engine is built to avoid cross-request pollution).
+        from llama_index.core import Settings as LlamaSettings
+        # Use _llm (private backing attr) to avoid triggering the property getter
+        # which resolves to OpenAI by default if no LLM has been set globally.
+        previous_llm = LlamaSettings._llm
+        LlamaSettings.llm = router_llm
+        try:
+            engine = RouterQueryEngine(
+                selector=LLMMultiSelector.from_defaults(llm=router_llm),
+                query_engine_tools=all_tools,
+                verbose=True,
+            )
+        finally:
+            LlamaSettings.llm = previous_llm
+
+        return engine
 
 
 async def get_query_engine_factory(

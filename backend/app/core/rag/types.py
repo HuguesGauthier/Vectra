@@ -25,6 +25,7 @@ class PipelineContext:
     # Intermediate State
     rewritten_query: Optional[str] = None
     query_bundle: Optional[QueryBundle] = None
+    question_embedding: Optional[List[float]] = None  # Pre-computed embedding (shared across connectors)
     retrieved_nodes: List[NodeWithScore] = field(default_factory=list)
     response_stream: Any = None
     metadata: Dict[str, Any] = field(default_factory=dict)

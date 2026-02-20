@@ -9,7 +9,8 @@ class EventFormatter:
     def format(
         step_type: Any,
         status: Any,
-        language: str,
+        step_id: str,
+        parent_id: Optional[str] = None,
         payload: Optional[Any] = None,
         duration: Optional[float] = None,
         label: Optional[str] = None,
@@ -18,15 +19,19 @@ class EventFormatter:
         step_val = step_type.value if hasattr(step_type, "value") else str(step_type)
         status_val = status.value if hasattr(status, "value") else str(status)
 
-        # USER_REQUEST: Frontend handles I18n. Backend sends keys only.
-        # We generally do NOT resolve labels here anymore.
-        # But we respect explicit dynamic labels from callers (e.g. "Processing file X")
-        final_label = label
-
-        # If explicitly passed distinct "label" override, use it (dynamic info).
-        # Otherwise send None so frontend uses generic I18n key.
-
-        data = {"type": "step", "step_type": step_val, "status": status_val, "label": final_label}
+        # Backend sends Step ID and Parent ID for robust nesting. 
+        # Labels are handled by the Frontend (i18n) unless a dynamic override is provided.
+        data = {
+            "type": "step", 
+            "step_type": step_val, 
+            "status": status_val, 
+            "step_id": step_id,
+            "parent_id": parent_id
+        }
+        
+        if label:
+            data["label"] = label
+            
         if payload is not None:
             data["payload"] = payload
 
