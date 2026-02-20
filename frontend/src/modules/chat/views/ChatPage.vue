@@ -58,6 +58,12 @@
         <q-btn flat round dense icon="whatshot" @click="showTrending = !showTrending">
           <q-tooltip>Questions fréquentes</q-tooltip>
         </q-btn>
+
+        <!-- Pipeline Steps: Header Indicator -->
+        <PipelineStepsPanel
+          v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
+          :steps="lastBotSteps"
+        />
       </div>
     </template>
     <template #messages>
@@ -118,6 +124,7 @@ import ChatHeader from '../components/ChatHeader.vue';
 import ChatLayout from '../components/ChatLayout.vue';
 import DeepChatWrapper from '../components/DeepChatWrapper.vue';
 import ChatTrendingPanel from '../components/ChatTrendingPanel.vue';
+import PipelineStepsPanel from '../components/PipelineStepsPanel.vue';
 import { MessageRenderer } from '../services/MessageRenderer';
 
 const route = useRoute();
@@ -144,7 +151,8 @@ const assistantId = computed(() => route.params.assistant_id as string);
 
 const deepChatWrapperRef = ref<InstanceType<typeof DeepChatWrapper> | null>(null);
 
-const { messages, loading, sendMessage, initializeSession, reset } = useChatStream();
+const { messages, loading, sendMessage, initializeSession, reset, setOnToken, setOnStep } =
+  useChatStream();
 
 const currentAssistant = ref<Assistant | null>(null);
 
@@ -291,47 +299,17 @@ const lastBotSteps = computed(() => {
   return last?.sender === 'bot' ? last.steps : undefined;
 });
 
-// Watch text changes directly - This guarantees reactivity even if array watcher fails
-watch(lastBotMessageText, (newText) => {
-  // CRITICAL: Only bridge to DeepChat if we are actively streaming a NEW request
-  // AND the bridge is open. History text updates should NOT trigger streamResponse.
-  if (!isActivelyStreaming.value || !isBridgeStreamOpen.value || !newText) return;
-
-  if (!deepChatWrapperRef.value) return;
-
-  const offset = currentStreamOffset.value;
-  if (newText.length > offset) {
-    const chunk = newText.slice(offset);
-
-    currentStreamOffset.value = newText.length;
-
-    (deepChatWrapperRef.value as unknown as DeepChatWrapperExposed).streamResponse?.({
-      text: chunk,
-    });
-  }
-});
-
-// Watch pipeline steps changes to update the injected header inside DeepChat
-watch(
-  lastBotSteps,
-  (newSteps) => {
-    if (!isActivelyStreaming.value || !isBridgeStreamOpen.value || !newSteps) return;
-
-    if (deepChatWrapperRef.value) {
-      (deepChatWrapperRef.value as unknown as DeepChatWrapperExposed).updatePipelineHeader?.(
-        newSteps,
-      );
-    }
-  },
-  { deep: true },
-);
+// Text streaming is now handled directly via onToken callback (see below)
+// The Vue watcher was removed because Vue reactivity batches updates,
+// causing all tokens within a network chunk to be delivered as one block.
 
 // Define interface for the exposed methods of DeepChatWrapper
 interface DeepChatWrapperExposed {
   addMessage: (msg: unknown) => void;
   streamResponse?: (payload: { text?: string; html?: string }, isFinal?: boolean) => void;
   appendToLastMessage?: (html: string) => void;
-  updatePipelineHeader?: (steps: unknown[]) => void;
+  updateLoadingBubble?: (html: string) => void;
+  hideLoadingBubble?: () => void;
   registerChart: (id: string, config: unknown) => void;
   hydrateChartNow: (id: string, config: unknown) => void;
   clearHistory: () => void;
@@ -379,6 +357,63 @@ watch(
   },
 );
 
+// --- Direct Token/Step Callbacks (bypass Vue reactivity batching) ---
+
+// --- Token Queue: drain tokens with requestAnimationFrame for visual streaming ---
+
+const _tokenQueue: string[] = [];
+let _draining = false;
+
+function _drainTokenQueue() {
+  if (_tokenQueue.length === 0) {
+    _draining = false;
+    return;
+  }
+
+  // Flush a small batch per frame (1-3 tokens) for smooth typing effect
+  const batchSize = Math.min(3, _tokenQueue.length);
+  let combined = '';
+  for (let i = 0; i < batchSize; i++) {
+    combined += _tokenQueue.shift()!;
+  }
+
+  if (isActivelyStreaming.value && isBridgeStreamOpen.value && deepChatWrapperRef.value) {
+    currentStreamOffset.value += combined.length;
+    (deepChatWrapperRef.value as unknown as DeepChatWrapperExposed).streamResponse?.({
+      text: combined,
+    });
+  }
+
+  requestAnimationFrame(_drainTokenQueue);
+}
+
+/**
+ * Helper to wait for the token queue to be empty before finalizing.
+ */
+async function waitForQueueToDrain(): Promise<void> {
+  const maxWait = 5000; // 5s safety timeout
+  const start = Date.now();
+
+  while (_tokenQueue.length > 0 && Date.now() - start < maxWait) {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+}
+
+// Register the onToken callback — queues tokens for visual draining
+setOnToken((tokenText: string) => {
+  if (!isActivelyStreaming.value || !isBridgeStreamOpen.value) return;
+  _tokenQueue.push(tokenText);
+  if (!_draining) {
+    _draining = true;
+    requestAnimationFrame(_drainTokenQueue);
+  }
+});
+
+// Register the onStep callback — No-op since we restored the header PipelineStepsPanel
+setOnStep(() => {
+  // We rely on the PipelineStepsPanel in the header for status messages
+});
+
 watch(
   () => loading.value,
   async (newVal) => {
@@ -401,6 +436,10 @@ watch(
     } else if (!newVal && deepChatWrapperRef.value && isBridgeStreamOpen.value) {
       // END: No more streaming and we were bridging
       console.log('[ChatPage] Ending stream bridge - finalizing message');
+
+      // Wait for all queued tokens to be rendered via requestAnimationFrame typing effect
+      await waitForQueueToDrain();
+
       await nextTick();
 
       const lastBotMsg = messages.value[messages.value.length - 1];

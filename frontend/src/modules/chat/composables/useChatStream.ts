@@ -84,6 +84,18 @@ export function useChatStream() {
 
   let abortController: AbortController | null = null;
 
+  // --- Direct callbacks for bypassing Vue reactivity batching ---
+  // These fire synchronously per SSE event, unlike Vue watchers which batch.
+  let _onTokenCallback: ((token: string) => void) | null = null;
+  let _onStepCallback: ((step: ChatStep) => void) | null = null;
+
+  const setOnToken = (cb: ((token: string) => void) | null) => {
+    _onTokenCallback = cb;
+  };
+  const setOnStep = (cb: ((step: ChatStep) => void) | null) => {
+    _onStepCallback = cb;
+  };
+
   // Cleanup on unmount
   onUnmounted(() => {
     if (abortController) abortController.abort();
@@ -271,12 +283,12 @@ export function useChatStream() {
         const text = event.content || '';
         botMsg.text += text;
 
-        // Update or create text block
+        // Fire direct callback BEFORE Vue batches the update
+        if (_onTokenCallback) _onTokenCallback(text);
 
         // Update or create text block
         const lastBlock = botMsg.contentBlocks[botMsg.contentBlocks.length - 1];
         if (lastBlock?.type === 'text') {
-          // Cast to string safely or stringify if needed, but token content is string
           lastBlock.data = (lastBlock.data as string) + text;
         } else {
           botMsg.contentBlocks.push({ type: 'text', data: text });
@@ -293,8 +305,15 @@ export function useChatStream() {
         });
         break;
 
-      case 'step':
-        return handleStepEvent(botMsg, event);
+      case 'step': {
+        const stepResult = handleStepEvent(botMsg, event);
+        // Fire step callback with the resolved step
+        if (_onStepCallback && botMsg.steps && botMsg.steps.length > 0) {
+          const lastStep = botMsg.steps[botMsg.steps.length - 1];
+          if (lastStep) _onStepCallback(lastStep);
+        }
+        return stepResult;
+      }
 
       case 'sources':
         botMsg.sources = processSources(event.data || []);
@@ -557,5 +576,7 @@ export function useChatStream() {
     loadHistory,
     reset,
     instanceId,
+    setOnToken,
+    setOnStep,
   };
 }
