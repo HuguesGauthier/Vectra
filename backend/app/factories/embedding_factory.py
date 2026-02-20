@@ -54,12 +54,12 @@ class EmbeddingProviderFactory:
     ) -> BaseEmbedding:
         """Create Gemini embedding model."""
         try:
-            from llama_index.embeddings.gemini import GeminiEmbedding
+            from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
         except ImportError:
-            raise ExternalDependencyError("Gemini provider requires `llama-index-embeddings-gemini`")
+            raise ExternalDependencyError("Gemini provider requires `llama-index-embeddings-google-genai`")
 
         api_key = await settings_service.get_value("gemini_api_key")
-        model_name = await settings_service.get_value("gemini_embedding_model") or "gemini-embedding-001"
+        model_name = await settings_service.get_value("gemini_embedding_model") or "models/text-embedding-004"
 
         if not api_key:
             raise ExternalDependencyError("Gemini provider requires GEMINI_API_KEY")
@@ -70,10 +70,9 @@ class EmbeddingProviderFactory:
         logger.info(f"🔹 Creating Gemini Embedding | Model: {model_name} | Batch: {batch_size}")
 
         return await asyncio.to_thread(
-            GeminiEmbedding,
+            GoogleGenAIEmbedding,
             model_name=model_name,
             api_key=api_key,
-            embed_batch_size=batch_size,
         )
 
     @staticmethod

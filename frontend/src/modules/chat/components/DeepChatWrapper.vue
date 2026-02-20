@@ -23,6 +23,8 @@ import { assistantService, type Assistant } from 'src/services/assistantService'
 import { usePublicChatStore } from 'src/stores/publicChatStore';
 import { useAuthStore } from 'src/stores/authStore';
 import { api } from 'boot/axios';
+import { MessageRenderer } from '../services/MessageRenderer';
+import { type ChatStep } from '../composables/useChatStream';
 
 // Define props
 const props = defineProps<{
@@ -973,10 +975,44 @@ const setInputText = (text: string) => {
   }
 };
 
+/**
+ * Updates the pipeline header inside the last AI message bubble during streaming
+ */
+const updatePipelineHeader = (steps: ChatStep[]) => {
+  if (!deepChatRef.value) return;
+  const shadowRoot = deepChatRef.value.shadowRoot;
+  if (!shadowRoot) return;
+
+  const messagesContainer = shadowRoot.getElementById('container');
+  if (!messagesContainer) return;
+
+  const bubbles = messagesContainer.querySelectorAll('.message-bubble.ai-message');
+  if (bubbles.length === 0) return;
+  const lastBubble = bubbles[bubbles.length - 1] as HTMLElement;
+  const contentArea = lastBubble.querySelector('.text-message, .message-content') || lastBubble;
+
+  const headerHtml = MessageRenderer.renderPipelineHeader(steps);
+  let existingHeader = contentArea.querySelector('.vectra-pipeline-header-wrapper');
+
+  if (!headerHtml) {
+    if (existingHeader) existingHeader.remove();
+    return;
+  }
+
+  if (!existingHeader) {
+    existingHeader = document.createElement('div');
+    existingHeader.className = 'vectra-pipeline-header-wrapper';
+    contentArea.insertBefore(existingHeader, contentArea.firstChild);
+  }
+
+  existingHeader.innerHTML = headerHtml;
+};
+
 defineExpose({
   addMessage,
   streamResponse,
   appendToLastMessage,
+  updatePipelineHeader, // Expose new method
   registerChart,
   hydrateChartNow,
   clearHistory,

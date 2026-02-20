@@ -621,4 +621,80 @@ export class MessageRenderer {
 
     return html;
   }
+
+  /**
+   * Generates HTML for the Pipeline Header inside the message bubble during streaming
+   */
+  static renderPipelineHeader(steps: ChatStep[]): string {
+    if (!steps || steps.length === 0) return '';
+
+    // Find current step (last one that isn't the final generic 'completed')
+    let currentStep: ChatStep | null = null;
+    const lastStep = steps[steps.length - 1];
+    if (lastStep && !(lastStep.step_type === 'completed' && lastStep.status === 'completed')) {
+      currentStep = lastStep;
+    }
+
+    if (!currentStep) return '';
+
+    // Style variables based on status matching PipelineStepsPanel.vue
+    let borderColor = 'rgba(255, 255, 255, 0.1)';
+    let bgColor = 'rgba(255, 255, 255, 0.05)';
+    let iconHtml = '';
+
+    if (currentStep.status === 'running') {
+      borderColor = 'rgba(251, 192, 45, 0.3)';
+      bgColor = 'rgba(251, 192, 45, 0.1)';
+      // Use SVG for spinner dots to be self-contained
+      iconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="#fbc02d"><circle cx="4" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.1"/></circle><circle cx="12" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.2"/></circle><circle cx="20" cy="12" r="3"><animate attributeName="opacity" dur="1s" values="0;1;0" repeatCount="indefinite" begin="0.3"/></circle></svg>`;
+    } else if (currentStep.status === 'completed') {
+      borderColor = 'rgba(33, 186, 69, 0.3)';
+      bgColor = 'rgba(33, 186, 69, 0.1)';
+      iconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="#21ba45"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    } else {
+      borderColor = 'rgba(244, 67, 54, 0.3)';
+      bgColor = 'rgba(244, 67, 54, 0.1)';
+      iconHtml = `<svg width="14" height="14" viewBox="0 0 24 24" fill="#f44336"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`;
+    }
+
+    let extraBadges = '';
+    if (currentStep.duration) {
+      extraBadges += `<span style="background: transparent; color: white; opacity: 0.7; font-size: 11px; padding: 2px 6px;">${currentStep.duration.toFixed(1)}s</span>`;
+    }
+
+    if (currentStep.tokens && (currentStep.tokens.input > 0 || currentStep.tokens.output > 0)) {
+      extraBadges += `<span style="background: transparent; color: white; opacity: 0.7; font-size: 11px; padding: 2px 6px;">
+        <span style="margin-right: 2px;">↑</span>${currentStep.tokens.input || 0}
+        <span style="margin: 0 4px;">|</span>
+        <span style="margin-right: 2px;">↓</span>${currentStep.tokens.output || 0}
+      </span>`;
+    }
+
+    return `
+      <div class="vectra-pipeline-header" style="
+        padding: 4px 12px;
+        background: ${bgColor};
+        border-radius: 16px;
+        border: 1px solid ${borderColor};
+        display: inline-flex;
+        align-items: center;
+        max-width: 300px;
+        backdrop-filter: blur(10px);
+        font-size: 11px;
+        height: 32px;
+        margin-bottom: 12px;
+        transition: all 0.3s ease;
+      ">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+          <div style="display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;">
+            ${iconHtml}
+          </div>
+          <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${currentStep.label}
+          </span>
+          ${extraBadges}
+        </div>
+      </div>
+    `;
+  }
 }

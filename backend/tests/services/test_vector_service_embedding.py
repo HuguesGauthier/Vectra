@@ -27,7 +27,7 @@ async def test_get_embedding_model_provider_selection():
 
         assert mock_thread.called, "asyncio.to_thread was not called for Gemini"
         args, kwargs = mock_thread.call_args
-        assert "GeminiEmbedding" in str(args[0])
+        assert "GoogleGenAIEmbedding" in str(args[0])
 
     # Test OpenAI Explicit
     VectorService._model_cache = {}  # Clear again

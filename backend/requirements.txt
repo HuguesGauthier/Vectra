@@ -46,7 +46,7 @@ llama-index-llms-ollama
 llama-index-llms-openai-like
 
 # LlamaIndex Embeddings
-llama-index-embeddings-gemini
+llama-index-embeddings-google-genai
 llama-index-embeddings-openai
 llama-index-embeddings-ollama
 

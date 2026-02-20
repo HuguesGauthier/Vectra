@@ -33,7 +33,7 @@ class TestEmbeddingProviderFactory:
             await EmbeddingProviderFactory.create_embedding_model("gemini", mock_settings)
 
             args, kwargs = mock_thread.call_args
-            assert "GeminiEmbedding" in str(args[0])
+            assert "GoogleGenAIEmbedding" in str(args[0])
 
     @pytest.mark.asyncio
     async def test_unknown_provider_defaults_to_ollama(self):

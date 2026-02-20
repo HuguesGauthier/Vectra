@@ -58,12 +58,6 @@
         <q-btn flat round dense icon="whatshot" @click="showTrending = !showTrending">
           <q-tooltip>Questions fréquentes</q-tooltip>
         </q-btn>
-
-        <!-- Pipeline Steps: Header Menu Location -->
-        <PipelineStepsPanel
-          v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
-          :steps="lastBotSteps"
-        />
       </div>
     </template>
     <template #messages>
@@ -124,7 +118,6 @@ import ChatHeader from '../components/ChatHeader.vue';
 import ChatLayout from '../components/ChatLayout.vue';
 import DeepChatWrapper from '../components/DeepChatWrapper.vue';
 import ChatTrendingPanel from '../components/ChatTrendingPanel.vue';
-import PipelineStepsPanel from '../components/PipelineStepsPanel.vue';
 import { MessageRenderer } from '../services/MessageRenderer';
 
 const route = useRoute();
@@ -318,11 +311,27 @@ watch(lastBotMessageText, (newText) => {
   }
 });
 
+// Watch pipeline steps changes to update the injected header inside DeepChat
+watch(
+  lastBotSteps,
+  (newSteps) => {
+    if (!isActivelyStreaming.value || !isBridgeStreamOpen.value || !newSteps) return;
+
+    if (deepChatWrapperRef.value) {
+      (deepChatWrapperRef.value as unknown as DeepChatWrapperExposed).updatePipelineHeader?.(
+        newSteps,
+      );
+    }
+  },
+  { deep: true },
+);
+
 // Define interface for the exposed methods of DeepChatWrapper
 interface DeepChatWrapperExposed {
   addMessage: (msg: unknown) => void;
   streamResponse?: (payload: { text?: string; html?: string }, isFinal?: boolean) => void;
   appendToLastMessage?: (html: string) => void;
+  updatePipelineHeader?: (steps: unknown[]) => void;
   registerChart: (id: string, config: unknown) => void;
   hydrateChartNow: (id: string, config: unknown) => void;
   clearHistory: () => void;
