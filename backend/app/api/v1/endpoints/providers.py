@@ -129,6 +129,19 @@ async def get_providers(
         )
     )
 
+    # Anthropic
+    providers.append(
+        ProviderInfo(
+            id="anthropic",
+            name="Anthropic Claude",
+            type="chat",
+            description="Constitutional AI",
+            configured=await is_configured("anthropic_api_key"),
+            is_active=True,
+            supported_models=SUPPORTED_CHAT_MODELS.get("anthropic", []),
+        )
+    )
+
     # --- Pertinence Providers ---
 
     # Local (FastEmbed)

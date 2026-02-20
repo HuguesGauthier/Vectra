@@ -69,8 +69,10 @@ class TrendingProcessor(BaseChatProcessor):
                 yield event
         else:
             # Still emit the step event for UI consistency, but mark as completed immediately
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, ctx.language)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=0)
+            sid = ctx.metrics.start_span(PipelineStepType.TRENDING)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, sid)
+            ctx.metrics.end_span(sid)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=0)
 
         # 2. Administrative Statistics (Always Run)
         await self._persist_usage_statistics_safe(ctx)
@@ -92,7 +94,8 @@ class TrendingProcessor(BaseChatProcessor):
 
     async def _execute_trending_safe(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
         """Executes trending logic with Circuit Breaker pattern."""
-        yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, ctx.language)
+        sid = ctx.metrics.start_span(PipelineStepType.TRENDING)
+        yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, sid)
         start_time = time.time()
 
         try:
@@ -129,21 +132,32 @@ class TrendingProcessor(BaseChatProcessor):
             )
 
             dur = round(time.time() - start_time, 3)
-            self._record_metrics(ctx, dur)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=dur)
+            self._record_metrics(ctx, dur)  # Assuming end_span is handled in record_metrics or manually
+            ctx.metrics.end_span(sid)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=dur)
 
         except asyncio.TimeoutError:
             logger.error(f"Trending Analysis timed out after {TIMEOUT_TRENDING_ANALYSIS}s")
             # Graceful degrade
             self._record_metrics(ctx, TIMEOUT_TRENDING_ANALYSIS)
+
+            sid = locals().get("sid", "trend_fail")
+            if "sid" in locals() and ctx.metrics:
+                ctx.metrics.end_span(sid)
+
             yield EventFormatter.format(
-                PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=TIMEOUT_TRENDING_ANALYSIS
+                PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=TIMEOUT_TRENDING_ANALYSIS
             )
 
         except Exception as e:
             logger.error(f"Trending logic failed: {e}", exc_info=True)
             self._record_metrics(ctx, 0.0)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=0)
+
+            sid = locals().get("sid", "trend_fail")
+            if "sid" in locals() and ctx.metrics:
+                ctx.metrics.end_span(sid)
+
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=0)
 
     def _record_metrics(self, ctx: ChatContext, duration: float):
         """Records telemetry for consistent pipeline display."""
@@ -214,7 +228,7 @@ class TrendingProcessor(BaseChatProcessor):
         # We look into the step payloads
         retrieved_doc_ids = []
         reranking_impact = 0.0
-        
+
         for step in cache_step:
             if step.get("step_type") == "retrieval":
                 retrieved_doc_ids = step.get("metadata", {}).get("retrieved_document_ids", [])

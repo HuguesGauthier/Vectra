@@ -178,6 +178,7 @@ async def get_chat_history(
                 # Format Steps (Ensure labels are present)
                 if "steps" in meta and isinstance(meta["steps"], list):
                     meta["steps"] = [_format_step(step) for step in meta["steps"]]
+                    meta["steps"] = _rebuild_step_hierarchy(meta["steps"])
 
                 # Format Visualization (Repair types if stringified by sanitization)
                 if "visualization" in meta and meta["visualization"]:
@@ -285,3 +286,31 @@ def _format_visualization(viz: Dict[str, Any]) -> Dict[str, Any]:
 
 # 🔵 P1: Removed Debug/Test Endpoints (debug_stream, ping, test-db, test-assistant-service)
 # Code Cleanliness and Security Hygiene.
+
+
+def _rebuild_step_hierarchy(steps: list) -> list:
+    """
+    Reconstructs the parent->child tree structure from a flat list using parent_id.
+    Returns only the root steps.
+    """
+    step_map = {s.get("step_id"): {**s, "sub_steps": []} for s in steps if s.get("step_id")}
+    roots = []
+
+    # Add steps without ID directly to roots so they are not lost
+    for s in steps:
+        if not s.get("step_id"):
+            roots.append({**s, "sub_steps": []})
+
+    for step in step_map.values():
+        pid = step.get("parent_id")
+        if pid and pid in step_map:
+            step_map[pid]["sub_steps"].append(step)
+        else:
+            roots.append(step)
+
+    # Sort each level by sequence
+    for step in step_map.values():
+        step["sub_steps"].sort(key=lambda x: x.get("sequence", 0))
+    roots.sort(key=lambda x: x.get("sequence", 0))
+
+    return roots

@@ -7,6 +7,7 @@ import openaiLogo from 'src/assets/openai_logo.svg';
 import localLogo from 'src/assets/local_logo.svg';
 import cohereLogo from 'src/assets/cohere.png';
 import mistralLogo from 'src/assets/m-rainbow.svg';
+import anthropicLogo from 'src/assets/claude.svg';
 import type { ProviderOption, ModelInfo } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
@@ -111,6 +112,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'gemini') logo = geminiLogo;
         if (p.id === 'openai') logo = openaiLogo;
         if (p.id === 'mistral') logo = mistralLogo;
+        if (p.id === 'anthropic') logo = anthropicLogo;
         if (p.id === 'ollama') logo = localLogo;
 
         // Custom Description
@@ -121,6 +123,8 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description = `${t('modelLabel')}: ${getSetting('openai_chat_model')}`;
         } else if (p.id === 'mistral' && getSetting('mistral_chat_model')) {
           description = `${t('modelLabel')}: ${getSetting('mistral_chat_model')}`;
+        } else if (p.id === 'anthropic' && getSetting('anthropic_chat_model')) {
+          description = `${t('modelLabel')}: ${getSetting('anthropic_chat_model')}`;
         } else if (p.id === 'ollama' && getSetting('ollama_chat_model')) {
           description = `${t('modelLabel')}: ${getSetting('ollama_chat_model')}`;
         }

@@ -81,7 +81,13 @@ class PromptService:
             model = await self.settings_service.get_value("mistral_chat_model")
             return LLMFactory.create_llm("mistral", model, mistral_key)
 
-        # 4. Fallback to Ollama (Always available if configured)
+        # 4. Try Anthropic Claude
+        anthropic_key = await self.settings_service.get_value("anthropic_api_key")
+        if anthropic_key:
+            model = await self.settings_service.get_value("anthropic_chat_model")
+            return LLMFactory.create_llm("anthropic", model, anthropic_key)
+
+        # 5. Fallback to Ollama (Always available if configured)
         ollama_url = await self.settings_service.get_value("ollama_base_url")
         if ollama_url:
             model = await self.settings_service.get_value("ollama_chat_model")

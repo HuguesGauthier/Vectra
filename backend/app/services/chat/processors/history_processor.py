@@ -62,7 +62,10 @@ class HistoryLoaderProcessor(BaseChatProcessor):
             yield self._emit_completion_event(ctx, 0.0)  # Unblock UI
 
     def _emit_start_event(self, ctx: ChatContext) -> str:
-        return EventFormatter.format(PipelineStepType.HISTORY_LOADING, StepStatus.RUNNING, ctx.language)
+        ctx.metadata["_history_step_id"] = ctx.metrics.start_span(PipelineStepType.HISTORY_LOADING)
+        return EventFormatter.format(
+            PipelineStepType.HISTORY_LOADING, StepStatus.RUNNING, ctx.metadata["_history_step_id"]
+        )
 
     async def _load_history(self, ctx: ChatContext) -> List[Message]:
         return await ctx.chat_history_service.get_history(ctx.session_id)
@@ -71,9 +74,8 @@ class HistoryLoaderProcessor(BaseChatProcessor):
         return round(time.time() - start_time, ROUNDING_PRECISION)
 
     def _emit_completion_event(self, ctx: ChatContext, duration: float) -> str:
-        return EventFormatter.format(
-            PipelineStepType.HISTORY_LOADING, StepStatus.COMPLETED, ctx.language, duration=duration
-        )
+        sid = ctx.metadata.get("_history_step_id", "history_step")
+        return EventFormatter.format(PipelineStepType.HISTORY_LOADING, StepStatus.COMPLETED, sid, duration=duration)
 
     def _record_metrics(self, ctx: ChatContext, duration: float) -> None:
         if ctx.metrics:

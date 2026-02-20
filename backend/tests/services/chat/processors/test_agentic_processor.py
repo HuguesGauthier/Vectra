@@ -47,7 +47,7 @@ class TestAgenticProcessor:
         mock_context.history = []
 
         events = []
-        async for event in processor._contextualize_query(mock_context):
+        async for event in processor._contextualize_query(mock_context, parent_id=None):
             events.append(event)
 
         assert len(events) == 0

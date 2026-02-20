@@ -229,12 +229,15 @@ export class MessageRenderer {
     } else {
       // Fallback: sum top-level non-substeps
       totalDuration = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.duration || 0), 0);
-      totalInputTokens = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.input || 0), 0);
-      totalOutputTokens = steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.output || 0), 0);
+      totalInputTokens = steps.reduce(
+        (sum, s) => sum + (s.parent_id ? 0 : s.tokens?.input || 0),
+        0,
+      );
+      totalOutputTokens = steps.reduce(
+        (sum, s) => sum + (s.parent_id ? 0 : s.tokens?.output || 0),
+        0,
+      );
     }
-
-    const completedCount = steps.filter((s) => s.status === 'completed' && s.step_type !== 'completed' && !s.parent_id).length;
-    const failedCount = steps.filter((s) => s.status === 'failed' && !s.parent_id).length;
 
     // --- HIERARCHY RECONSTRUCTION (Recursive & Non-Destructive) ---
     const stepMap = new Map<string, ChatStep>();
@@ -247,7 +250,7 @@ export class MessageRenderer {
         const copy = { ...s, sub_steps: [] as ChatStep[] };
         if (!copy.step_id) copy.step_id = `step_${Math.random()}`;
         stepMap.set(copy.step_id, copy);
-        
+
         // Flatten children too
         if (s.sub_steps && s.sub_steps.length > 0) {
           flattenToMap(s.sub_steps);
@@ -262,7 +265,7 @@ export class MessageRenderer {
         const parent = stepMap.get(step.parent_id)!;
         if (!parent.sub_steps) parent.sub_steps = [];
         // Avoid adding the same step twice
-        if (!parent.sub_steps.some(c => c.step_id === step.step_id)) {
+        if (!parent.sub_steps.some((c) => c.step_id === step.step_id)) {
           parent.sub_steps.push(step);
         }
       } else {
@@ -271,7 +274,13 @@ export class MessageRenderer {
     });
 
     // 3. Final cleanup: Remove orphans that are actually children
-    const filteredRoot = rootTree.filter(s => !(s.parent_id && stepMap.has(s.parent_id)));
+    const filteredRoot = rootTree.filter((s) => !(s.parent_id && stepMap.has(s.parent_id)));
+
+    // 4. Calculate counts based on visible roots
+    const completedCount = filteredRoot.filter(
+      (s) => s.status === 'completed' && s.step_type !== 'completed',
+    ).length;
+    const failedCount = filteredRoot.filter((s) => s.status === 'failed').length;
 
     const locale = localStorage.getItem('app_language') || 'en-US';
     const appMessages = messages[locale as keyof typeof messages] as {
@@ -308,10 +317,14 @@ export class MessageRenderer {
           <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; opacity: 0.8;">
             ${totalDuration.toFixed(2)}s
           </span>
-          ${totalInputTokens > 0 || totalOutputTokens > 0 ? `
+          ${
+            totalInputTokens > 0 || totalOutputTokens > 0
+              ? `
           <span style="background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 12px; font-size: 11px; opacity: 0.8;">
             ↑${totalInputTokens} ↓${totalOutputTokens}
-          </span>` : ''}
+          </span>`
+              : ''
+          }
           <span class="expand-arrow" style="transition: transform 0.2s; font-size: 12px; opacity: 0.6;">▼</span>
         </summary>
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; flex-direction: column; width: 100%;">
@@ -347,10 +360,15 @@ export class MessageRenderer {
 
   private static renderSingleStepRow(step: ChatStep, level: number, isLast: boolean): string {
     const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
-    const statusColor = step.status === 'completed' ? '#4caf50' : step.status === 'failed' ? '#f44336' : '#ff9800';
+    const statusColor =
+      step.status === 'completed' ? '#4caf50' : step.status === 'failed' ? '#f44336' : '#ff9800';
     const paddingLeft = level * 16;
-    const durationText = step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
-    const tokensText = step.tokens && (step.tokens.input > 0 || step.tokens.output > 0) ? `↑${step.tokens.input} ↓${step.tokens.output}` : '';
+    const durationText =
+      step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
+    const tokensText =
+      step.tokens && (step.tokens.input > 0 || step.tokens.output > 0)
+        ? `↑${step.tokens.input} ↓${step.tokens.output}`
+        : '';
 
     return `
       <div style="

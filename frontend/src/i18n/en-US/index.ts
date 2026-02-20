@@ -156,6 +156,9 @@ export default {
   mistralConfiguration: 'Mistral Configuration',
   mistralDesc:
     'A powerful European LLM known for efficiency and open-weights performance. Balanced for reasoning and chat.',
+  anthropicConfiguration: 'Anthropic Configuration',
+  anthropic: 'Anthropic Claude',
+  anthropicDesc: 'Advanced AI models focused on safety, reasoning, and reliability.',
   localEmbedding: 'BAAI (Local)',
   local: 'Local',
   localTagline: 'Private & Offline',
@@ -798,13 +801,13 @@ export default {
     'mistral-tiny':
       'The most basic Mistral model. Best for fast, simple tasks like identifying keywords or basic text categorization.',
     'ministral-3b-latest':
-      'A tiny model designed to run on small devices. Very fast and focused on simple, direct instructions.',
+      'A tiny model designed to run on edge devices. Very quick and focused on simple, direct instructions.',
     'ministral-8b-latest':
-      'A balanced small model. It offers surprisingly good reasoning for its compact size, perfect for efficient local processing.',
+      'A small model perfect for resource-constrained environments but capable of analyzing and generating text.',
     'ministral-14b-latest':
-      'The largest of the small models. It can handle more complex logic than the 3b or 8b while remaining very fast.',
+      'The most capable Ministral model, bringing Mistral’s power for advanced edge processing.',
     'codestral-latest':
-      'The "Coding Specialist". This model was specifically trained to write and debug code in over 80 programming languages.',
+      'Specially trained for software development. It writes, fixes, and analyzes code in 80+ languages.',
     'pixtral-large-latest':
       'A multimodal expert. Not only can it read text, but it can also "see" and analyze complex images, charts, and technical diagrams with high precision.',
     'pixtral-12b-2409':
@@ -815,6 +818,14 @@ export default {
       'An experimental tool designed specifically for developers. It is optimized to act as an assistant for software engineering tasks.',
     'open-mistral-7b':
       'A classic and reliable model that started it all. Fast and effective for simple, direct conversations.',
+
+    // ── Anthropic Chat ──
+    'claude-3-opus-latest':
+      'Our most powerful model, designed to excel in highly complex tasks. Ideal for when you need maximum intelligence.',
+    'claude-3-sonnet-latest':
+      'The perfect balance of intelligence and speed. Excellent for most tasks requiring solid reasoning.',
+    'claude-3-haiku-latest':
+      'Our fastest and most compact model. Perfect for near-instant execution of simple tasks.',
 
     // ── Ollama Chat ──
     mistral:

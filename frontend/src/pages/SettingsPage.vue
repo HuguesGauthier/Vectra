@@ -242,6 +242,8 @@ const models = reactive<Record<string, string>>({
   openai_chat_model: 'gpt-4-turbo',
   mistral_api_key: '',
   mistral_chat_model: 'mistral-large-latest',
+  anthropic_api_key: '',
+  anthropic_chat_model: 'claude-3-7-sonnet-latest',
   ollama_base_url: 'http://localhost:11434',
   ollama_chat_model: 'mistral',
   ollama_embedding_model: 'bge-m3',
@@ -263,6 +265,8 @@ const models = reactive<Record<string, string>>({
   openai_top_k: '',
   mistral_temperature: '',
   mistral_top_k: '',
+  anthropic_temperature: '',
+  anthropic_top_k: '',
   ollama_temperature: '',
   ollama_top_k: '',
 

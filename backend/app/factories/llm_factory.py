@@ -9,6 +9,7 @@ from app.core.exceptions import ConfigurationError
 PROVIDER_GEMINI = "gemini"
 PROVIDER_OPENAI = "openai"
 PROVIDER_MISTRAL = "mistral"
+PROVIDER_ANTHROPIC = "anthropic"
 PROVIDER_OLLAMA = "ollama"
 DEFAULT_TEMP = 0.7
 
@@ -33,6 +34,9 @@ class LLMFactory:
         # P0 FIX: key is not required for local
         if not api_key and provider_clean not in ["local", "ollama"]:
             raise ConfigurationError(f"API Key missing for provider {provider}")
+
+        if not model_name and provider_clean not in ["local"]:
+            raise ConfigurationError(f"No model configured for provider '{provider}'. Check the settings.")
 
         llm = None
 
@@ -59,6 +63,11 @@ class LLMFactory:
             # MistralAI doesn't directly expose top_k in LLM class, but might support it in additional_kwargs
             # For now keep it simple to match existing contract
             llm = MistralAI(model=model_name, api_key=api_key, temperature=temperature)
+        elif provider_clean == PROVIDER_ANTHROPIC:
+            from llama_index.llms.anthropic import Anthropic
+
+            # Anthropic supports top_k and temperature
+            llm = Anthropic(model=model_name, api_key=api_key, temperature=temperature, top_k=top_k)
         elif provider_clean == PROVIDER_OLLAMA:
             from llama_index.llms.ollama import Ollama
 

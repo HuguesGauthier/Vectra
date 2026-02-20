@@ -302,6 +302,35 @@ SUPPORTED_CHAT_MODELS: dict[str, list[ModelEntry]] = {
             "output_price": 0.25,
         },
     ],
+    "anthropic": [
+        # ── Flagship ──
+        {
+            "id": "claude-3-opus-latest",
+            "name": "Claude 3.5 Opus (Flagship)",
+            "description": "Powerful model for highly complex tasks. Excellent for analysis and multi-step reasoning.",
+            "category": "flagship",
+            "input_price": 15.00,
+            "output_price": 75.00,
+        },
+        # ── Balanced ──
+        {
+            "id": "claude-3-7-sonnet-latest",
+            "name": "Claude 3.7 Sonnet (Reasoning)",
+            "description": "The perfect balance of intelligence and speed. Excellent for most reasoning tasks.",
+            "category": "balanced",
+            "input_price": 3.00,
+            "output_price": 15.00,
+        },
+        # ── Economy ──
+        {
+            "id": "claude-3-5-haiku-latest",
+            "name": "Claude 3.5 Haiku (Fast)",
+            "description": "Our fastest and most compact model, perfect for near-instant execution of simple tasks.",
+            "category": "economy",
+            "input_price": 0.80,
+            "output_price": 4.00,
+        },
+    ],
     "ollama": [
         {
             "id": "mistral",

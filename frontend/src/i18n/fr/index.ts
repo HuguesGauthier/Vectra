@@ -154,6 +154,9 @@ export default {
   mistralConfiguration: 'Configuration Mistral',
   mistralDesc:
     'Un LLM européen puissant reconnu pour son efficacité. Équilibré pour le raisonnement et le chat.',
+  anthropicConfiguration: 'Configuration Anthropic',
+  anthropic: 'Anthropic Claude',
+  anthropicDesc: "Des modèles d'IA avancés axés sur la sécurité, le raisonnement et la fiabilité.",
   localEmbedding: 'BAAI (Local)',
   local: 'Local',
   localTagline: 'Privé & Hors-ligne',
@@ -813,6 +816,14 @@ export default {
       'Un outil expérimental conçu spécifiquement pour les développeurs. Optimisé pour agir comme assistant dans les tâches d’ingénierie logicielle.',
     'open-mistral-7b':
       'Un modèle classique et fiable qui a tout déclenché. Rapide et efficace pour les conversations simples et directes.',
+
+    // ── Anthropic Chat ──
+    'claude-3-opus-latest':
+      "Notre modèle le plus puissant, conçu pour exceller dans tâches hautement complexes. Idéal pour quand vous avez besoin d'une intelligence maximale.",
+    'claude-3-7-sonnet-latest':
+      "L'équilibre parfait entre intelligence et rapidité. Excellent pour la majorité des tâches nécessitant un bon raisonnement.",
+    'claude-3-5-haiku-latest':
+      'Notre modèle le plus rapide et le plus compact. Parfait pour une exécution quasi instantanée de tâches simples.',
 
     // ── Ollama Chat ──
     mistral:

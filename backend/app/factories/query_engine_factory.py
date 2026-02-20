@@ -3,7 +3,7 @@ import time
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import Depends
-from llama_index.core import PromptTemplate, Settings
+from llama_index.core import PromptTemplate, Settings, Settings as LlamaSettings
 from llama_index.core.base.response.schema import RESPONSE_TYPE
 from llama_index.core.callbacks.schema import CBEventType
 from llama_index.core.query_engine import BaseQueryEngine, RouterQueryEngine
@@ -232,14 +232,16 @@ class UnifiedQueryEngineFactory:
             # Determine display name for UI
             is_fr = "fr" in language.lower()
             p_lower = provider.lower() if provider else ""
-            
+
             if p_lower == "ollama":
                 display_name = "Recherche Base de Connaissances (Local)" if is_fr else "Knowledge Base Search (Local)"
             elif p_lower == "gemini":
                 display_name = "Recherche Base de Connaissances (Gemini)" if is_fr else "Knowledge Base Search (Gemini)"
             else:
                 p_label = provider.capitalize() if provider else "Unknown"
-                display_name = f"Recherche Base de Connaissances ({p_label})" if is_fr else f"Knowledge Base Search ({p_label})"
+                display_name = (
+                    f"Recherche Base de Connaissances ({p_label})" if is_fr else f"Knowledge Base Search ({p_label})"
+                )
 
             # WRAPPER FIX: Isolate the engine to prevent embedding leakage
             # AND pass metadata so we can emit FUNCTION_CALL events for tracking
@@ -280,18 +282,22 @@ class UnifiedQueryEngineFactory:
         all_tools = vector_tools + ([sql_tool] if sql_tool else [])
 
         router_provider = assistant.model_provider or (active_providers[0] if active_providers else "ollama")
-        router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
+        try:
+            router_llm = await ChatEngineFactory.create_from_provider(router_provider, settings_service)
+        except Exception as e:
+            # Fallback: reuse the main LLM already created for vector tools
+            logger.warning(
+                f"[QueryEngineFactory] Could not create router LLM for provider '{router_provider}': {e}. "
+                f"Falling back to the main assistant LLM."
+            )
+            router_llm = await ChatEngineFactory.create_from_assistant(assistant, settings_service)
 
-        # CRITICAL: Override LlamaIndex global Settings.llm so LLMMultiSelector
-        # doesn't fall back to its OpenAI default for internal components.
-        # Scoped locally — this is intentional since we're in an async context
-        # (each request gets its own coroutine stack, but Settings is global so
-        # we restore it after the engine is built to avoid cross-request pollution).
-        from llama_index.core import Settings as LlamaSettings
-        # Use _llm (private backing attr) to avoid triggering the property getter
-        # which resolves to OpenAI by default if no LLM has been set globally.
+        # CRITICAL: Override LlamaIndex global Settings._llm so LLMMultiSelector
+        # doesn't fall back to its OpenAI default (or print 'Using MockLLM') for
+        # internal components. We write directly to the private backing attribute
+        # to bypass resolve_llm() validation and the associated console print.
         previous_llm = LlamaSettings._llm
-        LlamaSettings.llm = router_llm
+        LlamaSettings._llm = router_llm
         try:
             engine = RouterQueryEngine(
                 selector=LLMMultiSelector.from_defaults(llm=router_llm),
@@ -299,7 +305,8 @@ class UnifiedQueryEngineFactory:
                 verbose=True,
             )
         finally:
-            LlamaSettings.llm = previous_llm
+            # Restore the previous global LLM to avoid cross-request pollution
+            LlamaSettings._llm = previous_llm
 
         return engine
 
