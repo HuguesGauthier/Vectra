@@ -13,17 +13,21 @@
             v-if="messages.length === 0 && introMessage"
             class="welcome-message row justify-center q-my-xl"
           >
-            <div class="text-center">
+            <div class="text-center q-pa-lg">
               <q-avatar
-                size="64px"
-                class="q-mb-md shadow-3 gradient-avatar"
+                size="80px"
+                class="q-mb-lg shadow-5 gradient-avatar"
                 :style="welcomeAvatarStyle"
               >
                 <img v-if="assistantAvatarUrl" :src="assistantAvatarUrl" />
-                <span v-else class="text-h5 text-white">{{ assistantInitials }}</span>
+                <span v-else class="text-h4 text-white">{{ assistantInitials }}</span>
               </q-avatar>
-              <div class="text-h6 q-mb-xs">{{ introMessage.title }}</div>
-              <div class="text-subtitle1 text-grey">{{ introMessage.subtitle }}</div>
+              <div class="text-h4 text-weight-bold q-mb-sm text-white">
+                {{ introMessage.title }}
+              </div>
+              <div class="text-subtitle1 text-grey-4 q-px-xl" style="opacity: 0.8; line-height: 1.6;">
+                {{ introMessage.subtitle }}
+              </div>
             </div>
           </div>
         </transition>

@@ -56,14 +56,14 @@
 
       <!-- Steps (Pipeline Reasoning) -->
       <VectraPipelineSteps
-        v-if="message.steps && message.steps.length"
+        v-if="message.isComplete && message.steps && message.steps.length"
         :steps="message.steps"
         class="q-mt-sm"
       />
 
       <!-- Sources -->
       <VectraSources
-        v-if="message.sources && message.sources.length"
+        v-if="message.isComplete && message.sources && message.sources.length"
         :sources="message.sources"
         class="q-mt-sm"
       />
@@ -179,6 +179,7 @@ const aiBubbleStyle = computed(() => {
   return {
     background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${rD}, ${gD}, ${bD}, 1) 100%)`,
     color: textColor,
+    boxShadow: `0 4px 15px rgba(0, 0, 0, 0.2)`,
     border: 'none',
   };
 });
@@ -210,13 +211,18 @@ const contentBlocksWithoutText = computed(() => {
 }
 
 .user-bubble {
-  /* Clean frosted panel for the user, matching the screenshot's neutral tone */
-  background: rgba(120, 120, 120, 0.15);
+  /* Premium card-like feel for the user message */
+  background: linear-gradient(
+    145deg,
+    rgba(120, 120, 120, 0.1) 0%,
+    rgba(120, 120, 120, 0.05) 100%
+  );
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(120, 120, 120, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   color: var(--q-text-main);
   border-radius: 20px 20px 4px 20px; /* Sharp bottom right */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .ai-bubble {

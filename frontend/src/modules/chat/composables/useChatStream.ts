@@ -35,6 +35,7 @@ export interface ChatMessage {
   steps?: ChatStep[];
   statusMessage?: string;
   visualization?: unknown;
+  isComplete?: boolean;
 }
 
 // Discriminated Union for safer type handling
@@ -215,12 +216,12 @@ export function useChatStream() {
                   duration: totalDuration,
                   tokens: { input: totalInput, output: totalOutput },
                 };
-
                 msg.steps = [completedStep, ...msg.steps];
               }
             }
           }
 
+          msg.isComplete = true; // All history messages are complete
           return msg;
         });
       }
@@ -495,6 +496,7 @@ export function useChatStream() {
       text: text,
       contentBlocks: [{ type: 'text', data: text }],
       sender: 'user',
+      isComplete: true,
     });
 
     // 3. Push Placeholder Bot Message
@@ -506,6 +508,7 @@ export function useChatStream() {
       sender: 'bot',
       statusMessage: t('initializing'),
       steps: [],
+      isComplete: false,
     };
     messages.value.push(botMsg);
 
@@ -551,6 +554,8 @@ export function useChatStream() {
       console.error(err);
     } finally {
       loading.value = false;
+      const msg = messages.value.find((m) => m.id === botMsgId);
+      if (msg) msg.isComplete = true;
       abortController = null;
     }
   }

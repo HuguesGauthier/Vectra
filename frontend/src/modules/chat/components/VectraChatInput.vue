@@ -3,7 +3,7 @@
     <!-- Active STT Pulse -->
     <div v-if="isListening" class="stt-active-bg absolute-full rounded-borders"></div>
 
-    <div class="input-glass row items-end q-px-sm q-py-xs q-mb-md">
+    <div class="input-glass row items-center q-px-sm q-py-xs q-mb-md">
       <!-- Speech to text button -->
       <q-btn
         flat
@@ -11,7 +11,7 @@
         dense
         :color="isListening ? 'negative' : 'grey-5'"
         :icon="isListening ? 'mic' : 'mic_none'"
-        class="q-mb-xs stt-button"
+        class="stt-button"
         :class="{ 'pulsing-mic': isListening }"
         @click="toggleListening"
         :disable="disabled || !isSpeechRecognitionSupported"
@@ -31,7 +31,7 @@
         :placeholder="disabled ? $t('chatDisabledPlaceholder') : $t('typeMessage')"
         class="col q-mx-sm chat-input-field"
         @keydown.enter.prevent="handleEnter"
-        input-style="max-height: 200px; min-height: 40px; padding-top: 10px;"
+        input-style="max-height: 200px; min-height: 40px; padding: 10px 0 6px 0;"
       />
 
       <!-- Send button -->
@@ -41,7 +41,7 @@
         dense
         :color="canSend ? 'white' : 'grey-7'"
         icon="send"
-        class="q-mb-xs send-button"
+        class="send-button"
         :class="{ 'opacity-50': !canSend }"
         :disable="loading || disabled"
         :loading="loading"
@@ -192,22 +192,26 @@ defineExpose({
 
 <style scoped>
 .input-glass {
-  background: rgba(30, 30, 30, 0.4);
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  background: var(--q-secondary);
+  border-radius: 32px;
+  border: 1px solid var(--q-third);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   z-index: 2;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
 }
 
 .input-glass:focus-within {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(40, 40, 40, 0.6);
+  border-color: var(--q-sixth);
+  background: var(--q-secondary);
+  /* transform: translateY(-2px); */
+  /* box-shadow: 0 5px 5px rgba(0, 0, 0, 0.3); */
 }
 
 .chat-input-field {
   color: var(--q-text-main);
-  font-size: 15px; /* Independent of the main chat font size, keeps input readable */
+  font-size: 16px;
+  padding: 4px 0;
 }
 
 /* Scrollbar for the textarea when max-height is reached */
@@ -215,22 +219,29 @@ defineExpose({
   width: 6px;
 }
 ::v-deep(.chat-input-field textarea::-webkit-scrollbar-thumb) {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
 .send-button {
-  transition:
-    transform 0.2s ease,
-    color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .send-button:not(.opacity-50):hover {
-  transform: scale(1.1) rotate(-10deg);
+  transform: scale(1.15) rotate(-10deg);
+  color: var(--q-sixth) !important;
+}
+
+.stt-button {
+  transition: all 0.3s ease;
+}
+
+.stt-button:hover {
+  transform: scale(1.1);
 }
 
 .opacity-50 {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
