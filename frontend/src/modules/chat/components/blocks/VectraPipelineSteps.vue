@@ -1,6 +1,6 @@
 <template>
   <q-expansion-item
-    class="pipeline-steps-block q-my-sm shadow-1"
+    class="pipeline-steps-block q-my-sm"
     header-class="header-bg"
     expand-icon-class="text-primary"
   >
@@ -216,17 +216,26 @@ const StepNode = defineComponent({
       // Children
       let childrenNode = null;
       if (step.sub_steps && step.sub_steps.length > 0) {
-        childrenNode = h('div', {
-          class: 'column q-ml-md q-mt-xs',
-          style: {
-            borderLeft: '1px solid rgba(255,255,255,0.05)',
-            paddingLeft: '12px'
-          }
+        const childrenList = (step.sub_steps || []).map((child: ChatStep, idx: number): VNode => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        }, (step.sub_steps || []).map((child: any, idx: number): VNode => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return h(StepNode as any, { step: child, level: level + 1, isLast: idx === (step.sub_steps?.length || 0) - 1 });
-        }));
+          return h(StepNode as any, {
+            step: child,
+            level: level + 1,
+            isLast: idx === (step.sub_steps?.length || 0) - 1,
+          });
+        });
+
+        childrenNode = h(
+          'div',
+          {
+            class: 'column q-ml-md q-mt-xs',
+            style: {
+              borderLeft: '1px solid rgba(255,255,255,0.05)',
+              paddingLeft: '12px',
+            },
+          },
+          childrenList,
+        );
       }
 
       return h('div', { class: 'full-width column' }, [rowNode, childrenNode]);
@@ -237,8 +246,8 @@ const StepNode = defineComponent({
 
 <style scoped>
 .pipeline-steps-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05); /* slightly more visible to contrast without borders */
+  border: none;
   border-radius: 12px;
   overflow: hidden;
 }

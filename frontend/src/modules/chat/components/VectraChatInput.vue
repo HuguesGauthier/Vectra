@@ -3,7 +3,7 @@
     <!-- Active STT Pulse -->
     <div v-if="isListening" class="stt-active-bg absolute-full rounded-borders"></div>
 
-    <div class="input-glass row items-end q-px-sm q-py-xs shadow-2 q-mb-md">
+    <div class="input-glass row items-end q-px-sm q-py-xs q-mb-md">
       <!-- Speech to text button -->
       <q-btn
         flat
@@ -39,10 +39,11 @@
         flat
         round
         dense
-        color="primary"
+        :color="canSend ? 'white' : 'grey-7'"
         icon="send"
         class="q-mb-xs send-button"
-        :disable="!canSend"
+        :class="{ 'opacity-50': !canSend }"
+        :disable="loading || disabled"
         :loading="loading"
         @click="send"
       >
@@ -96,7 +97,6 @@ if (isSpeechRecognitionSupported) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recognition.onresult = (event: any) => {
-     
     let finalTranscript = '';
 
     for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -114,7 +114,6 @@ if (isSpeechRecognitionSupported) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   recognition.onerror = (event: any) => {
-     
     console.error('Speech recognition error', event.error);
     isListening.value = false;
   };
@@ -164,7 +163,7 @@ const handleEnter = (e: KeyboardEvent) => {
 };
 
 const send = () => {
-  if (!canSend.value) return;
+  if (!canSend.value || props.loading || props.disabled) return;
 
   const textToSend = inputText.value.trim();
   emit('send', textToSend);
@@ -193,18 +192,17 @@ defineExpose({
 
 <style scoped>
 .input-glass {
-  background: var(--q-fourth);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(30, 30, 30, 0.4);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
   position: relative;
   z-index: 2;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .input-glass:focus-within {
-  border-color: var(--q-primary);
-  box-shadow: 0 4px 20px rgba(var(--q-primary-rgb, 25, 118, 210), 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(40, 40, 40, 0.6);
 }
 
 .chat-input-field {
@@ -222,11 +220,18 @@ defineExpose({
 }
 
 .send-button {
-  transition: transform 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    color 0.3s ease;
 }
 
-.send-button:not([disabled]):hover {
+.send-button:not(.opacity-50):hover {
   transform: scale(1.1) rotate(-10deg);
+}
+
+.opacity-50 {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .disabled-state {

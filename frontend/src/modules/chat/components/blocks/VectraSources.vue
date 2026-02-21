@@ -1,6 +1,6 @@
 <template>
   <q-expansion-item
-    class="sources-block q-my-sm shadow-1"
+    class="sources-block q-my-sm"
     header-class="header-bg"
     expand-icon-class="text-primary"
   >
@@ -126,16 +126,18 @@ const groupedSources = computed(() => {
     const fileNameRaw = meta.file_name || meta.filename || meta.name || source.name;
     const fileName = typeof fileNameRaw === 'string' ? fileNameRaw : 'Unknown';
     const docIdRaw = meta.connector_document_id;
-    const documentId = typeof docIdRaw === 'string' || typeof docIdRaw === 'number' ? String(docIdRaw) : undefined;
+    const documentId =
+      typeof docIdRaw === 'string' || typeof docIdRaw === 'number' ? String(docIdRaw) : undefined;
     const key: string = documentId || fileName;
     const isAudio = source.type === 'audio' || meta.connector_type === 'audio';
 
     if (!groups[key]) {
-      const newGroup: { fileName: string; documentId?: string; isAudio: boolean; items: Source[] } = {
-        fileName,
-        isAudio,
-        items: [],
-      };
+      const newGroup: { fileName: string; documentId?: string; isAudio: boolean; items: Source[] } =
+        {
+          fileName,
+          isAudio,
+          items: [],
+        };
       if (documentId) {
         newGroup.documentId = documentId;
       }
@@ -143,7 +145,7 @@ const groupedSources = computed(() => {
     }
     const group = groups[key];
     if (group) {
-        group.items.push(source);
+      group.items.push(source);
     }
   });
 
@@ -177,8 +179,8 @@ const truncateContent = (content?: string, length = 150) => {
 
 <style scoped>
 .sources-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05); /* slightly more visible to contrast without borders */
+  border: none;
   border-radius: 12px;
   overflow: hidden;
 }

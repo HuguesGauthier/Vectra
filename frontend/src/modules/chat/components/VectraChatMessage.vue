@@ -3,17 +3,17 @@
     <!-- AI Avatar -->
     <q-avatar
       v-if="!isUser"
-      size="40px"
-      class="q-mr-sm shadow-2 self-end q-mb-xs"
+      size="28px"
+      class="q-mr-sm self-end"
       :style="{ backgroundColor: assistant?.avatar_bg_color || 'var(--q-primary)' }"
     >
       <img v-if="assistantAvatarUrl" :src="assistantAvatarUrl" />
-      <span v-else class="text-subtitle1 text-white">{{ assistantInitials }}</span>
+      <span v-else class="text-caption text-weight-bold text-white">{{ assistantInitials }}</span>
     </q-avatar>
 
     <!-- Message Bubble -->
     <div
-      class="message-bubble q-pa-md shadow-2 relative-position"
+      class="message-bubble q-pa-md relative-position"
       :class="{
         'user-bubble': isUser,
         'ai-bubble': !isUser,
@@ -77,9 +77,9 @@
     </div>
 
     <!-- User Avatar -->
-    <q-avatar v-if="isUser" size="40px" class="q-ml-sm shadow-2 self-end q-mb-xs bg-grey-8">
+    <q-avatar v-if="isUser" size="28px" class="q-ml-sm self-end bg-grey-8">
       <img v-if="userAvatarUrl" :src="userAvatarUrl" />
-      <q-icon v-else name="person" color="white" />
+      <q-icon v-else name="person" color="white" size="18px" />
     </q-avatar>
   </div>
 </template>
@@ -141,7 +141,9 @@ const aiBubbleStyle = computed(() => {
   if (isUser.value || hasError.value) return {};
 
   const baseColor = props.assistant?.avatar_bg_color;
-  if (!baseColor) return {};
+  if (!baseColor || !baseColor.startsWith('#')) {
+    return { background: 'var(--q-primary)', color: 'white' };
+  }
 
   // Basic hex to rgba conversion for the gradient
   const hex = baseColor.replace('#', '');
@@ -149,10 +151,22 @@ const aiBubbleStyle = computed(() => {
   const g = parseInt(hex.substring(2, 4), 16) || 0;
   const b = parseInt(hex.substring(4, 6), 16) || 0;
 
-  // Create a beautiful pure glass/gradient effect with the selected color
+  // Base color darker variations for a rich, pure gradient
+  const rD = Math.max(0, r - 50);
+  const gD = Math.max(0, g - 50);
+  const bD = Math.max(0, b - 50);
+
+  // Determine if color is light or dark to adjust text color
+  // YIQ formula
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  const textColor = yiq >= 150 ? '#121212' : '#ffffff';
+
+  // Create a beautiful pure gradient effect with the selected color
   return {
-    background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.15) 0%, rgba(${r}, ${g}, ${b}, 0.05) 100%)`,
-    borderColor: `rgba(${r}, ${g}, ${b}, 0.2)`,
+    background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${rD}, ${gD}, ${bD}, 1) 100%)`,
+    color: textColor,
+    boxShadow: `0 8px 24px rgba(${r}, ${g}, ${b}, 0.25)`,
+    border: 'none',
   };
 });
 
@@ -175,31 +189,30 @@ const contentBlocksWithoutText = computed(() => {
 <style scoped>
 .message-bubble {
   max-width: 85%;
-  border-radius: 18px;
   line-height: var(--chat-font-size, 1.5);
   font-size: 1em; /* Inherit from VectraChat --chat-font-size */
   transition: all 0.3s ease;
   word-wrap: break-word;
+  padding: 16px 20px;
 }
 
 .user-bubble {
-  background: var(--q-primary);
+  /* Clean frosted panel for the user, matching the screenshot's neutral tone */
+  background: rgba(120, 120, 120, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(120, 120, 120, 0.1);
   color: var(--q-text-main);
-  border-bottom-right-radius: 4px;
+  border-radius: 20px 20px 4px 20px; /* Sharp bottom right */
 }
 
 .ai-bubble {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--q-text-main);
-  border-bottom-left-radius: 4px;
+  border-radius: 20px 20px 20px 4px; /* Sharp bottom left */
 }
 
-.ai-bubble:hover {
-  background: rgba(255, 255, 255, 0.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+/* Added slight spacing so the bubble visually rests above the avatar baseline */
+.message-bubble {
+  margin-bottom: 4px;
 }
 
 .has-error {
@@ -228,15 +241,17 @@ const contentBlocksWithoutText = computed(() => {
 }
 
 ::v-deep(.user-bubble .markdown-content a) {
-  color: white;
+  color: var(--q-accent) !important;
   text-decoration: underline;
 }
 
 ::v-deep(.ai-bubble .markdown-content a) {
-  color: #64b5f6;
-  text-decoration: none;
+  /* For vivid vibrant backgrounds, links need high contrast */
+  color: inherit;
+  text-decoration: underline;
+  opacity: 0.9;
 }
 ::v-deep(.ai-bubble .markdown-content a:hover) {
-  text-decoration: underline;
+  opacity: 1;
 }
 </style>
