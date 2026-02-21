@@ -414,6 +414,12 @@ export function useChatStream() {
     if (botMsg.steps) {
       updateOrPushStep(botMsg.steps, newStep);
     }
+
+    // 4. Update status message if applicable
+    if (newStep.status === 'running' || (newStep.status === 'completed' && !botMsg.text)) {
+      botMsg.statusMessage = newStep.label;
+    }
+
     return newStep.step_type === 'completed' && newStep.status === 'completed';
   }
 

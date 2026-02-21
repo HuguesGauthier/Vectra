@@ -9,7 +9,7 @@
 
       <div class="row justify-center">
         <div class="col-10">
-          <RetrievalParams v-model="localData" hide-title />
+          <RetrievalParams v-model="localData" hide-title :providers="providers" />
         </div>
       </div>
     </div>
@@ -19,6 +19,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Assistant } from 'src/services/assistantService';
+import type { ProviderOption } from 'src/models/ProviderOption';
 import RetrievalParams from '../RetrievalParams.vue';
 
 defineOptions({
@@ -27,6 +28,7 @@ defineOptions({
 
 const props = defineProps<{
   modelValue: Partial<Assistant>;
+  providers: ProviderOption[];
   hideTitle?: boolean;
 }>();
 

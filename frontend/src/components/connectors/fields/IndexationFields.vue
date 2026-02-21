@@ -2,18 +2,21 @@
   <div class="q-gutter-md">
     <div class="text-subtitle2 text-grey-5 q-mb-xs">{{ $t('indexationSettings') }}</div>
 
-    <q-select
-      :model-value="modelValue.ai_provider"
-      @update:model-value="updateField('ai_provider', $event || '')"
-      :options="embeddingProviderOptions"
-      :label="$t('embeddingProvider')"
-      dark
-      standout
-      emit-value
-      map-options
-      :disable="disableAiProvider"
-      :hint="disableAiProvider ? $t('cannotChangeAfterCreation') : ''"
-    />
+    <div class="q-mb-md">
+      <div class="text-caption q-mb-xs">{{ $t('embeddingProvider') }}</div>
+      <AiProviderGrid
+        :model-value="modelValue.ai_provider"
+        @update:model-value="updateField('ai_provider', $event || '')"
+        :providers="enrichedProviders"
+        selectable
+        compact
+        grid-cols="col-12 col-sm-6"
+      />
+      <div v-if="disableAiProvider" class="text-caption text-warning q-mt-xs">
+        <q-icon name="info" size="xs" class="q-mr-xs" />
+        {{ $t('cannotChangeAfterCreation') }}
+      </div>
+    </div>
 
     <q-toggle
       v-if="showRecursive"
@@ -115,6 +118,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useAiProviders } from 'src/composables/useAiProviders';
+import AiProviderGrid from 'src/components/common/AiProviderGrid.vue';
 
 const { t } = useI18n();
 const { embeddingProviderOptions } = useAiProviders();
@@ -130,7 +134,7 @@ export interface IndexationConfig {
   dayMonth?: number;
 }
 
-defineProps<{
+const props = defineProps<{
   showRecursive?: boolean;
   disableAiProvider?: boolean;
 }>();
@@ -160,6 +164,13 @@ const formattedTime = computed(() => {
   const h = String(modelValue.value.hour || 0).padStart(2, '0');
   const m = String(modelValue.value.minute || 0).padStart(2, '0');
   return `${h}:${m}`;
+});
+
+const enrichedProviders = computed(() => {
+  return embeddingProviderOptions.value.map((p) => ({
+    ...p,
+    disabled: p.disabled || props.disableAiProvider,
+  }));
 });
 
 // --- FUNCTIONS ---

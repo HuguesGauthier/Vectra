@@ -16,6 +16,7 @@ export interface ProviderOption {
   badge?: string | undefined;
   badgeColor?: string | undefined;
   disabled?: boolean | undefined;
+  color?: string | undefined;
   value?: string;
   label?: string;
   supported_models?: ModelInfo[];

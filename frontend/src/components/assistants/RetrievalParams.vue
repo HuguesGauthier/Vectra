@@ -60,10 +60,11 @@
           style="border: 1px solid var(--q-sixth); border-radius: 8px"
         >
           <div class="text-subtitle2 q-mb-md">{{ t('rerankEngine') }}</div>
-          <ProviderSelection
+          <AiProviderGrid
             v-model="config.rerank_provider"
-            :providers="rerankProviderOptions"
-            :compact="true"
+            :providers="providers"
+            selectable
+            compact
             grid-cols="col-12 col-sm-6"
           />
 
@@ -110,11 +111,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Assistant } from 'src/services/assistantService';
-import { useAiProviders } from 'src/composables/useAiProviders';
-import ProviderSelection from 'src/components/common/ProviderSelection.vue';
+import type { ProviderOption } from 'src/models/ProviderOption';
+import AiProviderGrid from 'src/components/common/AiProviderGrid.vue';
 
 defineOptions({
   name: 'RetrievalParams',
@@ -123,6 +124,7 @@ defineOptions({
 const props = withDefaults(
   defineProps<{
     modelValue: Partial<Assistant>;
+    providers: ProviderOption[];
     hideTitle?: boolean;
     section?: 'all' | 'basic' | 'rerank';
   }>(),
@@ -136,7 +138,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { rerankProviderOptions } = useAiProviders();
 
 const config = computed({
   get: () => props.modelValue,
@@ -144,11 +145,10 @@ const config = computed({
 });
 
 // Fallback logic: if the selected provider is disabled, switch to a valid one
-import { watch } from 'vue';
 watch(
-  [rerankProviderOptions, () => config.value.rerank_provider],
+  [() => props.providers, () => config.value.rerank_provider],
   ([options, selected]) => {
-    if (options.length > 0 && selected) {
+    if (options && options.length > 0 && selected) {
       const currentOption = options.find((o) => o.value === selected);
       if (currentOption?.disabled) {
         // Find first non-disabled option

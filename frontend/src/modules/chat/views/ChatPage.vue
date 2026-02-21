@@ -58,12 +58,6 @@
         <q-btn flat round dense icon="whatshot" @click="showTrending = !showTrending">
           <q-tooltip>Questions fréquentes</q-tooltip>
         </q-btn>
-
-        <!-- Pipeline Steps: Header Indicator -->
-        <PipelineStepsPanel
-          v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
-          :steps="lastBotSteps"
-        />
       </div>
     </template>
     <template #messages>
@@ -121,7 +115,6 @@ import ChatHeader from '../components/ChatHeader.vue';
 import ChatLayout from '../components/ChatLayout.vue';
 import VectraChat from '../components/VectraChat.vue';
 import ChatTrendingPanel from '../components/ChatTrendingPanel.vue';
-import PipelineStepsPanel from '../components/PipelineStepsPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -192,16 +185,6 @@ const openFile = async (documentId: string) => {
     $q.notify({ type: 'negative', message: 'Failed to open file' });
   }
 };
-
-const isActivelyStreaming = computed(() => loading.value);
-
-// Computed for tracking pipeline steps of the last bot message
-const lastBotSteps = computed(() => {
-  const last = messages.value[messages.value.length - 1];
-  return last?.sender === 'bot' ? last.steps : undefined;
-});
-
-// --- Event Handlers ---
 
 const onMessageSent = async (text: string) => {
   console.log('[ChatPage] User sent message:', text);

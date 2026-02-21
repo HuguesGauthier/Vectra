@@ -92,13 +92,12 @@
               icon="settings_input_component"
               :done="subStep > 1"
             >
-              <ProviderSelection
+              <AiProviderGrid
                 v-model="selectedProvider"
                 :providers="aiProviders"
-                :selectable="true"
+                selectable
                 class="full-width"
-                show-config-button
-                :config-label="$t('configure')"
+                show-config
                 @configure="showAdvancedSettings = true"
               />
             </q-step>
@@ -230,7 +229,6 @@
             <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
           </template>
 
-
           <q-btn
             color="accent"
             :label="$t('next')"
@@ -240,8 +238,7 @@
           />
         </div>
         <div v-else class="row items-center q-gutter-sm">
-          <template v-if="isEdit">
-          </template>
+          <template v-if="isEdit"> </template>
 
           <q-btn color="accent" :label="$t('save')" :loading="loading" @click="handleSave" />
         </div>
@@ -266,7 +263,7 @@ import { connectorService } from 'src/services/connectorService';
 import ConnectorTypeStep from './ConnectorTypeStep.vue';
 import { settingsService } from 'src/services/settingsService';
 import ScheduleOptions from './ScheduleOptions.vue';
-import ProviderSelection from 'src/components/common/ProviderSelection.vue';
+import AiProviderGrid from 'src/components/common/AiProviderGrid.vue';
 import { useAiProviders } from 'src/composables/useAiProviders';
 
 // --- DEFINITIONS ---

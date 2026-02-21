@@ -152,7 +152,7 @@
 
           <!-- Step 4: Intelligence -->
           <div v-show="step === 4" class="row justify-center">
-            <AssistantIntelligenceStep v-model="assistantData" />
+            <AssistantIntelligenceStep v-model="assistantData" :providers="chatProviderOptions" />
           </div>
 
           <!-- Step 5: Retrieval Strategy -->
@@ -176,14 +176,24 @@
                 :done="retrievalStep > 1"
               >
                 <div class="q-pl-lg">
-                  <RetrievalParams v-model="assistantData" hide-title section="basic" />
+                  <RetrievalParams
+                    v-model="assistantData"
+                    hide-title
+                    section="basic"
+                    :providers="rerankProviderOptions"
+                  />
                 </div>
               </q-step>
 
               <!-- 5.2 Precision Boost -->
               <q-step :name="2" :title="$t('precisionBoost')" icon="bolt" :done="retrievalStep > 2">
                 <div class="q-pl-lg">
-                  <RetrievalParams v-model="assistantData" hide-title section="rerank" />
+                  <RetrievalParams
+                    v-model="assistantData"
+                    hide-title
+                    section="rerank"
+                    :providers="rerankProviderOptions"
+                  />
                 </div>
               </q-step>
             </q-stepper>
@@ -274,6 +284,7 @@ import AssistantIntelligenceStep from './steps/AssistantIntelligenceStep.vue';
 import RetrievalParams from './RetrievalParams.vue';
 import AssistantAppearance from './AssistantAppearance.vue';
 import AssistantSecurityStep from './steps/AssistantSecurityStep.vue';
+import { useAiProviders } from 'src/composables/useAiProviders';
 
 defineOptions({
   name: 'AssistantStepper',
@@ -300,6 +311,8 @@ const retrievalStep = ref(1); // Tabs for Retrieval Step
 const formRef = ref();
 const avatarFile = ref<File | null>(null);
 const stepErrors = ref(new Set<number>()); // Track invalid steps in Edit mode
+
+const { chatProviderOptions, rerankProviderOptions, fetchProviders } = useAiProviders();
 
 // Use Composable
 const {
@@ -347,7 +360,8 @@ watch(isOpen, async (val) => {
 
     await nextTick();
     formRef.value?.resetValidation();
-    await loadConnectors();
+    void loadConnectors();
+    void fetchProviders();
 
     // Capture initial state for dirty checking
     initialStateJSON.value = JSON.stringify(assistantData.value);

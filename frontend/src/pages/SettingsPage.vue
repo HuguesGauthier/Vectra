@@ -88,13 +88,11 @@
                 <div class="col-12">
                   <!-- Embedding Provider Selection -->
                   <div class="q-mb-md">
-                    <ProviderSelection
-                      v-model="models.embedding_provider"
+                    <AiProviderGrid
                       :providers="embeddingProviderOptions"
-                      show-config-button
-                      :config-label="$t('configure')"
-                      :selectable="false"
-                      :compact="true"
+                      show-config
+                      force-enabled
+                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openEmbeddingConfig"
                     />
@@ -121,13 +119,11 @@
                 <div class="col-12">
                   <!-- Rerank Provider Selection -->
                   <div class="q-mb-md">
-                    <ProviderSelection
-                      v-model="models.rerank_provider"
+                    <AiProviderGrid
                       :providers="rerankProviderOptions"
-                      show-config-button
-                      :config-label="$t('configure')"
-                      :selectable="false"
-                      :compact="true"
+                      show-config
+                      force-enabled
+                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openRerankConfig"
                     />
@@ -152,13 +148,11 @@
                 <div class="col-12">
                   <!-- Chat Provider Selection -->
                   <div class="q-mb-md">
-                    <ProviderSelection
-                      v-model="models.gen_ai_provider"
+                    <AiProviderGrid
                       :providers="chatProviderOptions"
-                      show-config-button
-                      :config-label="$t('configure')"
-                      :selectable="false"
-                      :compact="true"
+                      show-config
+                      force-enabled
+                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openChatConfig"
                     />
@@ -194,7 +188,7 @@ import { useTheme } from 'src/composables/useTheme'; // Added import
 import { useQuasar } from 'quasar';
 import type { Setting } from 'src/models/Setting';
 import CardSelection from 'src/components/common/CardSelection.vue';
-import ProviderSelection from 'src/components/common/ProviderSelection.vue';
+import AiProviderGrid from 'src/components/common/AiProviderGrid.vue';
 import EmbeddingConfigurationDialog from 'src/components/dialogs/EmbeddingConfigurationDialog.vue';
 import ChatConfigurationDialog from 'src/components/dialogs/ChatConfigurationDialog.vue';
 import RerankConfigurationDialog from 'src/components/dialogs/RerankConfigurationDialog.vue';

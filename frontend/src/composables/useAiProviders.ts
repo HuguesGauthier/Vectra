@@ -66,7 +66,6 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'ollama') logo = localLogo; // Reuse local logo for Ollama
         if (p.id === 'mistral') logo = mistralLogo;
 
-        // Custom Description based on model name in settings (Hybrid approach)
         let description = ''; // Only show model info if configured, otherwise empty (tagline handles base desc)
         if (p.id === 'local' && getSetting('local_embedding_model')) {
           description = `${t('modelLabel')}: ${getSetting('local_embedding_model')}`;
@@ -78,16 +77,32 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description = `${t('modelLabel')}: ${getSetting('ollama_embedding_model')}`;
         }
 
+        // Design Metadata
+        const colors: Record<string, string> = {
+          gemini: 'blue-6',
+          openai: 'green-6',
+          mistral: 'orange-10',
+          anthropic: 'brown-6',
+          local: 'blue-grey-8',
+          ollama: 'blue-grey-8',
+          cohere: 'purple-6',
+        };
+
         return {
           id: p.id,
           name: p.name,
           value: p.id,
           label: p.name,
           logo: logo,
-          tagline: p.description || undefined, // undefined matches better if optional
-          description: description || undefined,
+          tagline:
+            t(`${p.id}Tagline`) !== `${p.id}Tagline`
+              ? t(`${p.id}Tagline`)
+              : p.description || undefined,
+          description:
+            description || (t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined),
           badge: p.id === 'local' || p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'local' || p.id === 'ollama' ? 'warning' : 'info',
+          color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
           supported_models: (p.supported_models || []) as unknown as ModelInfo[],
           supported_transcription_models: (p.supported_transcription_models ||
@@ -129,16 +144,32 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           description = `${t('modelLabel')}: ${getSetting('ollama_chat_model')}`;
         }
 
+        // Design Metadata
+        const colors: Record<string, string> = {
+          gemini: 'blue-6',
+          openai: 'green-6',
+          mistral: 'orange-10',
+          anthropic: 'brown-6',
+          local: 'blue-grey-8',
+          ollama: 'blue-grey-8',
+          cohere: 'purple-6',
+        };
+
         return {
           id: p.id,
           name: p.name,
           value: p.id,
           label: p.name,
           logo: logo,
-          tagline: p.description || undefined,
-          description: description || undefined,
+          tagline:
+            t(`${p.id}Tagline`) !== `${p.id}Tagline`
+              ? t(`${p.id}Tagline`)
+              : p.description || undefined,
+          description:
+            description || (t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined),
           badge: p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'ollama' ? 'warning' : 'info',
+          color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
           supported_models: (p.supported_models || []) as unknown as ModelInfo[],
         };
@@ -153,16 +184,31 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'cohere') logo = cohereLogo;
         if (p.id === 'local') logo = localLogo;
 
+        // Design Metadata
+        const colors: Record<string, string> = {
+          gemini: 'blue-6',
+          openai: 'green-6',
+          mistral: 'orange-10',
+          anthropic: 'brown-6',
+          local: 'blue-grey-8',
+          ollama: 'blue-grey-8',
+          cohere: 'purple-6',
+        };
+
         return {
           id: p.id,
           name: p.name,
           value: p.id,
           label: p.name,
           logo: logo,
-          tagline: p.description || undefined,
-          description: undefined,
+          tagline:
+            t(`${p.id}Tagline`) !== `${p.id}Tagline`
+              ? t(`${p.id}Tagline`)
+              : p.description || undefined,
+          description: t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined,
           badge: p.id === 'local' ? t('private') : t('public'),
           badgeColor: p.id === 'local' ? 'warning' : 'info',
+          color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
           supported_models: (p.supported_models || []) as unknown as ModelInfo[],
         };
