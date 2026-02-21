@@ -136,12 +136,11 @@ class ChatService:
         ctx_metrics = self._initialize_metrics_manager()
 
         # 0. Initialize Pipeline Event
-        yield await self._emit_initialization_event(ctx_metrics, language)
+        init_span = ctx_metrics.start_span(PipelineStepType.INITIALIZATION)
+        yield await self._emit_initialization_event(init_span)
 
         try:
             # 1. Prepare Data & Context
-            init_span = ctx_metrics.start_span(PipelineStepType.INITIALIZATION)
-
             prepared_assistant = await self._load_and_detach_assistant(assistant.id)
 
             ctx = self._create_context(
@@ -159,7 +158,7 @@ class ChatService:
             # End Initialization Metrics
             init_metric = ctx.metrics.end_span(init_span)
             yield EventFormatter.format(
-                PipelineStepType.INITIALIZATION, StepStatus.COMPLETED, language, duration=init_metric.duration
+                PipelineStepType.INITIALIZATION, StepStatus.COMPLETED, init_span, duration=init_metric.duration
             )
 
             # 2. Execute Pipeline
@@ -168,15 +167,19 @@ class ChatService:
 
             # 3. Final Completion Event
             total_duration = round(time.time() - start_time, 3)
+            # Create a unique final step ID
+            completion_span_id = f"completed_{ctx_metrics._step_counter}"
+
             yield EventFormatter.format(
-                PipelineStepType.COMPLETED, StepStatus.COMPLETED, language, duration=total_duration
+                PipelineStepType.COMPLETED, StepStatus.COMPLETED, completion_span_id, duration=total_duration
             )
 
             # Record completion metric so it appears in the sequence
-            ctx.metrics.record_completed_step(
+            ctx_metrics.record_completed_step(
                 step_type=PipelineStepType.COMPLETED,
                 label=None,  # Frontend handles translation
                 duration=total_duration,
+                step_id=completion_span_id,
             )
 
             # 4. Finalize Metadata (Capture all steps including completion)
@@ -226,9 +229,9 @@ class ChatService:
         """Initializes the metrics manager for the request."""
         return ChatMetricsManager()
 
-    async def _emit_initialization_event(self, metrics: ChatMetricsManager, language: str) -> str:
+    async def _emit_initialization_event(self, step_id: str) -> str:
         """Emits the first event of the stream."""
-        return EventFormatter.format(PipelineStepType.INITIALIZATION, StepStatus.RUNNING, language)
+        return EventFormatter.format(PipelineStepType.INITIALIZATION, StepStatus.RUNNING, step_id)
 
     async def _load_and_detach_assistant(self, assistant_id: str) -> Assistant:
         """

@@ -9,6 +9,7 @@ from app.services.chat.types import ChatContext
 @pytest.fixture
 def mock_context():
     ctx = MagicMock(spec=ChatContext)
+    ctx.metadata = {}
     ctx.session_id = str(uuid4())
     ctx.message = "Hello world"
     ctx.language = "en"

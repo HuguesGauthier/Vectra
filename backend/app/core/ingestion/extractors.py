@@ -162,15 +162,19 @@ class ComboMetadataExtractor(TransformComponent):
                     text_for_extraction = text_content[:2000]
 
                     # Per-chunk progress (INFO level so user sees it)
-                    logger.info(f"🔍 Extracting metadata for chunk {i+1}/{len(nodes)} ({len(text_for_extraction)} chars)...")
+                    logger.info(
+                        f"🔍 Extracting metadata for chunk {i+1}/{len(nodes)} ({len(text_for_extraction)} chars)..."
+                    )
                     if i == 0 and settings.computed_local_workers == 0:
-                        logger.info(f"📝 Note: First chunk might be slow (Ollama loading '{self.extraction_model}' into VRAM...)")
+                        logger.info(
+                            f"📝 Note: First chunk might be slow (Ollama loading '{self.extraction_model}' into VRAM...)"
+                        )
 
                     # LLM Call with timeout to prevent ingestion hang
                     try:
                         extracted_metadata = await asyncio.wait_for(
                             self.extraction_program.acall(text_chunk=text_for_extraction),
-                            timeout=120.0  # Increased to 2m for low-end laptops
+                            timeout=120.0,  # Increased to 2m for low-end laptops
                         )
                     except asyncio.TimeoutError:
                         logger.warning(f"⌛ Extraction timed out for chunk {i} (2 min limit reached)")
@@ -255,7 +259,7 @@ class MetadataFormatter(TransformComponent):
             # We use a neutral template. The specific formatting is inside the values.
             # This fixes the ValidationError (was assigning a function instead of string)
             node.metadata_template = "{key}: {value}"
-            node.metadata_seperator = "\n\n"
+            node.metadata_separator = "\n\n"
 
         return nodes
 

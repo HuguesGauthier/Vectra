@@ -40,7 +40,8 @@ class VisualizationProcessor(BaseChatProcessor):
                 return
 
             # 2. Start Pipeline Step
-            yield EventFormatter.format(PipelineStepType.VISUALIZATION_ANALYSIS, "running", ctx.language)
+            sid = ctx.metrics.start_span(PipelineStepType.VISUALIZATION_ANALYSIS)
+            yield EventFormatter.format(PipelineStepType.VISUALIZATION_ANALYSIS, "running", sid)
             start_time = time.time()
 
             # 3. AI Decision - Should we visualize? (Synchronous check now)
@@ -53,7 +54,7 @@ class VisualizationProcessor(BaseChatProcessor):
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
-                    ctx.language,
+                    sid,
                     payload={"status": "skipped_no_request"},
                     duration=duration,
                 )
@@ -71,7 +72,7 @@ class VisualizationProcessor(BaseChatProcessor):
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
-                    ctx.language,
+                    sid,
                     payload={"status": "skipped_no_data"},
                     duration=duration,
                 )
@@ -92,7 +93,7 @@ class VisualizationProcessor(BaseChatProcessor):
             yield EventFormatter.format(
                 PipelineStepType.VISUALIZATION_ANALYSIS,
                 "completed",
-                ctx.language,
+                sid,
                 payload={"tokens": tokens},
                 duration=duration,
             )
@@ -107,8 +108,10 @@ class VisualizationProcessor(BaseChatProcessor):
 
         except Exception as e:
             logger.error(f"Visualization process failed: {e}", exc_info=True)
+            # Fetch sid from locals if created, else fallback
+            sid = locals().get("sid", "viz_failed")
             yield EventFormatter.format(
-                PipelineStepType.VISUALIZATION_ANALYSIS, "failed", ctx.language, payload={"error": str(e)}
+                PipelineStepType.VISUALIZATION_ANALYSIS, "failed", sid, payload={"error": str(e)}
             )
 
     # --- Orchestration Predicates ---

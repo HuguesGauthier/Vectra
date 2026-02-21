@@ -59,7 +59,7 @@
           <q-tooltip>Questions fréquentes</q-tooltip>
         </q-btn>
 
-        <!-- Pipeline Steps: Header Menu Location -->
+        <!-- Pipeline Steps: Header Indicator -->
         <PipelineStepsPanel
           v-if="lastBotSteps && lastBotSteps.length > 0 && isActivelyStreaming"
           :steps="lastBotSteps"
@@ -139,7 +139,8 @@ const assistantId = computed(() => route.params.assistant_id as string);
 
 const vectraChatRef = ref<InstanceType<typeof VectraChat> | null>(null);
 
-const { messages, loading, sendMessage, initializeSession, reset } = useChatStream();
+const { messages, loading, sendMessage, initializeSession, reset, setOnToken, setOnStep } =
+  useChatStream();
 
 const currentAssistant = ref<Assistant | null>(null);
 const showTrending = ref(false);

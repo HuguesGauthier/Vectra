@@ -1,18 +1,19 @@
 <template>
   <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleClose">
-
-    <q-card class="bg-primary" style="min-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
-
-
+    <q-card
+      class="bg-primary"
+      style="min-width: 500px; max-height: 80vh; display: flex; flex-direction: column"
+    >
       <q-card-section class="row items-center q-pb-none bg-secondary">
         <div class="text-h6">{{ providerName }} Configuration</div>
         <q-space />
         <q-btn icon="close" flat round dense @click="handleClose" />
-
       </q-card-section>
 
-      <q-form @submit="handleSave" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
-
+      <q-form
+        @submit="handleSave"
+        style="flex: 1; overflow: hidden; display: flex; flex-direction: column"
+      >
         <div class="dialog-body">
           <q-card-section class="q-pt-md">
             <!-- Hidden username to satisfy browser heuristics for password forms -->
@@ -25,191 +26,237 @@
             />
 
             <div class="column q-gutter-y-md">
-            <!-- Gemini Chat Configuration -->
-            <template v-if="providerId === 'gemini'">
-              <div class="text-subtitle2 q-mb-sm">{{ $t('geminiConfiguration') }}</div>
-              <q-input
-                v-model="internalModels.gemini_api_key"
-                :label="$t('apiKey')"
-                outlined
-                dense
-                type="password"
-                autocomplete="new-password"
-              />
-              <!-- Model Selection Button -->
-              <div class="model-select-btn" @click="showModelSelector = true">
-                <div class="model-select-inner">
-                  <div class="model-select-label">{{ $t('chatModel') }}</div>
-                  <div class="model-select-value">
-                    {{ getModelDisplayName(internalModels.gemini_chat_model) }}
+              <!-- Gemini Chat Configuration -->
+              <template v-if="providerId === 'gemini'">
+                <div class="text-subtitle2 q-mb-sm">{{ $t('geminiConfiguration') }}</div>
+                <q-input
+                  v-model="internalModels.gemini_api_key"
+                  :label="$t('apiKey')"
+                  outlined
+                  dense
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <!-- Model Selection Button -->
+                <div class="model-select-btn" @click="showModelSelector = true">
+                  <div class="model-select-inner">
+                    <div class="model-select-label">{{ $t('chatModel') }}</div>
+                    <div class="model-select-value">
+                      {{ getModelDisplayName(internalModels.gemini_chat_model) }}
+                    </div>
                   </div>
+                  <q-icon name="chevron_right" color="grey-5" size="20px" />
                 </div>
-                <q-icon name="chevron_right" color="grey-5" size="20px" />
-              </div>
-            </template>
+              </template>
 
-            <!-- OpenAI Chat Configuration -->
-            <template v-if="providerId === 'openai'">
-              <div class="text-subtitle2 q-mb-sm">{{ $t('openaiConfiguration') }}</div>
-              <q-input
-                v-model="internalModels.openai_api_key"
-                :label="$t('apiKey')"
-                outlined
-                dense
-                type="password"
-                autocomplete="new-password"
-              />
-              <!-- Model Selection Button -->
-              <div class="model-select-btn" @click="showModelSelector = true">
-                <div class="model-select-inner">
-                  <div class="model-select-label">{{ $t('chatModel') }}</div>
-                  <div class="model-select-value">
-                    {{ getModelDisplayName(internalModels.openai_chat_model) }}
+              <!-- OpenAI Chat Configuration -->
+              <template v-if="providerId === 'openai'">
+                <div class="text-subtitle2 q-mb-sm">{{ $t('openaiConfiguration') }}</div>
+                <q-input
+                  v-model="internalModels.openai_api_key"
+                  :label="$t('apiKey')"
+                  outlined
+                  dense
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <!-- Model Selection Button -->
+                <div class="model-select-btn" @click="showModelSelector = true">
+                  <div class="model-select-inner">
+                    <div class="model-select-label">{{ $t('chatModel') }}</div>
+                    <div class="model-select-value">
+                      {{ getModelDisplayName(internalModels.openai_chat_model) }}
+                    </div>
                   </div>
+                  <q-icon name="chevron_right" color="grey-5" size="20px" />
                 </div>
-                <q-icon name="chevron_right" color="grey-5" size="20px" />
-              </div>
-            </template>
+              </template>
 
-            <!-- Mistral Chat Configuration -->
-            <template v-if="providerId === 'mistral'">
-              <div class="text-subtitle2 q-mb-sm">{{ $t('mistralConfiguration') }}</div>
-              <q-input
-                v-model="internalModels.mistral_api_key"
-                :label="$t('apiKey')"
-                outlined
-                dense
-                type="password"
-                autocomplete="new-password"
-              />
-              <!-- Model Selection Button -->
-              <div class="model-select-btn" @click="showModelSelector = true">
-                <div class="model-select-inner">
-                  <div class="model-select-label">{{ $t('chatModel') }}</div>
-                  <div class="model-select-value">
-                    {{ getModelDisplayName(internalModels.mistral_chat_model) }}
+              <!-- Mistral Chat Configuration -->
+              <template v-if="providerId === 'mistral'">
+                <div class="text-subtitle2 q-mb-sm">{{ $t('mistralConfiguration') }}</div>
+                <q-input
+                  v-model="internalModels.mistral_api_key"
+                  :label="$t('apiKey')"
+                  outlined
+                  dense
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <!-- Model Selection Button -->
+                <div class="model-select-btn" @click="showModelSelector = true">
+                  <div class="model-select-inner">
+                    <div class="model-select-label">{{ $t('chatModel') }}</div>
+                    <div class="model-select-value">
+                      {{ getModelDisplayName(internalModels.mistral_chat_model) }}
+                    </div>
                   </div>
+                  <q-icon name="chevron_right" color="grey-5" size="20px" />
                 </div>
-                <q-icon name="chevron_right" color="grey-5" size="20px" />
-              </div>
-            </template>
+              </template>
 
-            <!-- Ollama Chat Configuration -->
-            <template v-if="providerId === 'ollama'">
-              <div class="text-subtitle2 q-mb-sm">{{ $t('ollamaConfiguration') }}</div>
-              <q-input
-                v-model="internalModels.ollama_base_url"
-                :label="$t('baseUrl')"
-                outlined
-                dense
-                :hint="$t('baseUrlHint')"
-              />
-              <!-- Model Selection Button -->
-              <div class="model-select-btn" @click="showModelSelector = true">
-                <div class="model-select-inner">
-                  <div class="model-select-label">{{ $t('chatModel') }}</div>
-                  <div class="model-select-value">
-                    {{ getModelDisplayName(internalModels.ollama_chat_model) }}
+              <!-- Anthropic Chat Configuration -->
+              <template v-if="providerId === 'anthropic'">
+                <div class="text-subtitle2 q-mb-sm">{{ $t('anthropicConfiguration') }}</div>
+                <q-input
+                  v-model="internalModels.anthropic_api_key"
+                  :label="$t('apiKey')"
+                  outlined
+                  dense
+                  type="password"
+                  autocomplete="new-password"
+                />
+                <!-- Model Selection Button -->
+                <div class="model-select-btn" @click="showModelSelector = true">
+                  <div class="model-select-inner">
+                    <div class="model-select-label">{{ $t('chatModel') }}</div>
+                    <div class="model-select-value">
+                      {{ getModelDisplayName(internalModels.anthropic_chat_model) }}
+                    </div>
                   </div>
+                  <q-icon name="chevron_right" color="grey-5" size="20px" />
                 </div>
-                <q-icon name="chevron_right" color="grey-5" size="20px" />
+              </template>
+
+              <!-- Ollama Chat Configuration -->
+              <template v-if="providerId === 'ollama'">
+                <div class="text-subtitle2 q-mb-sm">{{ $t('ollamaConfiguration') }}</div>
+                <q-input
+                  v-model="internalModels.ollama_base_url"
+                  :label="$t('baseUrl')"
+                  outlined
+                  dense
+                  :hint="$t('baseUrlHint')"
+                />
+                <!-- Model Selection Button -->
+                <div class="model-select-btn" @click="showModelSelector = true">
+                  <div class="model-select-inner">
+                    <div class="model-select-label">{{ $t('chatModel') }}</div>
+                    <div class="model-select-value">
+                      {{ getModelDisplayName(internalModels.ollama_chat_model) }}
+                    </div>
+                  </div>
+                  <q-icon name="chevron_right" color="grey-5" size="20px" />
+                </div>
+              </template>
+
+              <q-separator class="q-my-sm" />
+
+              <div class="row q-col-gutter-lg q-pt-sm">
+                <!-- Temperature Card -->
+                <div class="col-12">
+                  <q-card flat class="param-card border-sixth bg-secondary">
+                    <q-card-section class="q-pb-none">
+                      <div class="row items-center justify-between">
+                        <div class="column">
+                          <div class="text-subtitle2 text-weight-bold">{{ $t('tempTitle') }}</div>
+                          <div class="text-caption opacity-70">{{ $t('tempSubtitle') }}</div>
+                        </div>
+                        <div
+                          class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold"
+                        >
+                          {{
+                            internalModels[`${providerId}_temperature`] ||
+                            internalModels.ai_temperature
+                          }}
+                        </div>
+                      </div>
+                    </q-card-section>
+
+                    <q-card-section class="q-pt-sm">
+                      <div class="text-caption q-mb-md line-height-1-4">
+                        {{ $t('tempDesc') }}
+                      </div>
+
+                      <div class="q-gutter-y-xs q-mb-lg">
+                        <div class="explanation-note expert border-expert">
+                          {{ $t('tempExpert') }}
+                        </div>
+                        <div class="explanation-note collab border-collab">
+                          {{ $t('tempCollaborator') }}
+                        </div>
+                        <div class="explanation-note poet border-poet text-italic">
+                          {{ $t('tempPoet') }}
+                        </div>
+                      </div>
+
+                      <q-slider
+                        :model-value="
+                          Number(
+                            internalModels[`${providerId}_temperature`] ??
+                              internalModels.ai_temperature ??
+                              0.7,
+                          )
+                        "
+                        @update:model-value="
+                          (val: number | null) =>
+                            (internalModels[`${providerId}_temperature`] = val ?? undefined)
+                        "
+                        :min="0.0"
+                        :max="2.0"
+                        :step="0.1"
+                        label
+                        color="accent"
+                        markers
+                        snap
+                        class="q-px-sm"
+                      />
+                    </q-card-section>
+                  </q-card>
+                </div>
+
+                <!-- Top K Card -->
+                <div class="col-12">
+                  <q-card flat class="param-card border-sixth bg-secondary">
+                    <q-card-section class="q-pb-none">
+                      <div class="row items-center justify-between">
+                        <div class="column">
+                          <div class="text-subtitle2 text-weight-bold">{{ $t('topKTitle') }}</div>
+                          <div class="text-caption opacity-70">{{ $t('topKSubtitle') }}</div>
+                        </div>
+                        <div
+                          class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold"
+                        >
+                          {{ internalModels[`${providerId}_top_k`] || internalModels.ai_top_k }}
+                        </div>
+                      </div>
+                    </q-card-section>
+
+                    <q-card-section class="q-pt-sm">
+                      <div class="text-caption q-mb-md line-height-1-4">
+                        {{ $t('topKDesc') }}
+                      </div>
+
+                      <div class="q-gutter-y-xs q-mb-lg">
+                        <div class="explanation-note focus border-focus">
+                          {{ $t('topKSmall') }}
+                        </div>
+                        <div class="explanation-note diver border-diver">
+                          {{ $t('topKLarge') }}
+                        </div>
+                      </div>
+
+                      <q-slider
+                        :model-value="
+                          Number(
+                            internalModels[`${providerId}_top_k`] ?? internalModels.ai_top_k ?? 40,
+                          )
+                        "
+                        @update:model-value="
+                          (val: number | null) =>
+                            (internalModels[`${providerId}_top_k`] = val ?? undefined)
+                        "
+                        :min="0"
+                        :max="100"
+                        :step="1"
+                        label
+                        color="accent"
+                        class="q-px-sm"
+                      />
+                    </q-card-section>
+                  </q-card>
+                </div>
               </div>
-            </template>
-
-            <q-separator class="q-my-sm" />
-
-            <div class="row q-col-gutter-lg q-pt-sm">
-              <!-- Temperature Card -->
-              <div class="col-12">
-                <q-card flat class="param-card border-sixth bg-secondary">
-                  <q-card-section class="q-pb-none">
-                    <div class="row items-center justify-between">
-                      <div class="column">
-                        <div class="text-subtitle2 text-weight-bold">{{ $t('tempTitle') }}</div>
-                        <div class="text-caption opacity-70">{{ $t('tempSubtitle') }}</div>
-                      </div>
-                      <div class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold">
-                        {{ internalModels[`${providerId}_temperature`] || internalModels.ai_temperature }}
-                      </div>
-                    </div>
-                  </q-card-section>
-
-                  <q-card-section class="q-pt-sm">
-                    <div class="text-caption q-mb-md line-height-1-4">
-                      {{ $t('tempDesc') }}
-                    </div>
-                    
-                    <div class="q-gutter-y-xs q-mb-lg">
-                      <div class="explanation-note expert border-expert">
-                        {{ $t('tempExpert') }}
-                      </div>
-                      <div class="explanation-note collab border-collab">
-                        {{ $t('tempCollaborator') }}
-                      </div>
-                      <div class="explanation-note poet border-poet text-italic">
-                        {{ $t('tempPoet') }}
-                      </div>
-                    </div>
-
-                    <q-slider
-                      :model-value="Number(internalModels[`${providerId}_temperature`] ?? internalModels.ai_temperature ?? 0.7)"
-                      @update:model-value="(val: number | null) => internalModels[`${providerId}_temperature`] = val ?? undefined"
-                      :min="0.0"
-                      :max="2.0"
-                      :step="0.1"
-                      label
-                      color="accent"
-                      markers
-                      snap
-                      class="q-px-sm"
-                    />
-                  </q-card-section>
-                </q-card>
-              </div>
-
-              <!-- Top K Card -->
-              <div class="col-12">
-                <q-card flat class="param-card border-sixth bg-secondary">
-                  <q-card-section class="q-pb-none">
-                    <div class="row items-center justify-between">
-                      <div class="column">
-                        <div class="text-subtitle2 text-weight-bold">{{ $t('topKTitle') }}</div>
-                        <div class="text-caption opacity-70">{{ $t('topKSubtitle') }}</div>
-                      </div>
-                      <div class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold">
-                        {{ internalModels[`${providerId}_top_k`] || internalModels.ai_top_k }}
-                      </div>
-                    </div>
-                  </q-card-section>
-
-                  <q-card-section class="q-pt-sm">
-                    <div class="text-caption q-mb-md line-height-1-4">
-                      {{ $t('topKDesc') }}
-                    </div>
-
-                    <div class="q-gutter-y-xs q-mb-lg">
-                      <div class="explanation-note focus border-focus">
-                        {{ $t('topKSmall') }}
-                      </div>
-                      <div class="explanation-note diver border-diver">
-                        {{ $t('topKLarge') }}
-                      </div>
-                    </div>
-
-                    <q-slider
-                      :model-value="Number(internalModels[`${providerId}_top_k`] ?? internalModels.ai_top_k ?? 40)"
-                      @update:model-value="(val: number | null) => internalModels[`${providerId}_top_k`] = val ?? undefined"
-                      :min="0"
-                      :max="100"
-                      :step="1"
-                      label
-                      color="accent"
-                      class="q-px-sm"
-                    />
-                  </q-card-section>
-                </q-card>
-              </div>
-            </div>
             </div>
           </q-card-section>
         </div>
@@ -218,9 +265,7 @@
           <q-btn flat :label="$t('cancel')" @click="handleClose" color="grey-7" />
           <q-btn flat :label="$t('save')" type="submit" color="accent" />
         </q-card-actions>
-
       </q-form>
-
     </q-card>
   </q-dialog>
 
@@ -240,7 +285,6 @@ import ModelSelectorDialog from './ModelSelectorDialog.vue';
 import type { ModelInfo } from 'src/models/ProviderOption';
 import { useDialog } from 'src/composables/useDialog';
 import { useI18n } from 'vue-i18n';
-
 
 const props = defineProps({
   providerId: {
@@ -271,7 +315,9 @@ const { t } = useI18n();
 const internalModels = ref<Record<string, string | number | null | undefined>>({});
 const initialModels = ref<Record<string, string | number | null | undefined>>({});
 
-const isDirty = computed(() => JSON.stringify(internalModels.value) !== JSON.stringify(initialModels.value));
+const isDirty = computed(
+  () => JSON.stringify(internalModels.value) !== JSON.stringify(initialModels.value),
+);
 
 watch(
   isOpen,
@@ -284,13 +330,13 @@ watch(
   { immediate: true },
 );
 
-
 // Model key for the current provider
 const modelKey = computed(() => {
   const map: Record<string, string> = {
     gemini: 'gemini_chat_model',
     openai: 'openai_chat_model',
     mistral: 'mistral_chat_model',
+    anthropic: 'anthropic_chat_model',
     ollama: 'ollama_chat_model',
   };
   return map[props.providerId] || '';
@@ -333,7 +379,6 @@ function handleClose() {
     isOpen.value = false;
   }
 }
-
 </script>
 
 <style scoped>
@@ -437,11 +482,21 @@ function handleClose() {
   line-height: 1.35;
 }
 
-.border-expert { border-left-color: #4caf50; }
-.border-collab { border-left-color: #2196f3; }
-.border-poet { border-left-color: #9c27b0; }
-.border-focus { border-left-color: #ff9800; }
-.border-diver { border-left-color: #f44336; }
+.border-expert {
+  border-left-color: #4caf50;
+}
+.border-collab {
+  border-left-color: #2196f3;
+}
+.border-poet {
+  border-left-color: #9c27b0;
+}
+.border-focus {
+  border-left-color: #ff9800;
+}
+.border-diver {
+  border-left-color: #f44336;
+}
 
 .body--light .explanation-note {
   background: rgba(0, 0, 0, 0.03);

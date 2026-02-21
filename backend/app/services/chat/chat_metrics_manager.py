@@ -95,11 +95,7 @@ class ChatMetricsManager:
         self._step_counter += 1
 
         self.steps[span_id] = StepMetric(
-            step_type=step_type, 
-            label=label, 
-            start_time=time.time(),
-            step_id=span_id,
-            parent_id=parent_id
+            step_type=step_type, label=label, start_time=time.time(), step_id=span_id, parent_id=parent_id
         )
         # Assign sequence at START to preserve nesting order (Parent < Children)
         self.steps[span_id].sequence = self._sequence_counter
@@ -201,19 +197,6 @@ class ChatMetricsManager:
                     "sequence": s.sequence,
                     "tokens": {"input": s.input_tokens, "output": s.output_tokens},
                     "metadata": s.metadata,
-                    **({"sub_steps": [
-                        {
-                            "step_id": ss.step_id,
-                            "parent_id": ss.parent_id,
-                            "step_type": ss.step_type,
-                            "label": ss.label,
-                            "duration": ss.duration,
-                            "sequence": ss.sequence,
-                            "tokens": {"input": ss.input_tokens, "output": ss.output_tokens},
-                            "metadata": ss.metadata,
-                        }
-                        for ss in s.sub_steps
-                    ]} if s.sub_steps else {}),
                 }
                 for s in sorted_steps
             ],

@@ -38,9 +38,12 @@ def mock_qdrant_module():
 class TestVectorService:
 
     def setup_method(self):
-        # Reset shared client storage for clean testing
+        # Reset ALL shared class-level storage for clean, isolated testing
         VectorService._client = None
         VectorService._aclient = None
+        VectorService._client_lock = None
+        VectorService._aclient_lock = None
+        VectorService._model_cache.clear()
 
     @pytest.mark.asyncio
     async def test_singleton_logic(self, mock_settings_service, mock_qdrant_module):

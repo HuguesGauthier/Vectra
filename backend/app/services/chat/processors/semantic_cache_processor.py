@@ -158,7 +158,10 @@ class SemanticCacheProcessor(BaseChatProcessor):
             ctx.metrics = ChatMetricsManager()
 
     def _emit_start_event(self, ctx: ChatContext) -> str:
-        return EventFormatter.format(PipelineStepType.CACHE_LOOKUP, StepStatus.RUNNING, ctx.language)
+        ctx.metadata["_cache_lookup_id"] = ctx.metrics.start_span(PipelineStepType.CACHE_LOOKUP)
+        return EventFormatter.format(
+            PipelineStepType.CACHE_LOOKUP, StepStatus.RUNNING, ctx.metadata["_cache_lookup_id"]
+        )
 
     # --- Private Helpers: Core Logic ---
 
@@ -221,10 +224,11 @@ class SemanticCacheProcessor(BaseChatProcessor):
         return round(time.time() - start_time, ROUNDING_PRECISION)
 
     def _emit_completion_event(self, ctx: ChatContext, duration: float, is_hit: bool) -> str:
+        sid = ctx.metadata.get("_cache_lookup_id", "cache_lookup_step")
         return EventFormatter.format(
             PipelineStepType.CACHE_LOOKUP,
             StepStatus.COMPLETED,
-            ctx.language,
+            sid,
             duration=duration,
             payload={"hit": is_hit},
         )

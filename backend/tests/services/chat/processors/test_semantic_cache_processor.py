@@ -7,6 +7,7 @@ from app.services.chat.types import ChatContext, PipelineStepType
 @pytest.fixture
 def mock_context():
     ctx = MagicMock(spec=ChatContext)
+    ctx.metadata = {}
     ctx.session_id = "test_session"
     ctx.original_message = "test question"
     ctx.language = "en"

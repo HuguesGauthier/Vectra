@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 from typing import Any, Dict, Optional
+from contextvars import ContextVar
 
 from llama_index.core.callbacks.base import BaseCallbackHandler
 from llama_index.core.callbacks.schema import CBEventType
@@ -10,6 +11,9 @@ from app.services.chat.types import PipelineStepType
 from app.services.chat.tool_context import current_tool_name as _tool_name_ctx
 
 logger = logging.getLogger(__name__)
+
+# Native Tool Hierarchy Tracking (Async Safe)
+_active_tool_span: ContextVar[Optional[str]] = ContextVar("_active_tool_span", default=None)
 
 
 class StreamingCallbackHandler(BaseCallbackHandler):
@@ -42,7 +46,18 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     ) -> str:
         """Run when an event starts."""
         self._event_starts[event_id] = time.time()
-        self._obs_event(event_type, "start", payload, event_id=event_id, parent_id=parent_id)
+
+        # Decide effective parent based on current active Tool execution
+        tool_span_id = _active_tool_span.get()
+        effective_parent_id = tool_span_id if tool_span_id else parent_id
+
+        if event_type == CBEventType.FUNCTION_CALL:
+            # The tool itself shouldn't nest under a previous tool accidentally
+            effective_parent_id = parent_id
+            _active_tool_span.set(event_id)
+
+        self._obs_event(event_type, "start", payload, event_id=event_id, parent_id=effective_parent_id)
+
         return event_id
 
     def on_event_end(
@@ -54,6 +69,11 @@ class StreamingCallbackHandler(BaseCallbackHandler):
     ) -> None:
         """Run when an event ends."""
         self._obs_event(event_type, "end", payload, event_id=event_id)
+
+        # Clear Tool Execution state when finished
+        if event_type == CBEventType.FUNCTION_CALL:
+            if _active_tool_span.get() == event_id:
+                _active_tool_span.set(None)
 
     def _obs_event(
         self,
@@ -76,9 +96,18 @@ class StreamingCallbackHandler(BaseCallbackHandler):
                     # LLMMultiSelector's asyncio.gather) maintains its own copy, so
                     # parallel executions don't overwrite each other.
                     label = _tool_name_ctx.get(None)
+                elif step_type == PipelineStepType.TOOL_EXECUTION:
+                    # Enrich Tool label with provider (e.g., 'vector_search_openai' -> 'Openai')
+                    raw_tool_name = payload.get("tool", {}).name if payload and "tool" in payload else "IA"
+                    display_name = raw_tool_name
+
+                    if raw_tool_name.startswith("vector_search_"):
+                        display_name = raw_tool_name.replace("vector_search_", "").capitalize()
+
+                    label = f"Exécution Outil IA ({display_name})" if display_name != "IA" else "Exécution Outil IA"
                 else:
                     label = None
-                self._event_map[event_id] = {"step_type": step_type, "label": label}
+                self._event_map[event_id] = {"step_type": step_type, "label": label, "parent_id": parent_id}
 
         # Phase 2: Processing & Recovery (End Phase)
         else:
@@ -86,6 +115,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
             if stored:
                 step_type = stored["step_type"]
                 label = stored.get("label")
+                parent_id = stored.get("parent_id", "")
             else:
                 return
 

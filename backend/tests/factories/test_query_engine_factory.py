@@ -150,6 +150,9 @@ async def test_create_engine_hybrid_success(factory, mock_vector_service, mock_s
         ) as mock_chat_provider,
         patch("app.factories.query_engine_factory.RouterQueryEngine") as mock_router_cls,
         patch("app.factories.query_engine_factory.LLMMultiSelector") as mock_selector_cls,
+        # LlamaSettings.llm setter calls resolve_llm() which asserts isinstance(llm, LLM).
+        # Patch the Settings object to bypass that validation in unit tests.
+        patch("app.factories.query_engine_factory.LlamaSettings") as mock_llama_settings,
     ):
         mock_settings = mock_settings_cls.return_value
         mock_settings.load_cache = AsyncMock()
@@ -161,6 +164,9 @@ async def test_create_engine_hybrid_success(factory, mock_vector_service, mock_s
         mock_vector_service.get_query_engine.assert_called_once()
         mock_sql_service.get_engine.assert_called_once()
         mock_router_cls.assert_called_once()
+
+        # Verify the global LLM was temporarily overridden (then restored)
+        assert mock_llama_settings.llm is not None
 
         # Verify Router LLM was created via ChatEngineFactory
         mock_chat_provider.assert_called_once_with(mock_assistant.model_provider, mock_settings)

@@ -112,9 +112,13 @@ class AgenticProcessor(BaseChatProcessor):
             # Clean up ephemeral processing metadata to avoid serialization issues later
             if "_emitted_step_ids" in ctx.metadata:
                 del ctx.metadata["_emitted_step_ids"]
-            
-            # Close the agentic span if not done (e.g. on error)
-            if not csv_handled and not viz_shortcut:
+
+            # Close the agentic span if not done (e.g. on error).
+            # Use local flags; they are guaranteed to be bound since the try block
+            # initialises them before any yield that could raise.
+            _csv = locals().get("csv_handled", False)
+            _viz = locals().get("viz_shortcut", False)
+            if not _csv and not _viz:
                 # We try to end it; MetricsManager will ignore if already ended
                 ctx.metrics.end_span(agentic_span_id)
 
@@ -269,7 +273,7 @@ class AgenticProcessor(BaseChatProcessor):
                 duration=duration,
                 payload=payload,
             )
-            ctx.metrics.end_span(sid, payload=payload)
+            # NOTE: end_span already called above — do NOT call again here.
 
         except Exception as e:
             logger.warning(f"Failed to condense question: {e}")
@@ -384,7 +388,7 @@ class AgenticProcessor(BaseChatProcessor):
             start_init = time.time()
             engine = await self._initialize_engine(ctx, stream_handler)
             dur_init = round(time.time() - start_init, 3)
-            ctx.metrics.end_span(sid_init)
+            ctx.metrics.end_span(sid_init, payload={"is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.COMPLETED,
@@ -393,16 +397,20 @@ class AgenticProcessor(BaseChatProcessor):
                 duration=dur_init,
                 payload={"is_substep": True},
             )
+            # NOTE: _record_router_metric removed here — end_span above already records
+            # the completed step in ChatMetricsManager, preventing double entries.
 
             logger.info(f"[AgenticProcessor:Router] Engine ready in {dur_init}s. Launching query...")
-
-            self._record_router_metric(ctx, PipelineStepType.ROUTER_PROCESSING, None, dur_init, {"is_substep": True}, parent_id=parent_span_id)
 
             # B. Launch Query & Background Tasks
             # CRITICAL FIX: RouterQueryEngine doesn't have astream_query()
             # We need to call the synchronous query() method, which returns a StreamingResponse
             # if the underlying SQL engine has streaming=True
-            logger.info("[AgenticProcessor] Calling query() for Router...")
+            # STREAMING FIX: Use aquery (native async) instead of wrapping sync query() in a thread.
+            # asyncio.to_thread() forces the entire response to be buffered before tokens arrive,
+            # which is why the response appeared "all at once". aquery() lets the event loop
+            # yield tokens as they are generated.
+            logger.info("[AgenticProcessor] Calling aquery() for Router (async streaming)...")
 
             # Emit step to show user we're executing the query
             sid_query = ctx.metrics.start_span(PipelineStepType.QUERY_EXECUTION, parent_id=parent_span_id)
@@ -411,32 +419,30 @@ class AgenticProcessor(BaseChatProcessor):
             )
             start_query = time.time()
 
-            # Run the blocking query() call in a thread to avoid blocking the event loop
-            # Execute the query. We avoid passing a pre-computed embedding via QueryBundle
-            # because the Router might delegate to tools with different dimensions (e.g., Ollama vs Gemini).
-            router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
-
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
-            # C. Consume Events — parent all internal reasoning to the query execution span
-            async for event in self._consume_event_queue(event_queue, router_task):
-                yield self._process_router_event(ctx, event, parent_id=sid_query)
-
-            # Wait for result with Circuit Breaker
+            # Execute query natively async — no thread wrapping needed.
+            # We still apply the circuit-breaker timeout for safety.
             try:
-                response = await asyncio.wait_for(router_task, timeout=TIMEOUT_ROUTER_QUERY)
+                response = await asyncio.wait_for(
+                    engine.aquery(ctx.message),
+                    timeout=TIMEOUT_ROUTER_QUERY,
+                )
             except asyncio.TimeoutError:
-                logger.warning(f"Router Query Timed Out ({TIMEOUT_ROUTER_QUERY}s). Cancelling task...")
-                router_task.cancel()
-                try:
-                    await router_task
-                except asyncio.CancelledError:
-                    logger.info("Router task cancelled successfully.")
+                logger.warning(f"Router Query Timed Out ({TIMEOUT_ROUTER_QUERY}s).")
                 raise TimeoutError(f"Query timed out after {TIMEOUT_ROUTER_QUERY}s")
+
+            # C. Flush any callback events produced during aquery
+            while not event_queue.empty():
+                try:
+                    event = event_queue.get_nowait()
+                    yield self._process_router_event(ctx, event, parent_id=sid_query)
+                except asyncio.QueueEmpty:
+                    break
 
             # Mark query as completed
             dur_query = round(time.time() - start_query, 3)
-            ctx.metrics.end_span(sid_query)
+            ctx.metrics.end_span(sid_query, payload={"is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.QUERY_EXECUTION,
                 StepStatus.COMPLETED,
@@ -500,6 +506,8 @@ class AgenticProcessor(BaseChatProcessor):
 
             await embedding_task
             ctx.should_stop = True
+            # Note: event_queue is not consumed after synthesis because aquery() is
+            # synchronous from the caller perspective once the response object is returned.
 
         except Exception as e:
             logger.error(f"Agentic Router Critical Failure: {e}", exc_info=True)
@@ -619,7 +627,7 @@ class AgenticProcessor(BaseChatProcessor):
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
 
@@ -643,7 +651,7 @@ class AgenticProcessor(BaseChatProcessor):
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
             else:
@@ -661,6 +669,17 @@ class AgenticProcessor(BaseChatProcessor):
                             ctx.metadata["content_blocks"] = []
                         ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
                         yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
+
+                # Drain the queue — the non-streaming path also fires on_llm_end
+                # callbacks (e.g. ROUTER_REASONING completed) that must be forwarded
+                # to the frontend so the step transitions from orange → green.
+                if event_queue:
+                    while not event_queue.empty():
+                        try:
+                            cb_event = event_queue.get_nowait()
+                            yield self._process_router_event(ctx, cb_event)
+                        except asyncio.QueueEmpty:
+                            break
 
         except Exception as e:
             logger.error(f"Stream Error: {e}")

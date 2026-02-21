@@ -41,11 +41,12 @@ llama-index-storage-chat-store-postgres==0.3.2
 # LlamaIndex LLMs
 llama-index-llms-google-genai==0.8.3
 llama-index-llms-mistralai
+llama-index-llms-anthropic
 llama-index-llms-ollama
 llama-index-llms-openai-like
 
 # LlamaIndex Embeddings
-llama-index-embeddings-gemini
+llama-index-embeddings-google-genai
 llama-index-embeddings-openai
 llama-index-embeddings-ollama
 

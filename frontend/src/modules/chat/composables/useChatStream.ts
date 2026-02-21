@@ -84,6 +84,18 @@ export function useChatStream() {
 
   let abortController: AbortController | null = null;
 
+  // --- Direct callbacks for bypassing Vue reactivity batching ---
+  // These fire synchronously per SSE event, unlike Vue watchers which batch.
+  let _onTokenCallback: ((token: string) => void) | null = null;
+  let _onStepCallback: ((step: ChatStep) => void) | null = null;
+
+  const setOnToken = (cb: ((token: string) => void) | null) => {
+    _onTokenCallback = cb;
+  };
+  const setOnStep = (cb: ((step: ChatStep) => void) | null) => {
+    _onStepCallback = cb;
+  };
+
   // Cleanup on unmount
   onUnmounted(() => {
     if (abortController) abortController.abort();
@@ -138,89 +150,62 @@ export function useChatStream() {
             }
           }
 
-          // Regenerate step labels from step_type (labels are not saved in DB)
+          // Rebuild step labels and hierarchy from stored data.
+          // The backend returns steps with sub_steps already nested (via get_summary).
+          // We only need to regenerate i18n labels and isSubStep flags here.
           if (msg.steps && msg.steps.length > 0) {
-            msg.steps = msg.steps.map((step) => {
-              // Generate label from step_type using i18n
-              let label = t(`pipelineSteps.${step.step_type}`) || step.step_type;
+            const enrichStep = (step: ChatStep, inherited_parent_id?: string): ChatStep => {
+              // Prefer explicit parent_id, then inherited from recursive call
+              const parent_id = step.parent_id || inherited_parent_id;
+              const isSubStep = !!parent_id;
 
-              // Append model name if available in metadata (for history reload)
+              // Let the backend override the default translated label if specified
+              let label = step.label || t(`pipelineSteps.${step.step_type}`) || step.step_type;
+
               const modelName = step.metadata?.model_name as string | undefined;
               const modelProvider = step.metadata?.model_provider as string | undefined;
 
               if (modelName) {
-                let displayModel = modelName;
-                if (modelProvider) {
-                  const providerMap: Record<string, string> = {
-                    openai: 'OpenAI',
-                    gemini: 'Google',
-                    mistral: 'Mistral',
-                    ollama: 'Ollama',
-                    anthropic: 'Anthropic',
-                    cohere: 'Cohere',
-                  };
-                  const displayProvider =
-                    providerMap[modelProvider.toLowerCase()] ||
-                    modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1);
-                  displayModel = `${displayProvider} - ${modelName}`;
-                }
+                const providerMap: Record<string, string> = {
+                  openai: 'OpenAI',
+                  gemini: 'Google',
+                  mistral: 'Mistral',
+                  ollama: 'Ollama',
+                  anthropic: 'Anthropic',
+                  cohere: 'Cohere',
+                };
+                const displayProvider = modelProvider
+                  ? providerMap[modelProvider.toLowerCase()] ||
+                    modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1)
+                  : '';
+                const displayModel = displayProvider
+                  ? `${displayProvider} - ${modelName}`
+                  : modelName;
                 label = `${label} (${displayModel})`;
               }
 
-              // Map is_substep from metadata to isSubStep
-              // Check both metadata.is_substep and direct is_substep property
-              const isSubStep =
-                (step.metadata?.is_substep as boolean | undefined) ||
-                ((step as unknown as Record<string, unknown>).is_substep as boolean | undefined) ||
-                false;
+              // Recursively enrich sub_steps
+              const sub_steps = step.sub_steps?.map((ss) => enrichStep(ss, step.step_id));
 
-              return {
-                ...step,
-                label,
-                isSubStep,
-              };
-            });
+              return { ...step, parent_id, label, isSubStep, sub_steps };
+            };
 
-            // Generate 'completed' summary step if not present (only for assistant messages)
+            msg.steps = msg.steps.map((step) => enrichStep(step));
+
+            // Generate 'completed' summary step if not present (only for bot messages)
             if (msg.sender === 'bot') {
               const hasCompletedStep = msg.steps.some((s) => s.step_type === 'completed');
 
               if (!hasCompletedStep && msg.steps.length > 0) {
-                // Calculate totals from all steps
-                const totalInput = msg.steps.reduce((acc, s) => acc + (s.tokens?.input || 0), 0);
-                const totalOutput = msg.steps.reduce((acc, s) => acc + (s.tokens?.output || 0), 0);
+                // Flatten all steps to compute totals
+                const flattenAll = (steps: ChatStep[]): ChatStep[] =>
+                  steps.flatMap((s) => [s, ...flattenAll(s.sub_steps || [])]);
+                const allSteps = flattenAll(msg.steps);
 
-                // CRITICAL FIX: Don't sum durations (steps overlap in parallel)
-                // Instead, find the actual elapsed time from start to last completion
-                // Use the end_time of the last completed step as total duration
-                let totalDuration = 0;
-                if (msg.steps.length > 0) {
-                  // Find the step with the latest end time
-                  const lastStep = msg.steps.reduce((latest, current) => {
-                    const currentStart = (current.metadata?.start_time as number | undefined) ?? 0;
-                    const latestStart = (latest.metadata?.start_time as number | undefined) ?? 0;
-                    const currentEnd = currentStart + (current.duration || 0);
-                    const latestEnd = latestStart + (latest.duration || 0);
-                    return currentEnd > latestEnd ? current : latest;
-                  });
+                const totalInput = allSteps.reduce((acc, s) => acc + (s.tokens?.input || 0), 0);
+                const totalOutput = allSteps.reduce((acc, s) => acc + (s.tokens?.output || 0), 0);
+                const totalDuration = Math.max(...allSteps.map((s) => s.duration || 0));
 
-                  // Calculate total elapsed time from first step start to last step end
-                  const starts = msg.steps
-                    .map((s) => (s.metadata?.start_time as number | undefined) ?? 0)
-                    .filter((t) => t > 0);
-                  const firstStepStart = starts.length > 0 ? Math.min(...starts) : 0;
-                  const lastStepStart = (lastStep.metadata?.start_time as number | undefined) ?? 0;
-                  const lastStepEnd = lastStepStart + (lastStep.duration || 0);
-
-                  if (firstStepStart > 0 && lastStepEnd > 0) {
-                    totalDuration = Math.round((lastStepEnd - firstStepStart) * 1000) / 1000;
-                  } else {
-                    // Fallback: use the longest single step duration if timestamps unavailable
-                    totalDuration = Math.max(...msg.steps.map((s) => s.duration || 0));
-                  }
-                }
-
-                // Add completed step at the beginning (create new array for reactivity)
                 const completedStep: ChatStep = {
                   step_id: 'summary_completed',
                   parent_id: undefined,
@@ -298,12 +283,12 @@ export function useChatStream() {
         const text = event.content || '';
         botMsg.text += text;
 
-        // Update or create text block
+        // Fire direct callback BEFORE Vue batches the update
+        if (_onTokenCallback) _onTokenCallback(text);
 
         // Update or create text block
         const lastBlock = botMsg.contentBlocks[botMsg.contentBlocks.length - 1];
         if (lastBlock?.type === 'text') {
-          // Cast to string safely or stringify if needed, but token content is string
           lastBlock.data = (lastBlock.data as string) + text;
         } else {
           botMsg.contentBlocks.push({ type: 'text', data: text });
@@ -320,8 +305,15 @@ export function useChatStream() {
         });
         break;
 
-      case 'step':
-        return handleStepEvent(botMsg, event);
+      case 'step': {
+        const stepResult = handleStepEvent(botMsg, event);
+        // Fire step callback with the resolved step
+        if (_onStepCallback && botMsg.steps && botMsg.steps.length > 0) {
+          const lastStep = botMsg.steps[botMsg.steps.length - 1];
+          if (lastStep) _onStepCallback(lastStep);
+        }
+        return stepResult;
+      }
 
       case 'sources':
         botMsg.sources = processSources(event.data || []);
@@ -347,9 +339,7 @@ export function useChatStream() {
   ): boolean {
     if (!botMsg.steps) botMsg.steps = [];
 
-    // Suppress noisy internal steps
-    if (event.step_type === 'tool_execution' || event.step_type === 'router_reasoning')
-      return false;
+    // No step suppression: all steps are shown for full transparency.
 
     // 1. Resolve Label (Frontend-only translation)
     const baseLabel = t(`pipelineSteps.${event.step_type}`) || event.step_type;
@@ -369,8 +359,12 @@ export function useChatStream() {
         let displayModel = modelName;
         if (typeof modelProvider === 'string' && modelProvider) {
           const providerMap: Record<string, string> = {
-            openai: 'OpenAI', gemini: 'Google', mistral: 'Mistral',
-            ollama: 'Ollama', anthropic: 'Anthropic', cohere: 'Cohere',
+            openai: 'OpenAI',
+            gemini: 'Google',
+            mistral: 'Mistral',
+            ollama: 'Ollama',
+            anthropic: 'Anthropic',
+            cohere: 'Cohere',
           };
           const displayProvider = providerMap[modelProvider.toLowerCase()] || modelProvider;
           displayModel = `${displayProvider} - ${modelName}`;
@@ -582,5 +576,7 @@ export function useChatStream() {
     loadHistory,
     reset,
     instanceId,
+    setOnToken,
+    setOnStep,
   };
 }
