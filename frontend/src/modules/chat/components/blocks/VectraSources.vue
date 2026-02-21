@@ -3,6 +3,7 @@
     class="sources-block q-my-sm"
     header-class="header-bg"
     expand-icon-class="text-grey-4"
+    expand-icon="arrow_drop_down"
   >
     <template v-slot:header>
       <div class="row items-center full-width">

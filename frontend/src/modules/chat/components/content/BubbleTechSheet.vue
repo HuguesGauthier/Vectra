@@ -6,6 +6,7 @@
       header-class="q-px-none q-py-xs"
       header-style="min-height: unset"
       :expand-icon-class="`text-[${metadataTextColor}]`"
+      expand-icon="arrow_drop_down"
       style="border-radius: 10px"
       v-model="expanded"
     >

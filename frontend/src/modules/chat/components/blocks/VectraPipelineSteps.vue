@@ -2,11 +2,11 @@
   <q-expansion-item
     class="pipeline-steps-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-grey-4"
+    expand-icon="arrow_drop_down"
   >
     <template v-slot:header>
       <div class="row items-center full-width no-wrap">
-        <q-icon name="route" size="xs" class="q-mr-sm text-grey-4" />
+        <q-icon name="route" size="xs" class="q-mr-sm" />
         <div class="text-subtitle2 text-weight-bold flex-1 ellipsis">
           {{ $t('pipelineSteps.title') || 'Pipeline Steps' }}
           <span class="text-caption text-weight-regular q-ml-xs opacity-60">
@@ -28,7 +28,7 @@
       </div>
     </template>
 
-    <q-card class="transparent-bg shadow-none">
+    <q-card class="bg-transparent shadow-none">
       <q-card-section class="q-pt-none q-pb-md px-lg">
         <div
           class="steps-tree column q-ml-sm q-mt-sm"
@@ -246,10 +246,6 @@ const StepNode = defineComponent({
 
 .header-bg {
   background: rgba(0, 0, 0, 0.2);
-}
-
-.transparent-bg {
-  background: transparent !important;
 }
 
 .badge-pill {
