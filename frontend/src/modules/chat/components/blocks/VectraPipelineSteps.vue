@@ -2,32 +2,27 @@
   <q-expansion-item
     class="pipeline-steps-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-primary"
+    expand-icon-class="text-grey-4"
   >
     <template v-slot:header>
-      <div class="row items-center full-width">
-        <q-icon name="route" size="sm" class="q-mr-sm text-primary" />
-        <div class="text-subtitle2 text-weight-bold flex-1">
+      <div class="row items-center full-width no-wrap">
+        <q-icon name="route" size="xs" class="q-mr-sm text-grey-4" />
+        <div class="text-subtitle2 text-weight-bold flex-1 ellipsis">
           {{ $t('pipelineSteps.title') || 'Pipeline Steps' }}
+          <span class="text-caption text-weight-regular q-ml-xs opacity-60">
+            ({{ completedCount }} {{ $t('pipelineSteps.completed') || 'Completed' }})
+          </span>
         </div>
 
-        <!-- Summary Badges -->
-        <div class="row q-gutter-x-sm q-ml-sm text-caption">
-          <!-- Status Counts -->
-          <div class="badge-pill bg-opacity">
-            <span class="text-positive">{{ completedCount }} ✓</span>
-            <span v-if="failedCount > 0" class="text-negative q-ml-xs">{{ failedCount }} ✕</span>
+        <!-- Summary Metrics aligned to columns -->
+        <div class="row no-wrap items-center q-ml-md">
+          <div style="width: 80px" class="row justify-end">
+            <div class="badge-pill bg-opacity">{{ totalDuration.toFixed(2) }}s</div>
           </div>
-
-          <!-- Duration -->
-          <div class="badge-pill bg-opacity">
-            <q-icon name="timer" size="14px" class="q-mr-xs" />
-            {{ totalDuration.toFixed(2) }}s
-          </div>
-
-          <!-- Tokens -->
-          <div v-if="totalInputTokens > 0 || totalOutputTokens > 0" class="badge-pill bg-opacity">
-            ↑{{ totalInputTokens }} ↓{{ totalOutputTokens }}
+          <div style="width: 110px" class="row justify-end q-ml-sm">
+            <div v-if="totalInputTokens > 0 || totalOutputTokens > 0" class="badge-pill bg-opacity">
+              ↑{{ totalInputTokens }} ↓{{ totalOutputTokens }}
+            </div>
           </div>
         </div>
       </div>
@@ -39,7 +34,8 @@
           class="steps-tree column q-ml-sm q-mt-sm"
           style="border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 12px"
         >
-          <StepNode
+          <component
+            :is="StepNode"
             v-for="(step, index) in filteredRootSteps"
             :key="step.step_id || index"
             :step="step"
@@ -52,14 +48,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, h, defineComponent } from 'vue';
+import type { VNode } from 'vue';
+import { QTooltip } from 'quasar';
+import messages from 'src/i18n';
 import type { ChatStep } from '../../composables/useChatStream';
-
-// Helper component for recursive rendering
-// We declare it inline in the script setup,
-// but Vue doesn't support recursive components fully inline without a name,
-// so we'll just use a small scoped component definition or generate flat HTML.
-// Better: We can flatten the tree and render with padding, or use a local component.
 
 const props = defineProps<{
   steps: ChatStep[];
@@ -92,17 +85,12 @@ const completedCount = computed(() => {
   ).length;
 });
 
-const failedCount = computed(() => {
-  return props.steps.filter((s) => s.status === 'failed' && !s.parent_id).length;
-});
-
 // --- Hierarchy Reconstruction ---
 
 const rootTree = computed(() => {
   const stepMap = new Map<string, ChatStep>();
   const roots: ChatStep[] = [];
 
-  // Pass 1: Flatten
   const flattenToMap = (itemList: ChatStep[]) => {
     itemList.forEach((s) => {
       const copy = { ...s, sub_steps: [] as ChatStep[] };
@@ -115,7 +103,6 @@ const rootTree = computed(() => {
   };
   flattenToMap(props.steps);
 
-  // Pass 2: Link
   stepMap.forEach((step) => {
     if (step.parent_id && stepMap.has(step.parent_id)) {
       const parent = stepMap.get(step.parent_id)!;
@@ -131,18 +118,11 @@ const rootTree = computed(() => {
   return roots;
 });
 
-// Filter out the artificial 'completed' summary step from top level display
 const filteredRootSteps = computed(() => {
   return rootTree.value.filter((s) => s.step_type !== 'completed');
 });
-</script>
 
-<script lang="ts">
-import { defineComponent, h } from 'vue';
-import type { VNode } from 'vue';
-import messages from 'src/i18n';
-
-// Local Recursive Component for Step Nodes
+// --- Recursive StepNode component ---
 const StepNode = defineComponent({
   name: 'StepNode',
   props: {
@@ -150,11 +130,10 @@ const StepNode = defineComponent({
     level: { type: Number, default: 0 },
     isLast: { type: Boolean, default: false },
   },
-  setup(props) {
-    // Instead of complex render functions, we'll write a simple template block inside setup
+  setup(nodeProps) {
     return (): VNode => {
-      const step = props.step as ChatStep;
-      const level = props.level;
+      const step = nodeProps.step as ChatStep;
+      const level = nodeProps.level;
 
       const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
       const statusColor =
@@ -172,10 +151,12 @@ const StepNode = defineComponent({
           : '';
 
       const locale = localStorage.getItem('app_language') || 'en-US';
-      const localeMessages = (messages as any)[locale]; // eslint-disable-line @typescript-eslint/no-explicit-any
-      const tooltip = localeMessages?.stepDescriptions?.[step.step_type] || step.step_type;
+      const localeMessages = (messages as Record<string, Record<string, unknown>>)[locale];
+      const stepDescriptions = localeMessages?.stepDescriptions as
+        | Record<string, string>
+        | undefined;
+      const tooltip = stepDescriptions?.[step.step_type] || step.step_type;
 
-      // The main row
       const rowNode = h(
         'div',
         {
@@ -187,41 +168,52 @@ const StepNode = defineComponent({
           },
         },
         [
-          // Connector lines (handled by CSS borders typically, but we use a simpler layout here)
           h(
             'div',
             { class: `q-mr-sm text-weight-bold ${statusColor}` },
             level > 0 ? `↳ ${statusIcon}` : statusIcon,
           ),
 
-          // Label
           h(
             'div',
             {
               class: 'ellipsis flex-1 cursor-pointer',
               style: { fontWeight: level > 0 ? 400 : 500 },
-              title: tooltip,
             },
-            step.label,
+            [
+              h('span', {}, step.label),
+              h(
+                QTooltip,
+                {
+                  class: 'custom-tooltip shadow-4',
+                  offset: [0, 8],
+                  anchor: 'bottom middle',
+                  self: 'top middle',
+                },
+                () => tooltip,
+              ),
+            ],
           ),
 
-          // Metrics (right aligned)
-          h('div', { class: 'row q-gutter-x-sm text-caption text-mono opacity-80' }, [
-            durationText ? h('span', { class: 'metric-badge' }, durationText) : null,
-            tokensText ? h('span', { class: 'metric-badge' }, tokensText) : null,
+          // Metrics (columns)
+          h('div', { class: 'row no-wrap items-center text-caption text-mono opacity-80' }, [
+            h('div', { style: { width: '80px' }, class: 'row justify-end' }, [
+              durationText ? h('span', { class: 'metric-badge' }, durationText) : null,
+            ]),
+            h('div', { style: { width: '110px' }, class: 'row justify-end q-ml-sm' }, [
+              tokensText ? h('span', { class: 'metric-badge' }, tokensText) : null,
+            ]),
           ]),
         ],
       );
 
-      // Children
       let childrenNode = null;
       if (step.sub_steps && step.sub_steps.length > 0) {
-        const childrenList = (step.sub_steps || []).map((child: ChatStep, idx: number): VNode => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return h(StepNode as any, {
+        const childrenList = step.sub_steps.map((child: ChatStep, idx: number): VNode => {
+          return h(StepNode, {
             step: child,
             level: level + 1,
-            isLast: idx === (step.sub_steps?.length || 0) - 1,
+            isLast: idx === step.sub_steps!.length - 1,
           });
         });
 
@@ -246,8 +238,8 @@ const StepNode = defineComponent({
 
 <style scoped>
 .pipeline-steps-block {
-  background: rgba(255, 255, 255, 0.05); /* slightly more visible to contrast without borders */
-  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -282,5 +274,22 @@ const StepNode = defineComponent({
 
 ::v-deep(.text-mono) {
   font-family: 'Courier New', Courier, monospace;
+}
+</style>
+
+<style>
+/* Global styles for teleported tooltips */
+.custom-tooltip {
+  background: linear-gradient(135deg, var(--q-primary) 0%, var(--q-secondary) 100%) !important;
+  border: 1px solid var(--q-third) !important;
+  border-radius: 10px !important;
+  padding: 10px 16px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: var(--q-text-third) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+  max-width: 320px !important;
+  backdrop-filter: blur(4px);
 }
 </style>

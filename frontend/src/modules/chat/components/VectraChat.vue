@@ -54,19 +54,6 @@
       </div>
     </div>
 
-    <!-- Scroll to bottom FAB -->
-    <transition name="q-transition--scale">
-      <q-btn
-        v-if="showScrollToBottom"
-        fab-mini
-        icon="arrow_downward"
-        color="secondary"
-        class="scroll-to-bottom-btn shadow-4 absolute"
-        style="bottom: 90px; right: 24px; z-index: 10"
-        @click="scrollToBottom(true)"
-      />
-    </transition>
-
     <div class="input-container-wrapper q-pa-md">
       <VectraChatInput
         ref="chatInputRef"
@@ -82,6 +69,7 @@
 import { ref, computed, watch, onUnmounted, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { assistantService, type Assistant } from 'src/services/assistantService';
+import { usePublicChatStore } from 'src/stores/publicChatStore';
 import type { ChatMessage } from '../composables/useChatStream';
 
 import VectraChatMessage from './VectraChatMessage.vue';
@@ -101,6 +89,7 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
+const store = usePublicChatStore();
 
 // Refs
 const scrollContainerRef = ref<HTMLElement | null>(null);
@@ -115,7 +104,7 @@ const assistantAvatarBlob = ref<string | null>(null);
 
 const customCssVars = computed(() => {
   return {
-    '--chat-font-size': '15px', // Removed store.fontSize dependency for now or pass as prop
+    '--chat-font-size': `${store.fontSize}px`,
   };
 });
 
@@ -194,19 +183,20 @@ const handleScroll = () => {
   const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.value;
   const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-  // If user scrolled up more than 50px, they are considered to be manually scrolling
-  isUserScrolling.value = distanceFromBottom > 50;
-  showScrollToBottom.value = distanceFromBottom > 150;
+  // If user scrolled up more than 100px, they are considered to be manually scrolling
+  isUserScrolling.value = distanceFromBottom > 100;
+  showScrollToBottom.value = false; // Always false now that FAB is removed
 };
 
 const scrollToBottom = async (force = false) => {
   await nextTick();
   if (!scrollContainerRef.value) return;
 
-  if (force || !isUserScrolling.value) {
+  // If generating (loading) or forced, and not scrolled up too far, auto-scroll to bottom
+  if (force || !isUserScrolling.value || props.loading) {
     scrollContainerRef.value.scrollTo({
       top: scrollContainerRef.value.scrollHeight,
-      behavior: force ? 'smooth' : 'auto',
+      behavior: 'auto',
     });
   }
 };

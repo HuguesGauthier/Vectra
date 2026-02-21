@@ -1,17 +1,18 @@
 <template>
   <q-expansion-item
-    class="data-table-block q-my-sm shadow-1"
+    class="data-table-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-primary"
+    expand-icon-class="text-grey-4"
   >
     <template v-slot:header>
       <div class="row items-center full-width">
-        <q-icon name="analytics" size="sm" class="q-mr-sm text-primary" />
+        <q-icon name="analytics" size="xs" class="q-mr-sm text-grey-4" />
         <div class="text-subtitle2 text-weight-bold flex-1">
           {{ $t('dataPreview') || 'Data Preview' }}
         </div>
-        <div class="text-caption text-grey-5 q-ml-sm">
-          ({{ rows.length }} rows, {{ columns?.length || 0 }} columns)
+        <div class="row q-gutter-x-sm q-ml-sm text-caption">
+          <div class="badge-pill bg-opacity">{{ rows.length }} {{ $t('rows') }}</div>
+          <div class="badge-pill bg-opacity">{{ columns?.length || 0 }} {{ $t('columns') }}</div>
         </div>
       </div>
     </template>
@@ -65,7 +66,6 @@ const columns = computed(() => {
   } else if (props.data?.columns) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return props.data.columns.map((c: any) => ({
-       
       name: c.name || c,
       field: c.name || c,
       label: c.label || c.name || c,
@@ -97,6 +97,19 @@ const columns = computed(() => {
   max-height: 400px;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badge-pill {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+}
+
+.bg-opacity {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Custom scrollbar for table container */

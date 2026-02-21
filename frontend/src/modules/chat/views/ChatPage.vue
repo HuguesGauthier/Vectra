@@ -139,8 +139,7 @@ const assistantId = computed(() => route.params.assistant_id as string);
 
 const vectraChatRef = ref<InstanceType<typeof VectraChat> | null>(null);
 
-const { messages, loading, sendMessage, initializeSession, reset, setOnToken, setOnStep } =
-  useChatStream();
+const { messages, loading, sendMessage, initializeSession, reset } = useChatStream();
 
 const currentAssistant = ref<Assistant | null>(null);
 const showTrending = ref(false);

@@ -2,16 +2,17 @@
   <q-expansion-item
     class="sources-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-primary"
+    expand-icon-class="text-grey-4"
   >
     <template v-slot:header>
       <div class="row items-center full-width">
-        <q-icon name="description" size="sm" class="q-mr-sm text-primary" />
+        <q-icon name="description" size="xs" class="q-mr-sm text-grey-4" />
         <div class="text-subtitle2 text-weight-bold flex-1">
           {{ $t('sources') || 'Sources' }}
         </div>
         <div class="text-caption text-grey-5 q-ml-sm">
-          ({{ totalSources }} from {{ fileCount }} {{ fileCount === 1 ? 'file' : 'files' }})
+          ({{ totalSources }} {{ $t('from') }} {{ fileCount }}
+          {{ fileCount === 1 ? $t('file') : $t('files') }})
         </div>
       </div>
     </template>
@@ -44,7 +45,8 @@
               text-color="dark"
               class="q-px-sm text-caption text-weight-medium bg-opacity-2"
             >
-              {{ group.items.length }} {{ group.items.length === 1 ? 'excerpt' : 'excerpts' }}
+              {{ group.items.length }}
+              {{ group.items.length === 1 ? $t('excerpt') : $t('excerpts') }}
             </q-chip>
 
             <q-space />
@@ -90,7 +92,7 @@
                   v-if="getPageLabel(source)"
                   class="text-caption text-blue-3 q-mb-xs text-weight-medium"
                 >
-                  Page {{ getPageLabel(source) }}
+                  {{ $t('page') }} {{ getPageLabel(source) }}
                 </div>
                 <div class="source-content text-caption text-grey-4">
                   {{ truncateContent(source.content, 200) }}
@@ -179,8 +181,8 @@ const truncateContent = (content?: string, length = 150) => {
 
 <style scoped>
 .sources-block {
-  background: rgba(255, 255, 255, 0.05); /* slightly more visible to contrast without borders */
-  border: none;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   overflow: hidden;
 }

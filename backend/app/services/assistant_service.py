@@ -254,7 +254,7 @@ class AssistantService:
 
     def _apply_contrast_logic(self, data: AssistantCreate | AssistantUpdate):
         """Modifies data object in-place to ensure text contrast."""
-        if data.avatar_bg_color:
+        if data.avatar_bg_color and not data.avatar_text_color:
             data.avatar_text_color = calculate_contrast_text_color(data.avatar_bg_color)
 
     def _validate_image_file(self, file: UploadFile):

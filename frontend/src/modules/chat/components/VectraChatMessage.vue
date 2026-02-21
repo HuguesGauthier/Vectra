@@ -1,13 +1,20 @@
 <template>
-  <div class="message-row row q-mb-md" :class="isUser ? 'justify-end' : 'justify-start'">
+  <div class="message-row row q-mb-md items-end" :class="isUser ? 'justify-end' : 'justify-start'">
     <!-- AI Avatar -->
     <q-avatar
       v-if="!isUser"
-      size="28px"
-      class="q-mr-sm self-end"
+      size="32px"
+      class="q-mr-sm"
       :style="{ backgroundColor: assistant?.avatar_bg_color || 'var(--q-primary)' }"
     >
-      <img v-if="assistantAvatarUrl" :src="assistantAvatarUrl" />
+      <img
+        v-if="assistantAvatarUrl"
+        :src="assistantAvatarUrl"
+        :style="{
+          objectFit: 'cover',
+          objectPosition: `center ${assistant?.avatar_vertical_position ?? 50}%`,
+        }"
+      />
       <span v-else class="text-caption text-weight-bold text-white">{{ assistantInitials }}</span>
     </q-avatar>
 
@@ -77,8 +84,15 @@
     </div>
 
     <!-- User Avatar -->
-    <q-avatar v-if="isUser" size="28px" class="q-ml-sm self-end bg-grey-8">
-      <img v-if="userAvatarUrl" :src="userAvatarUrl" />
+    <q-avatar v-if="isUser" size="32px" class="q-ml-sm bg-grey-8">
+      <img
+        v-if="userAvatarUrl"
+        :src="userAvatarUrl"
+        :style="{
+          objectFit: 'cover',
+          objectPosition: `center ${authStore.user?.avatar_vertical_position ?? 50}%`,
+        }"
+      />
       <q-icon v-else name="person" color="white" size="18px" />
     </q-avatar>
   </div>
@@ -159,7 +173,7 @@ const aiBubbleStyle = computed(() => {
   // Determine if color is light or dark to adjust text color
   // YIQ formula
   const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  const textColor = yiq >= 150 ? '#121212' : '#ffffff';
+  const textColor = props.assistant?.avatar_text_color || (yiq >= 150 ? '#121212' : '#ffffff');
 
   // Create a beautiful pure gradient effect with the selected color
   return {
@@ -189,8 +203,8 @@ const contentBlocksWithoutText = computed(() => {
 <style scoped>
 .message-bubble {
   max-width: 85%;
-  line-height: var(--chat-font-size, 1.5);
-  font-size: 1em; /* Inherit from VectraChat --chat-font-size */
+  line-height: 1.5;
+  font-size: var(--chat-font-size, 15px);
   transition: all 0.3s ease;
   word-wrap: break-word;
   padding: 16px 20px;
@@ -210,10 +224,7 @@ const contentBlocksWithoutText = computed(() => {
   border-radius: 20px 20px 20px 4px; /* Sharp bottom left */
 }
 
-/* Added slight spacing so the bubble visually rests above the avatar baseline */
-.message-bubble {
-  margin-bottom: 4px;
-}
+/* Removed margin-bottom to ensure absolute alignment with avatar */
 
 .has-error {
   border-color: rgba(244, 67, 54, 0.5) !important;
@@ -222,6 +233,10 @@ const contentBlocksWithoutText = computed(() => {
 
 ::v-deep(.markdown-content p:last-child) {
   margin-bottom: 0;
+}
+
+::v-deep(.markdown-content) {
+  font-size: inherit !important;
 }
 
 ::v-deep(.markdown-content pre) {
