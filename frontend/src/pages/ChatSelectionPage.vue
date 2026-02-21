@@ -1,14 +1,6 @@
 <template>
-  <q-page class="bg-primary q-pa-lg">
-    <!-- Title Header -->
-    <div class="row items-center justify-between q-pt-md q-pb-md q-pl-none q-mb-md">
-      <div>
-        <div class="text-h4 text-weight-bold">{{ $t('selectAssistant') }}</div>
-        <div class="text-subtitle1 q-pt-xs">
-          {{ $t('selectAssistantDesc') }}
-        </div>
-      </div>
-    </div>
+  <q-page class="bg-primary q-pa-lg q-pt-xl">
+    <!-- Assistants Selection -->
 
     <!-- Loading State -->
     <div v-if="loading" class="row justify-center q-pa-xl">
@@ -101,4 +93,8 @@ function goToAssistantsPage() {
   void router.push({ name: 'Assistants' });
 }
 </script>
+
+<style scoped>
+/* Minimalist selection page styles */
+</style>
 

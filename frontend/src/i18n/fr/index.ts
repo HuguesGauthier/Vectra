@@ -157,6 +157,7 @@ export default {
   openaiDesc:
     'Reconnu pour son raisonnement logique et sa capacité à suivre des instructions complexes. Idéal pour des réponses précises et structurées.',
   mistral: 'Mistral AI',
+  mistralTagline: "L'IA européenne performante",
   mistralLocal: 'Mistral AI (Local via Ollama)',
   mistralLocalDesc:
     'Exécutez des modèles avancés localement via Ollama. Privé et hors ligne. Nécessite des ressources matérielles suffisantes.',
@@ -170,6 +171,7 @@ export default {
     'Un LLM européen puissant reconnu pour son efficacité. Équilibré pour le raisonnement et le chat.',
   anthropicConfiguration: 'Configuration Anthropic',
   anthropic: 'Anthropic Claude',
+  anthropicTagline: "L'IA sécurisée et fiable",
   anthropicDesc: "Des modèles d'IA avancés axés sur la sécurité, le raisonnement et la fiabilité.",
   localEmbedding: 'BAAI (Local)',
   local: 'Local',
@@ -334,6 +336,8 @@ export default {
   engineNotConfigured: 'Moteur non configuré (Voir Paramètres)',
   notConfigured: 'Non configuré',
   rerankEngine: 'Moteur de Pertinence',
+  cohereTagline: 'Précision supérieure',
+  cohereDesc: "Fournisseur de modèles d'IA spécialisé dans la pertinence et le reranking pour une précision de recherche inégalée.",
   cohereRerankDesc: 'Recommandé pour la plus haute précision.',
   localRerankDesc: "S'exécute localement sur votre processeur avec FastEmbed.",
   modelDeprecationWarning:

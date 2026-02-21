@@ -183,8 +183,8 @@ const glowStyle = computed(() => {
 }
 
 .tag-chip {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: var(--q-sixth) !important;
+  border: 1px solid var(--q-third) !important;
   color: rgba(255, 255, 255, 0.6) !important;
   font-weight: 600;
 }
@@ -194,8 +194,8 @@ const glowStyle = computed(() => {
 }
 
 .action-footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(0, 0, 0, 0.1);
+  border-top: 1px solid var(--q-third);
+  background: var(--q-secondary);
   transition: all 0.3s ease;
 }
 
