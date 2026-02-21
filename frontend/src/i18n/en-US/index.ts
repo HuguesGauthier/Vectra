@@ -162,6 +162,10 @@ export default {
   mistralLocalDesc:
     'Run advanced models locally on your machine via Ollama. Private and offline. Requires sufficient hardware resources.',
   ollamaConfiguration: 'Ollama Configuration',
+  ollama: 'Ollama (Local)',
+  ollamaTagline: 'Run models locally',
+  ollamaDesc:
+    'The standard solution for running LLMs on your own hardware. Private, secure, and fully offline.',
   mistralConfiguration: 'Mistral Configuration',
   mistralDesc:
     'A powerful European LLM known for efficiency and open-weights performance. Balanced for reasoning and chat.',

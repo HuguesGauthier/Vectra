@@ -92,7 +92,6 @@
                       :providers="embeddingProviderOptions"
                       show-config
                       force-enabled
-                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openEmbeddingConfig"
                     />
@@ -123,7 +122,6 @@
                       :providers="rerankProviderOptions"
                       show-config
                       force-enabled
-                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openRerankConfig"
                     />
@@ -152,7 +150,6 @@
                       :providers="chatProviderOptions"
                       show-config
                       force-enabled
-                      compact
                       grid-cols="col-12 col-sm-6 col-md-3"
                       @configure="openChatConfig"
                     />

@@ -161,6 +161,10 @@ export default {
   mistralLocalDesc:
     'Exécutez des modèles avancés localement via Ollama. Privé et hors ligne. Nécessite des ressources matérielles suffisantes.',
   ollamaConfiguration: 'Configuration Ollama',
+  ollama: 'Ollama (Local)',
+  ollamaTagline: 'Exécutez des modèles localement',
+  ollamaDesc:
+    'La solution de référence pour faire tourner des LLM sur votre propre matériel. Privé, sécurisé et totalement hors-ligne.',
   mistralConfiguration: 'Configuration Mistral',
   mistralDesc:
     'Un LLM européen puissant reconnu pour son efficacité. Équilibré pour le raisonnement et le chat.',

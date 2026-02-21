@@ -19,6 +19,7 @@ export interface ProviderOption {
   color?: string | undefined;
   value?: string;
   label?: string;
+  modelInfo?: string | undefined;
   supported_models?: ModelInfo[];
   supported_transcription_models?: ModelInfo[];
 }

@@ -7,6 +7,7 @@
       disabled: disabled && !selected,
       selectable: selectable,
       compact: compact,
+      clickable: (selectable || showConfig) && !disabled,
       'q-pa-md': !compact,
       'q-pa-sm': compact,
     }"
@@ -67,7 +68,16 @@
         {{ tagline }}
       </div>
 
-      <!-- Description (Full mode only or if forced) -->
+      <!-- Model Info (Critical Config) -->
+      <div
+        v-if="modelInfo"
+        class="text-caption text-accent q-mt-xs text-weight-medium"
+        style="font-size: 0.75rem"
+      >
+        {{ modelInfo }}
+      </div>
+
+      <!-- Description (Full mode only) -->
       <div
         v-if="description && !compact"
         class="text-caption text-grey-7 q-mt-md line-clamp-3"
@@ -76,24 +86,6 @@
         {{ description }}
       </div>
     </q-card-section>
-
-    <!-- Slot for Actions (Configure button, etc.) -->
-    <div class="card-actions row justify-center q-pb-sm" v-if="$slots.actions || showConfig">
-      <slot name="actions">
-        <q-btn
-          v-if="showConfig"
-          flat
-          round
-          dense
-          color="accent"
-          icon="settings"
-          size="sm"
-          @click.stop="$emit('configure')"
-        >
-          <q-tooltip class="bg-accent text-white">{{ $t('configure') }}</q-tooltip>
-        </q-btn>
-      </slot>
-    </div>
   </q-card>
 </template>
 
@@ -120,6 +112,7 @@ defineProps<{
   disabled?: boolean | undefined;
   compact?: boolean | undefined;
   showConfig?: boolean | undefined;
+  modelInfo?: string | undefined;
 }>();
 
 const emit = defineEmits<{
@@ -151,8 +144,7 @@ function handleClick() {
   cursor: pointer;
 }
 
-.ai-provider-card.selectable:hover:not(.disabled),
-.ai-provider-card:hover:has(.q-btn):not(.disabled) {
+.ai-provider-card.clickable:hover {
   border-color: var(--q-accent);
   transform: translateY(-4px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);

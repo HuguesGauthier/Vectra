@@ -17,8 +17,8 @@ export interface ProviderInfo {
   description?: string;
   configured: boolean;
   is_active: boolean;
-  supported_models?: Record<string, unknown>[];
-  supported_transcription_models?: Record<string, unknown>[];
+  supported_models?: ModelInfo[];
+  supported_transcription_models?: ModelInfo[];
 }
 
 /**
@@ -66,15 +66,20 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'ollama') logo = localLogo; // Reuse local logo for Ollama
         if (p.id === 'mistral') logo = mistralLogo;
 
-        let description = ''; // Only show model info if configured, otherwise empty (tagline handles base desc)
+        let modelInfo = '';
+        const getModelName = (id: string) => {
+          const found = p.supported_models?.find((m: ModelInfo) => String(m.id) === id);
+          return found?.name || id;
+        };
+
         if (p.id === 'local' && getSetting('local_embedding_model')) {
-          description = `${t('modelLabel')}: ${getSetting('local_embedding_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('local_embedding_model'))}`;
         } else if (p.id === 'gemini' && getSetting('gemini_embedding_model')) {
-          description = `${t('modelLabel')}: ${getSetting('gemini_embedding_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('gemini_embedding_model'))}`;
         } else if (p.id === 'openai' && getSetting('openai_embedding_model')) {
-          description = `${t('modelLabel')}: ${getSetting('openai_embedding_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('openai_embedding_model'))}`;
         } else if (p.id === 'ollama' && getSetting('ollama_embedding_model')) {
-          description = `${t('modelLabel')}: ${getSetting('ollama_embedding_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('ollama_embedding_model'))}`;
         }
 
         // Design Metadata
@@ -98,13 +103,13 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
             t(`${p.id}Tagline`) !== `${p.id}Tagline`
               ? t(`${p.id}Tagline`)
               : p.description || undefined,
-          description:
-            description || (t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined),
+          description: t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined,
+          modelInfo: modelInfo,
           badge: p.id === 'local' || p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'local' || p.id === 'ollama' ? 'warning' : 'info',
           color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
-          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
+          supported_models: p.supported_models || [],
           supported_transcription_models: (p.supported_transcription_models ||
             []) as unknown as ModelInfo[],
         };
@@ -131,17 +136,22 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'ollama') logo = localLogo;
 
         // Custom Description
-        let description = '';
+        let modelInfo = '';
+        const getModelName = (id: string) => {
+          const found = p.supported_models?.find((m: ModelInfo) => String(m.id) === id);
+          return found?.name || id;
+        };
+
         if (p.id === 'gemini' && getSetting('gemini_chat_model')) {
-          description = `${t('modelLabel')}: ${getSetting('gemini_chat_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('gemini_chat_model'))}`;
         } else if (p.id === 'openai' && getSetting('openai_chat_model')) {
-          description = `${t('modelLabel')}: ${getSetting('openai_chat_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('openai_chat_model'))}`;
         } else if (p.id === 'mistral' && getSetting('mistral_chat_model')) {
-          description = `${t('modelLabel')}: ${getSetting('mistral_chat_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('mistral_chat_model'))}`;
         } else if (p.id === 'anthropic' && getSetting('anthropic_chat_model')) {
-          description = `${t('modelLabel')}: ${getSetting('anthropic_chat_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('anthropic_chat_model'))}`;
         } else if (p.id === 'ollama' && getSetting('ollama_chat_model')) {
-          description = `${t('modelLabel')}: ${getSetting('ollama_chat_model')}`;
+          modelInfo = `${t('modelLabel')}: ${getModelName(getSetting('ollama_chat_model'))}`;
         }
 
         // Design Metadata
@@ -165,18 +175,26 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
             t(`${p.id}Tagline`) !== `${p.id}Tagline`
               ? t(`${p.id}Tagline`)
               : p.description || undefined,
-          description:
-            description || (t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined),
+          description: t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined,
+          modelInfo: modelInfo,
           badge: p.id === 'ollama' ? t('private') : t('public'),
           badgeColor: p.id === 'ollama' ? 'warning' : 'info',
           color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
-          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
+          supported_models: p.supported_models || [],
         };
       });
   });
 
   const rerankProviderOptions = computed<ProviderOption[]>(() => {
+    // Helper to safely get setting value
+    const getSetting = (key: string) => {
+      if (!settings) return '';
+      // Handle both Ref and direct object
+      const s = isRef(settings) ? settings.value : settings;
+      return s[key] || '';
+    };
+
     return providers.value
       .filter((p) => p.type === 'rerank')
       .map((p) => {
@@ -195,6 +213,17 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
           cohere: 'purple-6',
         };
 
+        // Custom Description
+        let modelDescription = '';
+        const getModelName = (id: string) => {
+          const found = p.supported_models?.find((m: ModelInfo) => String(m.id) === id);
+          return found?.name || id;
+        };
+
+        if (p.id === 'local' && getSetting('local_rerank_model')) {
+          modelDescription = `${t('modelLabel')}: ${getModelName(getSetting('local_rerank_model'))}`;
+        }
+
         return {
           id: p.id,
           name: p.name,
@@ -206,11 +235,12 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
               ? t(`${p.id}Tagline`)
               : p.description || undefined,
           description: t(`${p.id}Desc`) !== `${p.id}Desc` ? t(`${p.id}Desc`) : undefined,
+          modelInfo: modelDescription,
           badge: p.id === 'local' ? t('private') : t('public'),
           badgeColor: p.id === 'local' ? 'warning' : 'info',
           color: colors[p.id] || 'grey-7',
           disabled: !p.configured,
-          supported_models: (p.supported_models || []) as unknown as ModelInfo[],
+          supported_models: p.supported_models || [],
         };
       });
   });
@@ -232,8 +262,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
   const getEmbeddingProviderLabel = (value: string | undefined): string => {
     if (!value) return '';
     const option = embeddingProviderOptions.value.find((opt) => opt.value === value);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return (option as any)?.label || value;
+    return option?.label || value;
   };
 
   /**
