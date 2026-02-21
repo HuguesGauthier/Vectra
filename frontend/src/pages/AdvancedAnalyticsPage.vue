@@ -1,30 +1,6 @@
 <template>
   <q-page class="bg-primary q-pa-lg">
     <div class="q-pt-md q-pb-sm q-pl-none analytics-container">
-      <!-- Hero Header -->
-      <div class="hero-header q-mb-lg">
-        <div class="row items-center justify-between">
-          <div>
-            <div class="text-h4 text-weight-bold">
-              {{ $t('advancedAnalytics') }}
-            </div>
-            <div class="text-subtitle1 q-pt-xs">
-              {{ $t('realTimeInsightsPerformance') }}
-            </div>
-          </div>
-
-          <!-- Live Status Indicator -->
-          <div v-if="store.stats" class="status-badge bg-secondary">
-            <div class="row items-center q-gutter-xs">
-              <div class="live-dot" :class="{ 'live-dot--active': store.isUpdating }"></div>
-              <div class="text-caption text-weight-medium">
-                {{ $t('lastUpdate') }}: {{ formattedLastUpdate }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- Loading State -->
       <div v-if="!store.stats" class="loading-state">
         <q-spinner-grid color="primary" size="80px" />
@@ -32,11 +8,11 @@
       </div>
 
       <!-- KPI Cards Row -->
-      <div v-else class="row q-col-gutter-sm q-mb-sm">
+      <div v-else class="row q-col-gutter-lg q-mb-md">
         <!-- TTFT p95 -->
         <div class="col-12 col-md-3">
-          <q-card flat class="kpi-card kpi-card--teal">
-            <div class="card-border-top card-border-top--teal"></div>
+          <q-card flat class="pipeline-card pipeline-card--teal">
+            <div class="glow-overlay glow-overlay--teal"></div>
             <q-card-section>
               <div class="metric-group">
                 <div class="metric-item">
@@ -63,8 +39,8 @@
 
         <!-- Cache Hit Rate -->
         <div class="col-12 col-md-3">
-          <q-card flat class="kpi-card kpi-card--purple">
-            <div class="card-border-top card-border-top--purple"></div>
+          <q-card flat class="pipeline-card pipeline-card--purple">
+            <div class="glow-overlay glow-overlay--purple"></div>
             <q-card-section>
               <div class="metric-group">
                 <div class="metric-item">
@@ -88,8 +64,8 @@
 
         <!-- Daily Cost -->
         <div class="col-12 col-md-3">
-          <q-card flat class="kpi-card kpi-card--cost">
-            <div class="card-border-top card-border-top--amber"></div>
+          <q-card flat class="pipeline-card pipeline-card--amber">
+            <div class="glow-overlay glow-overlay--amber"></div>
             <q-card-section>
               <div class="metric-group">
                 <div class="metric-item">
@@ -111,8 +87,8 @@
 
         <!-- Reranking Impact -->
         <div class="col-12 col-md-3">
-          <q-card flat class="kpi-card kpi-card--red">
-            <div class="card-border-top card-border-top--red"></div>
+          <q-card flat class="pipeline-card pipeline-card--red">
+            <div class="glow-overlay glow-overlay--red"></div>
             <q-card-section>
               <div class="metric-group">
                 <div class="metric-item">
@@ -134,11 +110,11 @@
       </div>
 
       <!-- Charts Row 1 -->
-      <div v-if="store.stats" class="row q-col-gutter-sm q-mb-sm">
+      <div v-if="store.stats" class="row q-col-gutter-lg q-mb-md">
         <!-- Step Breakdown -->
         <div class="col-12 col-md-6">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--purple"></div>
+          <q-card flat class="pipeline-card pipeline-card--purple">
+            <div class="glow-overlay glow-overlay--purple"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="timeline" size="28px" color="purple-5" class="q-mr-sm" />
@@ -181,8 +157,8 @@
 
         <!-- Trending Topics -->
         <div class="col-12 col-md-6">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--teal"></div>
+          <q-card flat class="pipeline-card pipeline-card--teal">
+            <div class="glow-overlay glow-overlay--teal"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="local_fire_department" size="28px" color="teal-5" class="q-mr-sm" />
@@ -219,11 +195,11 @@
       </div>
 
       <!-- Charts Row 2 -->
-      <div v-if="store.stats" class="row q-col-gutter-sm">
+      <div v-if="store.stats" class="row q-col-gutter-lg q-mb-md">
         <!-- Assistant Costs -->
         <div class="col-12 col-md-4">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--amber"></div>
+          <q-card flat class="pipeline-card pipeline-card--amber">
+            <div class="glow-overlay glow-overlay--amber"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="account_balance_wallet" size="28px" color="amber-5" class="q-mr-sm" />
@@ -259,8 +235,8 @@
 
         <!-- Top Users -->
         <div class="col-12 col-md-4">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--cyan"></div>
+          <q-card flat class="pipeline-card pipeline-card--cyan">
+            <div class="glow-overlay glow-overlay--cyan"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="group" size="28px" color="cyan-5" class="q-mr-sm" />
@@ -309,8 +285,8 @@
 
         <!-- Document Freshness -->
         <div class="col-12 col-md-4">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--blue"></div>
+          <q-card flat class="pipeline-card pipeline-card--blue">
+            <div class="glow-overlay glow-overlay--blue"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="description" size="28px" color="blue-5" class="q-mr-sm" />
@@ -353,11 +329,11 @@
       </div>
 
       <!-- Charts Row 3 (New) -->
-      <div v-if="store.stats" class="row q-col-gutter-sm q-mt-sm">
+      <div v-if="store.stats" class="row q-col-gutter-lg q-mt-md">
         <!-- Document Utilization -->
         <div class="col-12 col-md-8">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--green"></div>
+          <q-card flat class="pipeline-card pipeline-card--green">
+            <div class="glow-overlay glow-overlay--green"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="insights" size="28px" color="green-5" class="q-mr-sm" />
@@ -394,8 +370,8 @@
 
         <!-- Connector Sync Rates -->
         <div class="col-12 col-md-4">
-          <q-card flat class="analytics-card">
-            <div class="card-border-top card-border-top--orange"></div>
+          <q-card flat class="pipeline-card pipeline-card--orange">
+            <div class="glow-overlay glow-overlay--orange"></div>
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="sync" size="28px" color="orange-5" class="q-mr-sm" />
@@ -443,7 +419,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
-import { date } from 'quasar';
 import { useAdvancedAnalyticsStore } from 'src/stores/advancedAnalyticsStore';
 
 const store = useAdvancedAnalyticsStore();
@@ -458,15 +433,6 @@ const totalTokens = computed(() => {
 
 const maxStepDuration = computed(() => {
   return Math.max(...(store.stats?.step_breakdown.map((s) => s.avg_duration) || [1]));
-});
-
-const formattedLastUpdate = computed(() => {
-  if (!store.lastUpdated) return '';
-  const now = Date.now();
-  const diff = now - store.lastUpdated;
-  if (diff < 1000) return 'just now';
-  if (diff < 60000) return Math.floor(diff / 1000) + 's ago';
-  return date.formatDate(store.lastUpdated, 'HH:mm:ss');
 });
 
 function getTTFTProgress() {
@@ -565,119 +531,108 @@ onMounted(async () => {
   // Loading State
   .loading-state {
     text-align: center;
-    padding: 2rem 0;
+    padding: 4rem 0;
   }
 
-  // KPI Cards - More Compact
-  .kpi-card {
-    background: linear-gradient(145deg, var(--q-secondary) 0%, var(--q-secondary) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+  // Pipeline Cards
+  .pipeline-card {
+    background: linear-gradient(
+      145deg,
+      var(--q-secondary) 0%,
+      rgba(var(--q-secondary-rgb), 0.8) 100%
+    );
+    border: 1px solid var(--q-third);
+    border-radius: 24px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
+    cursor: default;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-8px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      border-color: var(--q-sixth);
+
+      .glow-overlay {
+        opacity: 0.8;
+      }
     }
 
-    .q-card__section {
-      padding: 0.75rem;
-    }
-  }
+    .glow-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
+      pointer-events: none;
+      opacity: 0.3;
+      transition: opacity 0.4s ease;
 
-  // Analytics Cards - More Compact
-  .analytics-card {
-    background: linear-gradient(145deg, var(--q-secondary) 0%, var(--q-secondary) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    position: relative;
-
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-      border-color: rgba(255, 255, 255, 0.15);
-    }
-
-    .q-card__section {
-      padding: 0.75rem;
-    }
-
-    .text-h6 {
-      font-size: 1rem;
-    }
-  }
-
-  // Colored top borders - Thinner
-  .card-border-top {
-    height: 3px;
-    width: 100%;
-
-    &--blue {
-      background: linear-gradient(90deg, #1976d2 0%, #42a5f5 100%);
-    }
-
-    &--purple {
-      background: linear-gradient(90deg, #7b1fa2 0%, #ab47bc 100%);
-    }
-
-    &--red {
-      background: linear-gradient(90deg, #c62828 0%, #ef5350 100%);
-    }
-
-    &--orange {
-      background: linear-gradient(90deg, #e65100 0%, #ff9800 100%);
-    }
-
-    &--green {
-      background: linear-gradient(90deg, #2e7d32 0%, #66bb6a 100%);
-    }
-
-    &--amber {
-      background: linear-gradient(90deg, #f57f17 0%, #ffc107 100%);
-    }
-
-    &--cyan {
-      background: linear-gradient(90deg, #00838f 0%, #26c6da 100%);
-    }
-
-    &--teal {
-      background: linear-gradient(90deg, #00897b 0%, #26a69a 100%);
+      &--blue {
+        background: radial-gradient(circle at 50% 0%, #42a5f520 0%, transparent 70%);
+      }
+      &--purple {
+        background: radial-gradient(circle at 50% 0%, #ab47bc20 0%, transparent 70%);
+      }
+      &--teal {
+        background: radial-gradient(circle at 50% 0%, #26a69a20 0%, transparent 70%);
+      }
+      &--amber {
+        background: radial-gradient(circle at 50% 0%, #ffc10720 0%, transparent 70%);
+      }
+      &--red {
+        background: radial-gradient(circle at 50% 0%, #ef535020 0%, transparent 70%);
+      }
+      &--cyan {
+        background: radial-gradient(circle at 50% 0%, #00bcd420 0%, transparent 70%);
+      }
+      &--green {
+        background: radial-gradient(circle at 50% 0%, #4caf5020 0%, transparent 70%);
+      }
+      &--orange {
+        background: radial-gradient(circle at 50% 0%, #ff980020 0%, transparent 70%);
+      }
     }
   }
 
-  // Metrics - Smaller
+  // Metrics
   .metric-group {
     .metric-item {
       .metric-label {
-        font-size: 0.65rem;
+        font-size: 0.72rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.3rem;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
+        opacity: 0.6;
       }
 
       .metric-value {
-        font-size: 1.2rem;
-        font-weight: 700;
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
 
         &--primary {
-          font-size: 1.5rem;
+          font-size: 2.25rem;
         }
 
         &--small {
-          font-size: 0.8rem;
-          font-weight: 500;
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+
+        &--highlight {
+          display: flex;
+          align-items: center;
         }
 
         .metric-unit {
-          font-size: 0.85rem;
+          font-size: 1rem;
+          font-weight: 400;
           margin-left: 0.25rem;
+          opacity: 0.5;
         }
       }
     }
@@ -685,7 +640,8 @@ onMounted(async () => {
 
   // Progress bars
   .performance-progress {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    height: 10px !important;
   }
 
   // List styling - More compact
@@ -741,15 +697,6 @@ onMounted(async () => {
     font-weight: 600;
     padding: 0.3rem 0.6rem;
     letter-spacing: 0.5px;
-  }
-
-  // Reduce row margins in cards
-  .row.items-center.q-mb-md {
-    margin-bottom: 0.5rem !important;
-  }
-
-  .q-mb-md {
-    margin-bottom: 0.5rem !important;
   }
 }
 </style>

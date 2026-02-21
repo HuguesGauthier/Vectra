@@ -179,7 +179,6 @@ const aiBubbleStyle = computed(() => {
   return {
     background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${rD}, ${gD}, ${bD}, 1) 100%)`,
     color: textColor,
-    boxShadow: `0 8px 24px rgba(${r}, ${g}, ${b}, 0.25)`,
     border: 'none',
   };
 });

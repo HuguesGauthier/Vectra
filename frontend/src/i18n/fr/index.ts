@@ -659,6 +659,7 @@ export default {
   security: 'Sécurité',
   userAuthentication: 'Authentification utilisateur',
   userAuthenticationHint: "Forcer l'authentification utilisateur pour cet assistant.",
+  secureAccess: 'Accès sécurisé',
 
   // --- Paramètres LLM Avancés ---
   advancedLlmParameters: 'Paramètres LLM Avancés',
@@ -1094,5 +1095,29 @@ export default {
   conversationCleared: 'Conversation effacée',
   validate: {
     atLeastOneSource: 'Veuillez sélectionner au moins une base de connaissances.',
+  },
+  systemHealth: {
+    api: 'API',
+    worker: 'Worker',
+    storage: 'Stockage',
+    lastUpdate: 'Mise à jour',
+    apiTitle: 'Interface de Programmation (API)',
+    apiDescription:
+      "Le coeur du système. Ce service gère toutes les communications entre l'interface utilisateur et le moteur d'IA. S'il est hors ligne, l'application ne peut pas fonctionner.",
+    apiOnline: 'Serveur opérationnel',
+    apiOffline: 'Serveur injoignable',
+    workerTitle: 'Traitement en Arrière-plan (Worker)',
+    workerDescription:
+      'Ce service s\'occupe des tâches lourdes comme la vectorisation des documents et la gestion des pipelines de données. Un statut "Hors ligne" signifie que les nouveaux documents ne seront pas indexés.',
+    workerOnline: 'Tâches opérationnelles',
+    workerOffline: 'Worker déconnecté',
+    storageTitle: 'Volume de Données (Stockage)',
+    storageDescription:
+      "C'est ici que sont stockés de manière permanente vos documents et index vectoriels. Ce service surveille l'intégrité du volume /data nécessaire au fonctionnement de Vectra.",
+    storageOnline: 'Volume monté et accessible',
+    storageOffline: 'Volume manquant ou vide',
+    lastUpdateTitle: 'Synchronisation du Dashboard',
+    lastUpdateDescription:
+      'Indique le moment de la dernière extraction des statistiques globales. Le système pulse régulièrement pour garder ces données fraîches.',
   },
 };

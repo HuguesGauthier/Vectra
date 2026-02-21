@@ -3,65 +3,6 @@
     <!-- Main Dashboard Stats (Real-time) -->
     <div class="dashboard-home-container q-pb-md q-pl-none q-mb-md">
       <!-- Hero Header -->
-      <div class="hero-header q-mb-sm">
-        <div class="row items-center justify-between">
-          <div>
-            <div class="text-h4 text-weight-bold">{{ t('dashboard') }}</div>
-            <div class="text-h6 pipeline-subtitle">
-              <span class="pipeline-step">{{ t('sloganConnect') }}</span>
-              <span class="pipeline-step">{{ t('sloganVectorize') }}</span>
-              <span class="pipeline-step">{{ t('sloganChat') }}</span>
-            </div>
-          </div>
-
-          <!-- Status Indicators Group -->
-          <div class="row items-center q-gutter-md">
-            <!-- Heartbeat Pills (Admin Only) -->
-            <template v-if="authStore.isAdmin">
-              <div
-                class="status-badge row items-center q-px-md q-py-xs cursor-pointer bg-secondary"
-              >
-                <div
-                  class="live-dot q-mr-sm"
-                  :class="apiStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
-                ></div>
-                <div class="text-caption text-weight-medium">API</div>
-                <q-tooltip>{{ apiLatency }}</q-tooltip>
-              </div>
-
-              <div class="status-badge bg-secondary row items-center q-px-md q-py-xs">
-                <div
-                  class="live-dot q-mr-sm"
-                  :class="workerStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
-                ></div>
-                <div class="text-caption text-weight-medium">Worker</div>
-              </div>
-
-              <div class="status-badge bg-secondary row items-center q-px-md q-py-xs">
-                <div
-                  class="live-dot q-mr-sm"
-                  :class="storageStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
-                ></div>
-                <div class="text-caption text-weight-medium">{{ $t('storage') }}</div>
-              </div>
-            </template>
-
-            <!-- Last Update Badge -->
-            <div
-              v-if="dashboardStore.stats"
-              class="bg-secondary status-badge row items-center q-px-md q-py-xs"
-            >
-              <div
-                class="live-dot q-mr-sm"
-                :class="{ 'live-dot--active': dashboardStore.isUpdating }"
-              ></div>
-              <div class="text-caption text-weight-medium">
-                {{ t('lastUpdate') }}: {{ formattedLastUpdate }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- Loading State -->
       <div v-if="!dashboardStore.stats" class="loading-state">
@@ -76,7 +17,8 @@
 
           <div class="col-12 col-md-4">
             <q-card flat class="pipeline-card pipeline-card--connect">
-              <div class="card-border-top card-border-top--blue"></div>
+              <!-- Background Glow -->
+              <div class="glow-overlay glow-overlay--blue"></div>
 
               <q-card-section>
                 <div class="row items-center q-mb-md">
@@ -144,7 +86,8 @@
           <!-- ========== VECTORIZE CARD (Purple) ========== -->
           <div class="col-12 col-md-4">
             <q-card flat class="pipeline-card pipeline-card--vectorize">
-              <div class="card-border-top card-border-top--purple"></div>
+              <!-- Background Glow -->
+              <div class="glow-overlay glow-overlay--purple"></div>
 
               <q-card-section>
                 <div class="row items-center q-mb-md">
@@ -214,7 +157,8 @@
           <!-- ========== CHAT CARD (Teal) ========== -->
           <div class="col-12 col-md-4">
             <q-card flat class="pipeline-card pipeline-card--chat">
-              <div class="card-border-top card-border-top--teal"></div>
+              <!-- Background Glow -->
+              <div class="glow-overlay glow-overlay--teal"></div>
 
               <q-card-section>
                 <div class="row items-center q-mb-md">
@@ -282,38 +226,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useDashboardStore } from 'src/stores/dashboardStore';
-import { useSocketStore } from 'src/stores/socketStore';
-import { useAuthStore } from 'src/stores/authStore';
 import { date } from 'quasar';
 
 const { t } = useI18n();
 const dashboardStore = useDashboardStore();
-const socketStore = useSocketStore();
-const authStore = useAuthStore();
 
-// --- HEARTBEAT COMPUTED ---
-const apiStatus = computed(() => (socketStore.isConnected ? 'online' : 'offline'));
-const workerStatus = computed(() => (socketStore.isWorkerOnline ? 'online' : 'offline'));
-const storageStatus = computed(() => socketStore.storageStatus);
-const apiLatency = computed(() => (socketStore.isConnected ? t('connected') : '--'));
-
+// --- REFRESH ---
 onMounted(() => {
   void dashboardStore.fetchStats();
 });
 
 // ========== COMPUTED PROPERTIES ==========
-
-const formattedLastUpdate = computed(() => {
-  if (!dashboardStore.lastUpdated) return '';
-  const now = Date.now();
-  const diff = now - dashboardStore.lastUpdated;
-  if (diff < 1000) return t('justNow');
-  if (diff < 60000) return Math.floor(diff / 1000) + 's ' + t('ago');
-  return date.formatDate(dashboardStore.lastUpdated, 'HH:mm:ss');
-});
 
 // ========== UTILITY FUNCTIONS ==========
 
@@ -373,70 +299,6 @@ function getLatencyLabel(latency: number): string {
 
 <style lang="scss" scoped>
 .dashboard-home-container {
-  // Hero Header
-  .hero-header {
-    padding: 1.5rem 0;
-
-    .pipeline-subtitle {
-      font-weight: 300;
-      letter-spacing: 2px;
-
-      .pipeline-step {
-        margin-right: 1rem;
-        opacity: 0.8;
-        transition: opacity 0.3s ease;
-
-        &:nth-child(1) {
-          color: #42a5f5;
-        }
-        &:nth-child(2) {
-          color: #ab47bc;
-        }
-        &:nth-child(3) {
-          color: #26a69a;
-        }
-
-        &:hover {
-          opacity: 1;
-        }
-      }
-    }
-  }
-
-  // Status Badge
-  .status-badge {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: #666;
-      transition: all 0.3s ease;
-
-      &--active {
-        background-color: #00e676;
-        box-shadow: 0 0 12px rgba(0, 230, 118, 1);
-        animation: pulse-live 1s ease-in-out infinite;
-      }
-    }
-  }
-
-  @keyframes pulse-live {
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.6;
-      transform: scale(1.2);
-    }
-  }
-
   // Loading State
   .loading-state {
     text-align: center;
@@ -445,74 +307,88 @@ function getLatencyLabel(latency: number): string {
 
   // Pipeline Cards
   .pipeline-card {
-    background: linear-gradient(145deg, var(--q-secondary) 0%, var(--q-secondary) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    background: linear-gradient(145deg, var(--q-secondary) 0%, rgba(var(--q-secondary-rgb), 0.8) 100%);
+    border: 1px solid var(--q-third);
+    border-radius: 24px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
+    cursor: default;
 
     &:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
-      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-8px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+      border-color: var(--q-sixth);
+
+      .glow-overlay {
+        opacity: 0.8;
+      }
     }
 
-    // Colored top border
-    .card-border-top {
-      height: 4px;
-      width: 100%;
+    .glow-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 150px;
+      pointer-events: none;
+      opacity: 0.3;
+      transition: opacity 0.4s ease;
 
       &--blue {
-        background: linear-gradient(90deg, #1976d2 0%, #42a5f5 100%);
+        background: radial-gradient(circle at 50% 0%, #42a5f520 0%, transparent 70%);
       }
-
       &--purple {
-        background: linear-gradient(90deg, #7b1fa2 0%, #ab47bc 100%);
+        background: radial-gradient(circle at 50% 0%, #ab47bc20 0%, transparent 70%);
       }
-
       &--teal {
-        background: linear-gradient(90deg, #00897b 0%, #26a69a 100%);
+        background: radial-gradient(circle at 50% 0%, #26a69a20 0%, transparent 70%);
       }
     }
   }
 
   // Status Badge Large
   .status-badge-large {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.4rem 0.8rem;
-    letter-spacing: 1px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
   // Success Progress Bar
   .success-progress {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    height: 10px !important;
   }
 
   // Metrics
   .metric-group {
     .metric-item {
       .metric-label {
-        font-size: 0.75rem;
+        font-size: 0.72rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.05em;
         margin-bottom: 0.5rem;
         display: flex;
         align-items: center;
+        opacity: 0.6;
       }
 
       .metric-value {
-        font-size: 1.5rem;
-        font-weight: 700;
+        font-size: 1.75rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
 
         &--primary {
-          font-size: 2rem;
+          font-size: 2.25rem;
         }
 
         &--small {
-          font-size: 1rem;
-          font-weight: 500;
+          font-size: 1.1rem;
+          font-weight: 600;
         }
 
         &--highlight {
@@ -522,13 +398,16 @@ function getLatencyLabel(latency: number): string {
 
         .metric-unit {
           font-size: 1rem;
+          font-weight: 400;
           margin-left: 0.25rem;
+          opacity: 0.5;
         }
       }
 
       &--critical {
         .metric-label {
-          color: #ffa726;
+          color: var(--q-warning);
+          opacity: 1;
         }
       }
     }
@@ -536,10 +415,10 @@ function getLatencyLabel(latency: number): string {
 
   // Feedback Highlight
   .feedback-highlight {
-    background: linear-gradient(135deg, rgba(38, 166, 154, 0.1) 0%, rgba(38, 166, 154, 0.05) 100%);
+    background: var(--q-sixth);
     padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid rgba(38, 166, 154, 0.2);
+    border-radius: 16px;
+    border: 1px solid var(--q-third);
   }
 }
 </style>

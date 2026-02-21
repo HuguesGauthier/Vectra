@@ -662,6 +662,7 @@ export default {
   security: 'Security',
   userAuthentication: 'User Authentication',
   userAuthenticationHint: 'Enforce user authentication for this assistant.',
+  secureAccess: 'Secure access',
 
   // --- Advanced LLM Parameters ---
   advancedLlmParameters: 'Advanced LLM Parameters',
@@ -1089,5 +1090,29 @@ export default {
   conversationCleared: 'Conversation cleared',
   validate: {
     atLeastOneSource: 'Please select at least one knowledge base.',
+  },
+  systemHealth: {
+    api: 'API',
+    worker: 'Worker',
+    storage: 'Storage',
+    lastUpdate: 'Update',
+    apiTitle: 'Application Programming Interface (API)',
+    apiDescription:
+      'The heart of the system. This service handles all communications between the user interface and the AI engine. If it is offline, the application cannot function.',
+    apiOnline: 'Server operational',
+    apiOffline: 'Server unreachable',
+    workerTitle: 'Background Processing (Worker)',
+    workerDescription:
+      'This service handles heavy tasks like document vectorization and data pipeline management. An "Offline" status means new documents will not be indexed.',
+    workerOnline: 'Tasks operational',
+    workerOffline: 'Worker disconnected',
+    storageTitle: 'Data Volume (Storage)',
+    storageDescription:
+      'This is where your documents and vector indexes are permanently stored. This service monitors the health of the /data volume required by Vectra.',
+    storageOnline: 'Volume mounted and accessible',
+    storageOffline: 'Volume missing or empty',
+    lastUpdateTitle: 'Dashboard Synchronization',
+    lastUpdateDescription:
+      'Indicates the time of the last global statistics extraction. The system pulses regularly to keep this data fresh.',
   },
 };

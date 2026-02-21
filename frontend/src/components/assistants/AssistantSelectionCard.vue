@@ -8,6 +8,14 @@
     <!-- Background Glow -->
     <div class="glow-overlay" :style="glowStyle"></div>
 
+    <!-- Authentication Badge -->
+    <div v-if="assistant.user_authentication" class="auth-badge">
+      <q-icon name="lock" size="14px" color="white" />
+      <q-tooltip anchor="top middle" self="bottom middle" :offset="[10, 10]" class="bg-dark text-white shadow-4">
+        {{ $t('secureAccess') }}
+      </q-tooltip>
+    </div>
+
     <q-card-section class="col column items-center q-pa-xl relative-position">
       <!-- Avatar with Ring -->
       <div class="avatar-ring" :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }">
@@ -152,6 +160,32 @@ const glowStyle = computed(() => {
   transform: scale(1.1) rotate(5deg);
 }
 
+.auth-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(15, 15, 15, 0.6);
+  width: 32px;
+  height: 32px;
+  border-radius: 50% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  z-index: 30;
+  transition: background 0.3s ease;
+}
+
+.auth-badge:hover {
+  background: rgba(15, 15, 15, 0.85);
+}
+
+/* Stable badge on card hover */
+.assistant-selection-card:hover .auth-badge {
+  transform: none;
+}
+
 .assistant-name {
   letter-spacing: -0.01em;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
@@ -210,7 +244,6 @@ const glowStyle = computed(() => {
   width: 100%;
   padding: 12px;
   font-weight: 700;
-  color: white;
   transition: all 0.3s ease;
   letter-spacing: 0.02em;
 }
