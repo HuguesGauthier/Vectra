@@ -225,8 +225,9 @@ class IngestionOrchestrator:
             if is_local:
                 workers = settings.computed_local_workers
             else:
-                # Remote APIs: Overhead of spawning 15 workers outweighs gain for small batches on Windows
-                workers = min(4, multiprocessing.cpu_count())
+                # Remote APIs: Disable multiprocessing (workers=0) to avoid pickling issues on Windows
+                # and because overhead outweighs gain for small batches.
+                workers = 0
 
             logger.info(f"⚡ Performance Mode: Using {workers} workers (provider={provider})")
             batch_size = 50 if provider != "local" else 5
