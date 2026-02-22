@@ -6,25 +6,19 @@
         v-model="filter"
         filled
         dense
+        class="search-input col-12 col-md-4"
         :placeholder="$t('search')"
-        class="col-grow search-input"
-        bg-color="secondary"
-        style="max-width: 400px"
+        clearable
+        style="max-width: 375px"
       >
-        <template v-slot:append>
-          <q-icon name="search" color="grey-7" />
+        <template #prepend>
+          <q-icon name="search" />
         </template>
       </q-input>
 
-      <q-btn
-        unelevated
-        color="accent"
-        text-color="grey-3"
-        icon="add"
-        :label="$t('createNew')"
-        class="add-btn"
-        @click="openTypeSelection"
-      />
+      <q-btn color="accent" icon="add" size="14px" round unelevated @click="openTypeSelection">
+        <AppTooltip>{{ $t('createNew') }}</AppTooltip>
+      </q-btn>
     </div>
 
     <!-- Loading State -->
@@ -40,11 +34,12 @@
         {{ $t('addFirstSource') }}
       </div>
       <q-btn
-        unelevated
         color="accent"
-        text-color="grey-3"
-        icon="add"
         :label="$t('createNew')"
+        icon="add"
+        padding="10px 24px"
+        rounded
+        unelevated
         @click="openTypeSelection"
       />
     </div>
@@ -88,6 +83,7 @@ import { Connector, type ConnectorSavePayload } from 'src/models/Connector';
 import { ConnectorStatus, ConnectorType } from 'src/models/enums';
 import ConnectorStepper from 'src/components/connectors/ConnectorStepper.vue';
 import ConnectorManagementCard from 'src/components/connectors/ConnectorManagementCard.vue';
+import AppTooltip from 'src/components/common/AppTooltip.vue';
 import { useConnectorStore } from 'src/stores/ConnectorStore';
 import { useConnectorActions } from 'src/composables/useConnectorActions';
 
@@ -149,12 +145,28 @@ const sortedConnectors = computed(() => {
 const filteredConnectors = computed(() => {
   if (!filter.value) return sortedConnectors.value;
   const search = filter.value.toLowerCase();
-  return sortedConnectors.value.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search) ||
-      c.description?.toLowerCase().includes(search) ||
-      c.connector_type.toLowerCase().includes(search)
-  );
+  return sortedConnectors.value.filter((c) => {
+    // 1. Name & Description
+    if (c.name.toLowerCase().includes(search)) return true;
+    if (c.description?.toLowerCase().includes(search)) return true;
+
+    // 2. Type & Provider
+    if (c.connector_type.toLowerCase().includes(search)) return true;
+    const provider = c.configuration?.ai_provider || 'gemini';
+    if (provider.toLowerCase().includes(search)) return true;
+    if (t(provider.toLowerCase()).toLowerCase().includes(search)) return true;
+
+    // 3. Status & Error
+    if (c.status.toLowerCase().includes(search)) return true;
+    if (t(c.status).toLowerCase().includes(search)) return true;
+    if (c.last_error?.toLowerCase().includes(search)) return true;
+
+    // 4. ACL Tags
+    const aclTags = c.configuration?.connector_acl || [];
+    if (aclTags.some((tag: string) => tag.toLowerCase().includes(search))) return true;
+
+    return false;
+  });
 });
 
 // --- LIFECYCLE ---
@@ -260,11 +272,12 @@ function refreshFiles(source: Connector) {
 <style scoped>
 .search-input :deep(.q-field__control) {
   border-radius: 12px;
+  background: var(--q-primary) !important;
+  border: 1px solid var(--q-third);
 }
 
-.add-btn {
-  border-radius: 12px;
-  height: 40px;
-  padding: 0 20px;
+.search-input :deep(.q-field__control:before),
+.search-input :deep(.q-field__control:after) {
+  display: none !important;
 }
 </style>

@@ -1,19 +1,18 @@
 <template>
   <q-page class="bg-primary q-pa-lg">
     <!-- Top Bar: Search & Add -->
-    <div class="row items-center justify-between q-mb-xl q-mt-md">
+    <div class="row items-center justify-between q-mb-lg">
       <div class="row items-center q-gutter-x-md flex-grow">
         <q-input
           v-model="filter"
+          filled
           dense
-          outlined
-          rounded
-          :placeholder="$t('search')"
           class="search-input"
-          bg-color="secondary"
+          :placeholder="$t('search')"
+          clearable
         >
-          <template #append>
-            <q-icon name="search" size="xs" />
+          <template #prepend>
+            <q-icon name="search" />
           </template>
         </q-input>
 
@@ -265,9 +264,20 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.search-input :deep(.q-field__control) {
+  border-radius: 12px;
+  background: var(--q-primary) !important;
+  border: 1px solid var(--q-third);
+}
+
+.search-input :deep(.q-field__control:before),
+.search-input :deep(.q-field__control:after) {
+  display: none !important;
+}
+
 .search-input {
   width: 100%;
-  max-width: 400px;
+  max-width: 375px;
 }
 
 .flex-grow {

@@ -2,7 +2,7 @@
   <q-page class="bg-primary q-pa-lg">
 
     <!-- Search / Filter Bar -->
-    <div class="row q-mb-xl items-center q-gutter-x-md">
+    <div class="row q-mb-lg items-center q-gutter-x-md">
       <q-input
         v-model="filter"
         filled
@@ -10,6 +10,7 @@
         class="search-input col-12 col-md-4"
         :placeholder="$t('search')"
         clearable
+        style="max-width: 375px"
       >
         <template #prepend>
           <q-icon name="search" />
@@ -125,11 +126,27 @@ const saving = ref(false); // separate loading state for save operations
 const filteredAssistants = computed(() => {
   if (!filter.value) return theAssistants.list;
   const search = filter.value.toLowerCase();
-  return theAssistants.list.filter(
-    (a) =>
-      a.name.toLowerCase().includes(search) ||
-      (a.description && a.description.toLowerCase().includes(search)),
-  );
+  return theAssistants.list.filter((a) => {
+    // 1. Name & Description
+    if (a.name.toLowerCase().includes(search)) return true;
+    if (a.description?.toLowerCase().includes(search)) return true;
+
+    // 2. Model & Provider
+    if (a.model?.toLowerCase().includes(search)) return true;
+    if (a.model_provider?.toLowerCase().includes(search)) return true;
+    // Special display case for Ollama/Mistral
+    if (a.model_provider?.toLowerCase() === 'ollama' && 'mistral'.includes(search)) return true;
+
+    // 3. Tags (ACL)
+    const tags = a.configuration?.tags || [];
+    if (tags.some((t) => t.toLowerCase().includes(search))) return true;
+
+    // 4. Linked Connectors
+    const linked = getAssistantConnectors(a);
+    if (linked.some((c) => c.name.toLowerCase().includes(search))) return true;
+
+    return false;
+  });
 });
 
 // --- LIFECYCLE ---
@@ -330,18 +347,16 @@ function confirmPurgeCache(assistant: Assistant) {
 </script>
 
 <style scoped>
-.search-input {
-  transition: all 0.3s ease;
-}
 
 .search-input :deep(.q-field__control) {
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--q-primary) !important;
+  border: 1px solid var(--q-third);
 }
 
-.search-input.q-field--focused :deep(.q-field__control) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  box-shadow: 0 0 0 2px var(--q-accent);
+.search-input :deep(.q-field__control:before),
+.search-input :deep(.q-field__control:after) {
+  display: none !important;
 }
 
 .empty-state {

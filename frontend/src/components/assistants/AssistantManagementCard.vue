@@ -139,7 +139,7 @@
     </q-card-section>
     
     <!-- Quick Actions Footer -->
-    <q-card-actions align="around" class="q-pb-md q-px-md">
+    <q-card-actions align="around" class="assistant-card-footer q-pb-md q-px-md">
       <q-btn flat round dense icon="chat_bubble_outline" size="sm" class="action-btn" @click.stop="$emit('chat')">
         <AppTooltip>{{ $t('talk') }}</AppTooltip>
       </q-btn>
@@ -220,6 +220,11 @@ const glowStyle = computed(() => {
   background: linear-gradient(135deg, var(--q-secondary) 0%, var(--q-primary) 100%);
   position: relative;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.assistant-card-footer {
+  background: linear-gradient(135deg, var(--q-secondary) 0%, var(--q-primary) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glow-overlay {

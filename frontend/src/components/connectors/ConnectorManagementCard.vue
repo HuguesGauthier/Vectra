@@ -447,7 +447,7 @@ const progressLabel = computed(() => {
 
 .actions-footer {
   border-top: 1px solid rgba(255, 255, 255, 0.03);
-  background: rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, var(--q-secondary) 0%, var(--q-primary) 100%);
 }
 
 .action-btn {

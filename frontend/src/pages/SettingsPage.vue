@@ -10,15 +10,6 @@
         tabindex="-1"
       />
 
-      <!-- Header -->
-      <div class="row items-center justify-between q-pt-md q-pb-md q-pl-none q-mb-md">
-        <div>
-          <div class="text-h4 text-weight-bold">{{ $t('settings') }}</div>
-          <div class="text-subtitle1 q-pt-xs">
-            {{ $t('manageAppConfiguration') }}
-          </div>
-        </div>
-      </div>
 
       <!-- Main Content -->
       <div>
