@@ -203,7 +203,7 @@ services:
       - vectra
 
   vectra-whisper:
-    image: fedless/faster-whisper-server:latest-cuda
+    image: fedirz/faster-whisper-server:latest-cuda
     restart: always
     environment:
       - WHISPER__MODEL=base

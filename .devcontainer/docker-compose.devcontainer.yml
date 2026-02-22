@@ -1,0 +1,12 @@
+services:
+  vectra-api:
+    # Overwrite the command to keep the container running if needed, 
+    # though standard compose should be fine.
+    # We add this file to allow future devcontainer-specific overrides.
+    volumes:
+      - ..:/workspaces/Vectra:cached
+
+  vectra-frontend:
+    volumes:
+      - ../frontend:/app:cached
+      - /app/node_modules

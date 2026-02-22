@@ -143,8 +143,8 @@ This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docke
 This mode builds and runs everything inside optimized Docker containers. It doesn't rely on local code once built.
 
 ```bash
-# Use --profile app to include the application services
-docker compose --profile app -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Use --profile prod to include the application services
+docker compose --profile prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 - **Frontend:** http://localhost (Port 80)
