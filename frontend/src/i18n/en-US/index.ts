@@ -14,6 +14,7 @@ export default {
   name: 'Name',
   firstName: 'First Name',
   lastName: 'Last Name',
+  jobTitles: 'Job Titles',
   description: 'Description',
   date: 'Date',
   size: 'Size',

@@ -81,6 +81,7 @@
               color="accent"
               bg-color="primary"
               lazy-rules
+              autofocus
               autocomplete="email"
               :rules="emailRules"
             />
@@ -101,6 +102,22 @@
               color="accent"
               bg-color="primary"
               autocomplete="family-name"
+            />
+            
+            <!-- Job Titles (Tags) -->
+            <q-select
+              v-model="formData.job_titles"
+              :label="$t('jobTitles')"
+              use-input
+              use-chips
+              multiple
+              hide-dropdown-icon
+              input-debounce="0"
+              new-value-mode="add-unique"
+              outlined
+              color="accent"
+              bg-color="primary"
+              popup-content-class="custom-select-popup"
             />
 
             <q-input
@@ -140,7 +157,15 @@
         </q-card-section>
       </div>
 
-      <q-card-actions align="right" class="bg-secondary border-top q-pa-md">
+      <q-card-actions class="bg-secondary border-top q-pa-md">
+        <q-btn
+          v-if="isEditing && !isEditingSelf"
+          :label="$t('delete')"
+          color="negative"
+          flat
+          @click="$emit('delete')"
+          class="q-mr-auto"
+        />
         <q-btn :label="$t('save')" @click="handleSubmit" color="accent" unelevated :loading="loading" />
       </q-card-actions>
     </q-card>
@@ -165,6 +190,7 @@ export interface User {
   last_name?: string;
   role: string;
   is_active: boolean;
+  job_titles?: string[];
   avatar_url?: string;
   avatar_vertical_position?: number;
 }
@@ -174,6 +200,7 @@ export interface UserFormData {
   email: string;
   first_name: string;
   last_name: string;
+  job_titles: string[];
   password: string;
   role: string;
   is_active: boolean;
@@ -200,6 +227,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
   save: [data: Partial<UserFormData>];
+  delete: [];
   cancel: [];
 }>();
 
@@ -214,6 +242,7 @@ const formData = ref<UserFormData>({
   email: '',
   first_name: '',
   last_name: '',
+  job_titles: [],
   password: '',
   role: 'user',
   is_active: true,
@@ -272,6 +301,7 @@ watch(
         email: user.email,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
+        job_titles: user.job_titles || [],
         password: '',
         role: user.role,
         is_active: user.is_active,
@@ -298,6 +328,7 @@ watch(
           email: props.userToEdit.email,
           first_name: props.userToEdit.first_name || '',
           last_name: props.userToEdit.last_name || '',
+          job_titles: props.userToEdit.job_titles || [],
           password: '',
           role: props.userToEdit.role,
           is_active: props.userToEdit.is_active,
@@ -320,6 +351,7 @@ function resetForm() {
     email: '',
     first_name: '',
     last_name: '',
+    job_titles: [],
     password: '',
     role: 'user',
     is_active: true,
@@ -440,6 +472,7 @@ async function handleSubmit() {
       email: formData.value.email,
       first_name: formData.value.first_name,
       last_name: formData.value.last_name,
+      job_titles: formData.value.job_titles,
       role: formData.value.role,
       is_active: formData.value.is_active,
       avatar_url: avatarUrl,

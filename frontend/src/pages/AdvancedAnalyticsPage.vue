@@ -541,7 +541,7 @@ onMounted(async () => {
       var(--q-secondary) 0%,
       rgba(var(--q-secondary-rgb), 0.8) 100%
     );
-    border: 1px solid var(--q-third);
+    border: 1px solid var(--q-sixth);
     border-radius: 24px;
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);

@@ -2,7 +2,7 @@
 User Schemas - Pydantic definitions for API request/response.
 """
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import EmailStr, Field
@@ -27,6 +27,7 @@ class UserUpdate(SQLModel):
     role: Optional[UserRole] = None
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
+    job_titles: Optional[List[str]] = Field(default_factory=list)
     avatar_url: Optional[str] = Field(None, max_length=500)
     avatar_vertical_position: Optional[int] = Field(None, ge=0, le=100)
 

@@ -69,11 +69,11 @@ class UserService:
             )
 
         try:
+            # Pydantic's model_dump is more robust for field mapping
+            user_data = user_in.model_dump(exclude={"password"})
             user = User(
-                email=user_in.email,
+                **user_data,
                 hashed_password=get_password_hash(user_in.password),
-                role=user_in.role,
-                is_active=user_in.is_active,
             )
             # Use repository create
             return await self.repository.create(user)

@@ -1,124 +1,84 @@
 <template>
   <q-page class="bg-primary q-pa-lg">
-    <!-- Header -->
-    <div class="row items-center justify-between q-pt-md q-pb-md q-pl-none q-mb-md">
-      <div>
-        <div class="text-h4 text-weight-bold">{{ $t('users') }}</div>
-        <div class="text-subtitle1 q-pt-xs">{{ $t('manageAppConfiguration') }}</div>
+    <!-- Top Bar: Search & Add -->
+    <div class="row items-center justify-between q-mb-xl q-mt-md">
+      <div class="row items-center q-gutter-x-md flex-grow">
+        <q-input
+          v-model="filter"
+          dense
+          outlined
+          rounded
+          :placeholder="$t('search')"
+          class="search-input"
+          bg-color="secondary"
+        >
+          <template #append>
+            <q-icon name="search" size="xs" />
+          </template>
+        </q-input>
+
+        <q-btn color="accent" icon="add" round unelevated @click="openDialog()">
+          <AppTooltip>{{ $t('addUser') }}</AppTooltip>
+        </q-btn>
       </div>
     </div>
 
-    <!-- Users Table -->
-    <AppTable
-      :rows="users"
-      :columns="columns"
-      row-key="id"
-      :loading="loading"
-      v-model:filter="filter"
-      :pagination="{ sortBy: 'full_name', descending: false, rowsPerPage: 0 }"
-      no-data-icon="group"
-      :no-data-title="$t('noUsersFound')"
-      :no-data-message="$t('addFirstUser')"
-    >
-      <!-- Add button -->
-      <template #add-button>
-        <q-btn color="accent" icon="add" size="12px" round unelevated @click="openDialog()">
-          <AppTooltip>{{ $t('addUser') }}</AppTooltip>
-        </q-btn>
-      </template>
-
-      <!-- Custom row rendering -->
-      <template #body="{ props }">
-        <q-tr :props="props">
-          <!-- Avatar Column -->
-          <q-td key="avatar" :props="props" auto-width>
-            <q-avatar
-              size="sm"
-              :color="props.row.is_active ? 'positive' : 'grey'"
-              text-color="white"
-            >
-              <img
-                v-if="props.row.avatar_url"
-                :src="getAvatarUrl(props.row.avatar_url)"
-                :alt="props.row.email"
-                :style="{
-                  objectFit: 'cover',
-                  objectPosition: `center ${props.row.avatar_vertical_position || 50}%`,
-                }"
-              />
-              <template v-else>
-                {{ props.row.email.charAt(0).toUpperCase() }}
-              </template>
-            </q-avatar>
-          </q-td>
-
-          <!-- Full Name Column -->
-          <q-td key="full_name" :props="props">
-            <div
-              class="text-weight-bold cursor-pointer hover-underline"
-              @click="openDialog(props.row)"
-            >
-              {{
-                props.row.first_name
-                  ? `${props.row.first_name} ${props.row.last_name || ''}`
-                  : props.row.email
-              }}
+    <!-- Loading State: Skeleton Cards -->
+    <div v-if="loading" class="row q-col-gutter-lg">
+      <div v-for="n in 8" :key="n" class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <q-card flat class="skeleton-user-card bg-secondary overflow-hidden">
+          <div class="skeleton-banner"></div>
+          <q-card-section class="q-pt-none q-px-lg relative-position">
+            <div class="skeleton-avatar-wrapper">
+              <q-skeleton type="QAvatar" size="80px" />
             </div>
-          </q-td>
-
-          <!-- Email Column -->
-          <q-td key="email" :props="props">
-            <div>
-              {{ props.row.email }}
+            <div class="column q-mt-sm">
+              <q-skeleton type="text" width="60%" height="24px" class="q-mb-sm" />
+              <q-skeleton type="text" width="40%" height="16px" class="q-mb-md" />
+              <q-skeleton type="rect" width="80px" height="20px" style="border-radius: 8px" />
             </div>
-          </q-td>
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
 
-          <!-- Role Column -->
-          <q-td key="role" :props="props">
-            {{ props.row.role }}
-          </q-td>
+    <!-- Empty State -->
+    <div v-else-if="filteredUsers.length === 0" class="column flex-center text-center q-pa-xl">
+      <q-icon name="group_off" size="100px" color="grey-7" class="q-mb-md" />
+      <div class="text-h5 text-grey-5 q-mb-xs">{{ $t('noUsersFound') }}</div>
+      <div class="text-subtitle2 text-grey-7 q-mb-lg">
+        {{ filter ? $t('tryDifferentSearch') : $t('addFirstUser') }}
+      </div>
+      <q-btn
+        v-if="!filter"
+        unelevated
+        color="accent"
+        icon="add"
+        :label="$t('addUser')"
+        @click="openDialog()"
+      />
+    </div>
 
-          <!-- Is Active Column -->
-          <q-td key="is_active" :props="props">
-            <q-chip
-              :color="props.row.is_active ? 'positive' : 'grey'"
-              text-color="secondary"
-              size="sm"
-              dense
-              class="q-ma-none q-pl-sm q-pr-sm"
-            >
-              {{ props.row.is_active ? $t('statusActive') : $t('statusInactive') }}
-            </q-chip>
-          </q-td>
-
-          <!-- Actions Column -->
-          <q-td key="actions" :props="props">
-            <div class="row items-center q-gutter-x-sm justify-end">
-              <q-btn round flat dense size="sm" icon="edit" @click="openDialog(props.row)">
-                <AppTooltip>{{ $t('edit') }}</AppTooltip>
-              </q-btn>
-              <q-btn
-                round
-                flat
-                dense
-                size="sm"
-                icon="delete"
-                color="negative"
-                @click="confirmDelete(props.row)"
-                v-if="props.row.email !== 'admin' && props.row.email !== 'admin@vectra.ai'"
-              >
-                <AppTooltip>{{ $t('delete') }}</AppTooltip>
-              </q-btn>
-            </div>
-          </q-td>
-        </q-tr>
-      </template>
-
-      <!-- No data action -->
-      <template #no-data-action>
-        <q-btn color="accent" size="12px" icon="add" round unelevated @click="openDialog()" />
-      </template>
-    </AppTable>
+    <!-- Users Grid -->
+    <div v-else class="relative-position">
+      <transition-group
+        appear
+        name="user-grid"
+        tag="div"
+        class="row q-col-gutter-lg"
+      >
+        <div
+          v-for="user in filteredUsers"
+          :key="user.id"
+          class="col-12 col-sm-6 col-md-4 col-lg-3 user-item"
+        >
+          <UserCard
+            :user="user"
+            @edit="openDialog(user)"
+          />
+        </div>
+      </transition-group>
+    </div>
 
     <!-- User Form Dialog -->
     <UserFormDialog
@@ -127,19 +87,19 @@
       :existing-users="users"
       :current-user-email="(authStore.user?.email as string) || ''"
       @save="handleSave"
+      @delete="handleDeleteStep"
     />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { api } from 'boot/axios';
 import { useI18n } from 'vue-i18n';
-import { type QTableColumn } from 'quasar';
 import { useNotification } from 'src/composables/useNotification';
 import { useDialog } from 'src/composables/useDialog';
 import AppTooltip from 'components/common/AppTooltip.vue';
-import AppTable from 'components/common/AppTable.vue';
+import UserCard from 'components/admin/UserCard.vue';
 import UserFormDialog from 'components/admin/UserFormDialog.vue';
 import { useAuthStore } from 'stores/authStore';
 
@@ -154,8 +114,9 @@ interface User {
   email: string;
   first_name?: string;
   last_name?: string;
-  is_active: boolean;
   role: string;
+  is_active: boolean;
+  job_titles?: string[];
   avatar_url?: string;
   avatar_vertical_position?: number;
 }
@@ -167,74 +128,21 @@ const dialogVisible = ref(false);
 const editingUser = ref<User | null>(null);
 const filter = ref('');
 
-const columns: QTableColumn[] = [
-  {
-    name: 'avatar',
-    label: '',
-    field: 'email',
-    align: 'center',
-    sortable: false,
-    style: 'width: 50px',
-  },
-  {
-    name: 'full_name',
-    label: t('name'),
-    field: (row: User) => (row.first_name ? `${row.first_name} ${row.last_name || ''}` : row.email),
-    align: 'left',
-    sortable: true,
-    headerStyle: 'color: var(--q-text-main)',
-    style: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'email',
-    label: t('email'),
-    field: 'email',
-    align: 'left',
-    sortable: true,
-    headerStyle: 'color: var(--q-text-main)',
-    style: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'role',
-    label: t('role'),
-    field: 'role',
-    align: 'left',
-    sortable: true,
-    headerStyle: 'color: var(--q-text-main)',
-    style: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'is_active',
-    label: t('status'),
-    field: 'is_active',
-    align: 'left',
-    sortable: true,
-    headerStyle: 'color: var(--q-text-main)',
-    style: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'actions',
-    label: t('actions'),
-    field: 'actions',
-    align: 'right',
-    headerStyle: 'color: var(--q-text-main)',
-    style: 'color: var(--q-text-main)',
-  },
-];
+const filteredUsers = computed(() => {
+  if (!filter.value) return users.value;
+  const f = filter.value.toLowerCase();
+  return users.value.filter((u) => {
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+    return (
+      u.email.toLowerCase().includes(f) ||
+      fullName.includes(f) ||
+      u.role.toLowerCase().includes(f)
+    );
+  });
+});
 
 // --- FUNCTIONS ---
 
-const getAvatarUrl = (path: string) => {
-  if (!path) return '';
-  if (path.startsWith('http') || path.startsWith('data:')) return path;
-
-  // Use config base URL (e.g. /api/v1) or fallback
-  const baseUrl = api.defaults.baseURL || '';
-  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-
-  return `${cleanBase}${cleanPath}`;
-};
 
 const fetchUsers = async () => {
   loading.value = true;
@@ -263,6 +171,7 @@ const handleSave = async (data: Record<string, unknown>) => {
         is_active: data.is_active,
         first_name: data.first_name,
         last_name: data.last_name,
+        job_titles: data.job_titles,
         avatar_vertical_position: data.avatar_vertical_position,
         avatar_url: data.avatar_url,
       };
@@ -281,6 +190,7 @@ const handleSave = async (data: Record<string, unknown>) => {
         is_active: data.is_active,
         first_name: data.first_name,
         last_name: data.last_name,
+        job_titles: data.job_titles,
         avatar_vertical_position: data.avatar_vertical_position,
         avatar_url: data.avatar_url,
       });
@@ -318,6 +228,12 @@ const handleSave = async (data: Record<string, unknown>) => {
   }
 };
 
+const handleDeleteStep = () => {
+  if (editingUser.value) {
+    confirmDelete(editingUser.value);
+  }
+};
+
 const confirmDelete = (user: User) => {
   confirm({
     title: t('confirmDeletion'),
@@ -334,6 +250,7 @@ const deleteUser = async (user: User) => {
   try {
     await api.delete(`/users/${user.id}`);
     notifySuccess(t('userDeleted'));
+    dialogVisible.value = false; // Close the dialog after deletion
     await fetchUsers();
   } catch (err) {
     notifyBackendError(err, t('failedToDeleteUser'));
@@ -346,7 +263,45 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.hover-underline:hover {
-  text-decoration: underline;
+.search-input {
+  width: 100%;
+  max-width: 400px;
+}
+
+.flex-grow {
+  flex-grow: 1;
+}
+
+/* Skeleton Styles */
+.skeleton-user-card {
+  border-radius: 24px;
+  height: 220px;
+  border: 1px solid var(--q-sixth);
+}
+
+.skeleton-banner {
+  height: 80px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skeleton-avatar-wrapper {
+  margin-top: -40px;
+  margin-bottom: 12px;
+}
+
+/* Grid Transitions */
+.user-grid-enter-active,
+.user-grid-leave-active {
+  transition: all 0.5s cubic-bezier(0.55, 0, 0.1, 1);
+}
+
+.user-grid-enter-from,
+.user-grid-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(20px);
+}
+
+.user-grid-move {
+  transition: transform 0.5s cubic-bezier(0.55, 0, 0.1, 1);
 }
 </style>

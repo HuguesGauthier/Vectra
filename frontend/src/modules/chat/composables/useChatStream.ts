@@ -274,6 +274,9 @@ export function useChatStream() {
 
     if (!botMsg.contentBlocks) botMsg.contentBlocks = [];
 
+    // Explicitly ensure it's marked as NOT complete while handling stream events
+    if (botMsg.isComplete !== false) botMsg.isComplete = false;
+
     switch (event.type) {
       case 'status':
         botMsg.statusMessage = event.message;
