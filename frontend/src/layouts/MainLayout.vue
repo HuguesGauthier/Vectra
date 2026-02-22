@@ -395,7 +395,7 @@
             <div class="column q-gutter-md">
               <div class="text-subtitle2">{{ $t('storageFixPathLabel') }}</div>
               <code class="bg-secondary q-pa-sm borderRadius-8" style="font-family: monospace">
-                d:\Vectra\.env
+                .env
               </code>
 
               <div class="text-body2 q-mt-md">

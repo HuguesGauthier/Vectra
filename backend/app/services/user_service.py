@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_password_hash
+from app.core.settings import get_settings
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate
@@ -18,8 +19,14 @@ from app.schemas.user import UserCreate, UserUpdate
 logger = logging.getLogger(__name__)
 
 # Avatar storage directory - Absolute path relative to backend root
+settings = get_settings()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-AVATAR_DIR = BASE_DIR / "user_avatars"
+
+# Persistent Storage Logic
+if settings.VECTRA_DATA_PATH:
+    AVATAR_DIR = Path(settings.VECTRA_DATA_PATH) / "user_avatars"
+else:
+    AVATAR_DIR = BASE_DIR / "user_avatars"
 
 
 class UserService:

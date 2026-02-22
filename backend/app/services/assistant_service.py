@@ -20,6 +20,7 @@ from app.core.exceptions import FunctionalError, TechnicalError
 from app.core.utils.ui import calculate_contrast_text_color
 from app.repositories.assistant_repository import AssistantRepository
 from app.schemas.assistant import AssistantCreate, AssistantResponse, AssistantUpdate
+from app.core.settings import get_settings
 from app.services.trending_service import TrendingService, get_trending_service
 
 if TYPE_CHECKING:
@@ -28,8 +29,15 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Constants
+settings = get_settings()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-AVATAR_DIR = BASE_DIR / "assistant_avatars"
+
+# Persistent Storage Logic
+if settings.VECTRA_DATA_PATH:
+    AVATAR_DIR = Path(settings.VECTRA_DATA_PATH) / "assistant_avatars"
+else:
+    AVATAR_DIR = BASE_DIR / "assistant_avatars"
+
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 DEFAULT_EXTENSION = ".png"
 ERROR_DB = "DB_ERROR"

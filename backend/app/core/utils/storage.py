@@ -31,18 +31,18 @@ def validate_data_mount() -> None:
     try:
         data_path = "/data"
         if os.path.exists(data_path):
-            contents = os.listdir(data_path)
-            if not contents:
+            # We no longer mark as offline if empty, because it's normal on fresh install.
+            # We just log a hint.
+            _storage_status = True
+            try:
+                contents = os.listdir(data_path)
+                if not contents:
+                    logger.info(f"📂 [STORAGE] Data mount '/data' is active but currently empty.")
+                else:
+                    logger.info(f"📂 [STORAGE] Data mount active: {len(contents)} items found in /data")
+            except Exception as list_err:
                 _storage_status = False
-                logger.warning("\n" + "!" * 80)
-                logger.warning("🚨 [STORAGE WARNING] The '/data' volume mount is EMPTY.")
-                logger.warning(f"👉 VECTRA_DATA_PATH is set to: {settings.VECTRA_DATA_PATH}")
-                logger.warning("👉 This usually happens when using a Virtual/Network drive (G:, OneDrive, iCloud).")
-                logger.warning("👉 FIX: Move your data to a physical drive (C: or D:) and update .env.")
-                logger.warning("!" * 80 + "\n")
-            else:
-                _storage_status = True
-                logger.info(f"📂 [STORAGE] Data mount active: {len(contents)} items found in /data")
+                logger.error(f"🚨 [STORAGE ERROR] Cannot read '/data' content: {list_err}")
         else:
             _storage_status = False
             logger.error("🚨 [STORAGE ERROR] The '/data' directory does not exist inside the container.")

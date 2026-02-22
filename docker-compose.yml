@@ -7,7 +7,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
-      - VECTRA_DATA_PATH=${VECTRA_DATA_PATH}
+      - VECTRA_DATA_PATH=/data
       - QDRANT_HOST=vectra-qdrant
       - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Redis Configuration
@@ -58,7 +58,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
-      - VECTRA_DATA_PATH=${VECTRA_DATA_PATH}
+      - VECTRA_DATA_PATH=/data
       - QDRANT_HOST=vectra-qdrant
       - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Redis Configuration

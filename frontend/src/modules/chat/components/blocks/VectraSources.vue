@@ -38,6 +38,7 @@
             <span
               class="text-weight-medium text-body2 q-mr-sm ellipsis style-file-name"
               :title="group.fileName"
+              :style="{ color: textColor }"
             >
               {{ group.fileName }}
             </span>
