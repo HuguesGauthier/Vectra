@@ -13,7 +13,6 @@
       v-model="localData.configuration.ai_provider"
       :options="aiProviderOptions"
       :label="$t('aiProvider')"
-      dark
       color="white"
       standout
       emit-value
@@ -30,7 +29,6 @@
       multiple
       input-debounce="0"
       @new-value="createValue"
-      dark
       standout
       :hint="$t('connectorAclHint')"
       :rules="[

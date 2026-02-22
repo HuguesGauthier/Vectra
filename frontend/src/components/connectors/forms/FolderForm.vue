@@ -7,7 +7,6 @@
       v-model="localData.configuration.ai_provider"
       :options="aiProviderOptions"
       :label="$t('aiProvider')"
-      dark
       color="white"
       standout
       emit-value
@@ -25,7 +24,6 @@
       use-input
       use-chips
       multiple
-      dark
       input-debounce="0"
       @new-value="createValue"
       standout
@@ -50,7 +48,6 @@
       v-model="localData.schedule_type"
       :options="scheduleOptions"
       :label="$t('schedule')"
-      dark
       color="white"
       standout
       emit-value

@@ -3,7 +3,6 @@
     <q-input
       v-model="localData.file_name"
       :label="$t('name')"
-      dark
       color="white"
       standout
       lazy-rules="ondemand"
@@ -15,7 +14,6 @@
       :display-value="activeFile ? undefined : localData.file_path"
       :accept="accept"
       clearable
-      dark
       color="white"
       standout
       :label="$t('filePath')"
