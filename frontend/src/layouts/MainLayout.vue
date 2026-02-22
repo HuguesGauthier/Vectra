@@ -448,7 +448,7 @@
 
             <div v-if="selectedHealthKpi?.details" class="details-box q-pa-sm borderRadius-8">
               <div class="text-caption text-uppercase text-weight-bold q-mb-xs">
-                Informations additionnelles
+                {{ $t('additionalInformation') }}
               </div>
               <div class="text-body2 text-weight-medium font-mono">
                 {{ selectedHealthKpi.details }}

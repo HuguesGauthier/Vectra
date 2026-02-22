@@ -740,6 +740,7 @@ export default {
   keepEditing: 'Keep Editing',
   ingestionFailedForDoc: 'Processing failed for {name}',
   unknownError: 'Unknown error',
+  additionalInformation: 'Additional Information',
 
   // --- Errors ---
   pageNotFound: '404',

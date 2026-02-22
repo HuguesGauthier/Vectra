@@ -738,6 +738,7 @@ export default {
   keepEditing: 'Continuer à modifier',
   ingestionFailedForDoc: 'Traitement échoué pour {name}',
   unknownError: 'Erreur inconnue',
+  additionalInformation: 'Informations additionnelles',
 
   // --- Erreurs ---
   pageNotFound: '404',
