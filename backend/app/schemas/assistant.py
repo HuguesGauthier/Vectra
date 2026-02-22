@@ -64,7 +64,7 @@ class AssistantBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = Field(default=None, max_length=1000)
     avatar_bg_color: str = Field(default=DEFAULT_AVATAR_COLOR, max_length=50)
-    avatar_text_color: str = Field(default=DEFAULT_AVATAR_TEXT_COLOR, max_length=50)
+    avatar_text_color: Optional[str] = Field(default=None, max_length=50)
     avatar_image: Optional[str] = Field(default=None, max_length=255)
     avatar_vertical_position: int = Field(default=50, ge=0, le=100)
 
@@ -92,6 +92,7 @@ class AssistantBase(SQLModel):
     configuration: AssistantConfig = Field(default_factory=AssistantConfig)
     is_enabled: bool = Field(default=True)
 
+    @computed_field
     @property
     def model_provider(self) -> str:
         """Derive provider from model enum."""

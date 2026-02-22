@@ -15,7 +15,8 @@ class TestEmbeddingProviderFactory:
         # Patch asyncio.to_thread which is used to instantiate the model
         with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
             mock_thread.return_value = MagicMock()
-            await EmbeddingProviderFactory.create_embedding_model("openai", mock_settings)
+            with patch.dict(sys.modules, {"llama_index.embeddings.openai": MagicMock()}):
+                await EmbeddingProviderFactory.create_embedding_model("openai", mock_settings)
 
             # Verify it was called with something that looks like OpenAIEmbedding
             # and our expected args
@@ -30,7 +31,8 @@ class TestEmbeddingProviderFactory:
 
         with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
             mock_thread.return_value = MagicMock()
-            await EmbeddingProviderFactory.create_embedding_model("gemini", mock_settings)
+            with patch.dict(sys.modules, {"llama_index.embeddings.google_genai": MagicMock()}):
+                await EmbeddingProviderFactory.create_embedding_model("gemini", mock_settings)
 
             args, kwargs = mock_thread.call_args
             assert "GoogleGenAIEmbedding" in str(args[0])

@@ -133,7 +133,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         if (p.id === 'openai') logo = openaiLogo;
         if (p.id === 'mistral') logo = mistralLogo;
         if (p.id === 'anthropic') logo = anthropicLogo;
-        if (p.id === 'ollama') logo = localLogo;
+        if (p.id === 'ollama') logo = mistralLogo;
 
         // Custom Description
         let modelInfo = '';
@@ -274,6 +274,49 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
     return option?.label || value;
   };
 
+  /**
+   * Get the logo for a provider by ID
+   */
+  const getProviderLogo = (providerId: string | undefined): string | undefined => {
+    if (!providerId) return undefined;
+    const pid = providerId.toLowerCase();
+    
+    // Check chat options first as it's the most common
+    const chatOpt = chatProviderOptions.value.find(o => o.id === pid);
+    if (chatOpt) return chatOpt.logo;
+    
+    // Fallback to manual mapping for cases where providers haven't loaded yet or are special
+    const logos: Record<string, string> = {
+      gemini: geminiLogo,
+      openai: openaiLogo,
+      mistral: mistralLogo,
+      anthropic: anthropicLogo,
+      ollama: mistralLogo, // Ollama container uses Mistral logo
+      local: localLogo,
+      cohere: cohereLogo,
+    };
+    return logos[pid];
+  };
+
+  /**
+   * Get the theme color for a provider by ID
+   */
+  const getProviderColor = (providerId: string | undefined): string => {
+    if (!providerId) return 'grey-7';
+    const pid = providerId.toLowerCase();
+    
+    const colors: Record<string, string> = {
+      gemini: 'blue-6',
+      openai: 'green-6',
+      mistral: 'orange-10',
+      anthropic: 'brown-6',
+      local: 'blue-grey-8',
+      ollama: 'orange-10',
+      cohere: 'purple-6',
+    };
+    return colors[pid] || 'grey-7';
+  };
+
   return {
     providers,
     isLoading,
@@ -284,5 +327,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
     getChatProviderLabel,
     getEmbeddingProviderLabel,
     getRerankProviderLabel,
+    getProviderLogo,
+    getProviderColor,
   };
 }

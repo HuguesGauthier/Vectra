@@ -1,86 +1,83 @@
 <template>
   <q-card
     flat
-    class="assistant-selection-card column full-height clickable"
+    class="assistant-selection-card column full-height clickable bg-primary"
     @click="$emit('select')"
     :style="cardStyle"
   >
-    <!-- Background Glow -->
-    <div class="glow-overlay" :style="glowStyle"></div>
-
-    <!-- Authentication Badge -->
-    <div v-if="assistant.user_authentication" class="auth-badge">
-      <q-icon name="lock" size="14px" color="white" />
-      <q-tooltip anchor="top middle" self="bottom middle" :offset="[10, 10]" class="bg-dark text-white shadow-4">
-        {{ $t('secureAccess') }}
-      </q-tooltip>
+    <div class="assistant-card-banner">
+      <!-- Background Glow -->
+      <div class="glow-overlay" :style="glowStyle"></div>
+      
+      <!-- Top Right Header Badges -->
+      <div class="header-badges-vertical">
+        <!-- Model Pill -->
+        <div 
+          class="model-pill"
+          :style="pillStyle"
+        >
+          <q-img
+            v-if="providerLogo"
+            :src="providerLogo"
+            width="12px"
+            height="12px"
+            class="q-mr-xs provider-logo"
+            fit="contain"
+          />
+          <q-icon 
+            v-else
+            name="bolt" 
+            size="12px" 
+            class="q-mr-xs" 
+          />
+          {{ displayModelName }}
+        </div>
+      </div>
     </div>
 
-    <q-card-section class="col column items-center q-pa-xl relative-position">
+    <q-card-section class="q-pt-none q-px-lg relative-position info-section">
       <!-- Avatar with Ring -->
-      <div class="avatar-ring" :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }">
-        <AssistantAvatar
-          :assistant="assistant"
-          size="100px"
-          class="assistant-avatar-main"
-        />
-      </div>
-
-      <!-- Name & Badge -->
-      <div class="text-h5 text-weight-bolder text-white q-mt-lg q-mb-xs assistant-name">
-        {{ assistant.name }}
-      </div>
-
-      <!-- Model Pill -->
-      <div class="model-pill q-mb-md">
-        <q-icon name="bolt" size="14px" class="q-mr-xs" />
-        {{ assistant.model || 'Gemini' }}
-      </div>
-
-      <!-- Description (Optional) -->
-      <div v-if="assistant.description" class="description-text q-mb-lg text-center">
-        {{ assistant.description }}
-      </div>
-
-      <!-- Stats / Metadata -->
-      <div class="metadata-row row items-center justify-center q-gutter-x-md opacity-60">
-        <div class="row items-center q-gutter-x-xs">
-          <q-icon name="folder" size="16px" />
-          <span class="text-caption font-weight-medium">
-            {{ connectorCount }} {{ $t('connectedSources') }}
-          </span>
+      <div class="avatar-wrapper">
+        <div class="avatar-ring" :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }">
+          <AssistantAvatar
+            :assistant="assistant"
+            size="80px"
+            class="assistant-avatar-main shadow-5"
+          />
         </div>
       </div>
 
-      <!-- Tags Section -->
-      <div v-if="tags.length > 0" class="tags-container q-mt-lg">
-        <div class="row justify-center q-gutter-xs">
-          <q-chip
-            v-for="tag in tags.slice(0, 2)"
-            :key="tag"
-            :label="tag"
-            size="sm"
-            outline
-            class="tag-chip"
-          />
-          <q-chip
-            v-if="tags.length > 2"
-            :label="`+${tags.length - 2}`"
-            size="sm"
-            outline
-            class="tag-chip more"
-          />
+      <!-- Identification Block -->
+      <div class="column q-mt-sm">
+        <div class="text-h6 text-weight-bolder assistant-name q-mb-xs">
+          {{ assistant.name }}
+        </div>
+        
+        <!-- Description (Optional) -->
+        <div v-if="assistant.description" class="description-text q-mb-sm">
+          {{ assistant.description }}
+        </div>
+
+        <!-- Tags Section -->
+        <div v-if="tags.length > 0" class="tags-container q-mb-md">
+          <div class="row q-gutter-xs">
+            <q-badge
+              v-for="tag in tags.slice(0, 3)"
+              :key="tag"
+              class="tag-badge"
+            >
+              {{ tag }}
+            </q-badge>
+            <q-badge
+              v-if="tags.length > 3"
+              class="tag-badge more"
+            >
+              +{{ tags.length - 3 }}
+            </q-badge>
+          </div>
         </div>
       </div>
     </q-card-section>
-
-    <!-- Action Section Integrated -->
-    <div class="action-footer q-pa-md row justify-center">
-      <div class="action-btn-styled">
-        <q-icon name="chat" size="20px" class="q-mr-sm" />
-        {{ $t('startChatting') }}
-      </div>
-    </div>
   </q-card>
 </template>
 
@@ -88,6 +85,7 @@
 import { computed } from 'vue';
 import AssistantAvatar from 'src/components/assistants/AssistantAvatar.vue';
 import type { Assistant } from 'src/services/assistantService';
+import { useAiProviders } from 'src/composables/useAiProviders';
 
 const props = defineProps<{
   assistant: Assistant;
@@ -95,12 +93,30 @@ const props = defineProps<{
 
 defineEmits(['select']);
 
-const connectorCount = computed(() => {
-  return (props.assistant.linked_connectors?.length || props.assistant.linked_connector_ids?.length || 0);
+const { getProviderLogo, getProviderColor } = useAiProviders();
+
+const providerLogo = computed(() => getProviderLogo(props.assistant.model_provider));
+const providerColor = computed(() => getProviderColor(props.assistant.model_provider));
+
+const displayModelName = computed(() => {
+  if (props.assistant.model_provider?.toLowerCase() === 'ollama') {
+    return 'Mistral';
+  }
+  return props.assistant.model || 'Gemini';
 });
 
 const tags = computed(() => {
   return props.assistant.configuration?.tags || [];
+});
+
+const pillStyle = computed(() => {
+  const color = providerColor.value || 'grey-7';
+  return {
+    backgroundColor: `rgba(var(--q-${color}-rgb, 100, 100, 100), 0.12)`,
+    backdropFilter: 'blur(4px)',
+    border: `1px solid rgba(var(--q-${color}-rgb, 100, 100, 100), 0.25)`,
+    color: `var(--q-${color})`
+  };
 });
 
 const cardStyle = computed(() => {
@@ -110,21 +126,29 @@ const cardStyle = computed(() => {
 });
 
 const glowStyle = computed(() => {
+  const color = providerColor.value || 'grey-7';
   return {
-    background: `radial-gradient(circle at 50% 0%, ${props.assistant.avatar_bg_color || 'var(--q-accent)'}20 0%, transparent 70%)`
+    background: `radial-gradient(circle at 50% 0%, var(--q-${color})15 0%, transparent 70%)`
   };
 });
 </script>
 
 <style scoped>
 .assistant-selection-card {
-  background: linear-gradient(145deg, var(--q-secondary) 0%, rgba(var(--q-secondary-rgb), 0.8) 100%);
+  background: var(--q-primary);
   border: 1px solid var(--q-sixth);
   border-radius: 24px;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   cursor: pointer;
   position: relative;
   overflow: hidden;
+}
+
+.assistant-card-banner {
+  height: 80px;
+  background: linear-gradient(135deg, var(--q-secondary) 0%, var(--q-primary) 100%);
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .glow-overlay {
@@ -134,7 +158,7 @@ const glowStyle = computed(() => {
   right: 0;
   height: 200px;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.6;
   transition: opacity 0.4s ease;
 }
 
@@ -145,97 +169,107 @@ const glowStyle = computed(() => {
 }
 
 .assistant-selection-card:hover .glow-overlay {
-  opacity: 1;
+  opacity: 0.8;
+}
+
+.avatar-wrapper {
+  margin-top: -40px;
+  position: relative;
+  display: inline-block;
+  margin-bottom: 12px;
 }
 
 .avatar-ring {
-  padding: 6px;
-  border: 2px solid;
+  padding: 4px;
+  border: 4px solid;
   border-radius: 50%;
   transition: all 0.4s ease;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--q-primary);
 }
 
 .assistant-selection-card:hover .avatar-ring {
-  transform: scale(1.1) rotate(5deg);
+  transform: scale(1.05) rotate(2deg);
 }
 
-.auth-badge {
+.header-badges-vertical {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(15, 15, 15, 0.6);
-  width: 32px;
-  height: 32px;
-  border-radius: 50% !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  z-index: 5;
+}
+
+.auth-badge-header {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--q-text-sub);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-  z-index: 30;
-  transition: background 0.3s ease;
-}
-
-.auth-badge:hover {
-  background: rgba(15, 15, 15, 0.85);
-}
-
-/* Stable badge on card hover */
-.assistant-selection-card:hover .auth-badge {
-  transform: none;
 }
 
 .assistant-name {
   letter-spacing: -0.01em;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  line-height: 1.1;
 }
 
 .model-pill {
-  background: rgba(var(--q-accent-rgb), 0.1);
-  border: 1px solid rgba(var(--q-accent-rgb), 0.2);
-  color: var(--assistant-color);
-  padding: 2px 12px;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
   border-radius: 20px;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.provider-logo {
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
 }
 
 .description-text {
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.4;
   color: var(--q-text-sub);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  max-width: 250px;
+  opacity: 0.5;
+  min-height: 38px;
+}
+
+.tag-badge {
+  background-color: var(--q-sixth);
+  border: 1px solid var(--q-third);
+  color: var(--q-text-sub);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   opacity: 0.9;
 }
 
-.tag-chip {
-  background: var(--q-sixth) !important;
-  border: 1px solid var(--q-third) !important;
-  color: rgba(255, 255, 255, 0.6) !important;
-  font-weight: 600;
+.tag-badge.more {
+  border-style: dashed;
 }
 
-.tag-chip.more {
-  border-style: dashed !important;
-}
-
-.action-footer {
-  border-top: 1px solid var(--q-third);
-  background: var(--q-secondary);
-  transition: all 0.3s ease;
-}
-
-.assistant-selection-card:hover .action-footer {
-  background: rgba(255, 255, 255, 0.03);
-}
 
 .action-btn-styled {
   display: flex;

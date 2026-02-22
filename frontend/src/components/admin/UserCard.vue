@@ -6,6 +6,11 @@
   >
     <div class="user-card-banner">
       <div class="glow-overlay" :style="glowStyle"></div>
+      <!-- Role Badge moved to Header -->
+      <div class="role-badge-header">
+        <q-icon :name="user.role === 'admin' ? 'stars' : 'person'" size="14px" class="q-mr-xs" />
+        {{ user.role }}
+      </div>
     </div>
 
     <q-card-section class="q-pt-none q-px-lg relative-position info-section">
@@ -33,13 +38,12 @@
           :class="{ 'status-dot--active': user.is_active, 'status-dot--inactive': !user.is_active }"
         ></div>
       </div>
-
       <!-- User Identification (Left Aligned) -->
       <div class="column q-mt-sm">
         <div class="text-h6 text-weight-bolder user-name">
           {{ fullName }}
         </div>
-        <div class="text-caption  email-text q-mb-xs">
+        <div class="text-caption email-text q-mb-md">
           {{ user.email }}
         </div>
 
@@ -48,22 +52,12 @@
           <q-badge
             v-for="title in user.job_titles"
             :key="title"
-            color="accent"
-            outline
             class="job-title-badge"
           >
             {{ title }}
           </q-badge>
         </div>
         <div v-else class="q-mb-md"></div>
-
-        <!-- Role Badge -->
-        <div class="row">
-          <div class="role-badge">
-            <q-icon :name="user.role === 'admin' ? 'stars' : 'person'" size="14px" class="q-mr-xs" />
-            {{ user.role }}
-          </div>
-        </div>
       </div>
     </q-card-section>
   </q-card>
@@ -208,29 +202,46 @@ const glowStyle = computed(() => {
 }
 
 .email-text {
-  opacity: 0.5;
-  font-size: 0.75rem;
+  opacity: 0.3;
+  font-size: 0.7rem;
 }
 
-.role-badge {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--q-third);
+.job-title {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+/* New Role Badge Header (Glassmorphism) */
+.role-badge-header {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--q-text-sub);
-  padding: 2px 10px;
-  border-radius: 8px;
-  font-size: 0.65rem;
-  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
+  z-index: 5;
 }
 
 .job-title-badge {
-  font-size: 0.6rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  opacity: 0.8;
-  border-color: rgba(var(--q-accent-rgb), 0.3);
+  background-color: var(--q-sixth);
+  border: 1px solid var(--q-third);
+  color: var(--q-text-sub);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.9;
 }
 </style>

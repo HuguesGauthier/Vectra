@@ -133,10 +133,12 @@ const filteredUsers = computed(() => {
   const f = filter.value.toLowerCase();
   return users.value.filter((u) => {
     const fullName = `${u.first_name || ''} ${u.last_name || ''}`.toLowerCase();
+    const jobTitles = (u.job_titles || []).join(' ').toLowerCase();
     return (
       u.email.toLowerCase().includes(f) ||
       fullName.includes(f) ||
-      u.role.toLowerCase().includes(f)
+      u.role.toLowerCase().includes(f) ||
+      jobTitles.includes(f)
     );
   });
 });

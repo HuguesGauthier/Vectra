@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 from uuid import uuid4
 from app.services.chat.processors.trending_processor import TrendingProcessor, TIMEOUT_TRENDING_ANALYSIS
-from app.services.chat.types import ChatContext
+from app.services.chat.types import ChatContext, PipelineStepType
 
 
 @pytest.fixture
@@ -38,6 +38,8 @@ def mock_context():
     ctx.start_time = 1000.0
     ctx.metrics = MagicMock()
     ctx.metrics.record_completed_step = MagicMock()
+    ctx.metrics.start_span = MagicMock(return_value="test_sid")
+    ctx.metrics.end_span = MagicMock()
     # ChatMetricsManager.get is a custom method, so MagicMock.get works,
     # BUT we need to return values or defaults.
     # The production code uses ctx.metrics.get(key, default)
@@ -91,11 +93,8 @@ async def test_execute_trending_safe_success(mock_context):
         mock_svc.process_user_question.assert_awaited_once()
 
         # Verify Metrics Recorded
-        mock_context.metrics.record_completed_step.assert_called()
-        call_args = mock_context.metrics.record_completed_step.call_args[1]
-        assert call_args["step_type"] == "trending"
-        assert call_args["label"] == "Analytics"
-        assert call_args["duration"] is not None
+        mock_context.metrics.start_span.assert_called_with(PipelineStepType.TRENDING)
+        mock_context.metrics.end_span.assert_called_with("test_sid")
 
 
 @pytest.mark.asyncio
@@ -125,9 +124,8 @@ async def test_execute_trending_safe_timeout(mock_context):
         # Should not raise exception, just log and finish
 
         # Verify Metrics Recorded even on timeout
-        mock_context.metrics.record_completed_step.assert_called()
-        call_args = mock_context.metrics.record_completed_step.call_args[1]
-        assert call_args["duration"] == TIMEOUT_TRENDING_ANALYSIS
+        mock_context.metrics.start_span.assert_called_with(PipelineStepType.TRENDING)
+        mock_context.metrics.end_span.assert_called_with("test_sid")
 
 
 @pytest.mark.asyncio

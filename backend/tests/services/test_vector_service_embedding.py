@@ -23,7 +23,8 @@ async def test_get_embedding_model_provider_selection():
     # Test Gemini
     with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
         mock_thread.return_value = MagicMock()
-        await service.get_embedding_model(provider="gemini")
+        with patch.dict("sys.modules", {"llama_index.embeddings.google_genai": MagicMock()}):
+            await service.get_embedding_model(provider="gemini")
 
         assert mock_thread.called, "asyncio.to_thread was not called for Gemini"
         args, kwargs = mock_thread.call_args
@@ -33,7 +34,8 @@ async def test_get_embedding_model_provider_selection():
     VectorService._model_cache = {}  # Clear again
     with patch("app.factories.embedding_factory.asyncio.to_thread") as mock_thread:
         mock_thread.return_value = MagicMock()
-        await service.get_embedding_model(provider="openai")
+        with patch.dict("sys.modules", {"llama_index.embeddings.openai": MagicMock()}):
+            await service.get_embedding_model(provider="openai")
 
         assert mock_thread.called, "asyncio.to_thread was not called for OpenAI"
         args, kwargs = mock_thread.call_args

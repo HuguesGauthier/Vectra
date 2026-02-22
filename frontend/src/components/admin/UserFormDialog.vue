@@ -103,7 +103,7 @@
               bg-color="primary"
               autocomplete="family-name"
             />
-            
+
             <!-- Job Titles (Tags) -->
             <q-select
               v-model="formData.job_titles"
@@ -115,7 +115,6 @@
               input-debounce="0"
               new-value-mode="add-unique"
               outlined
-              color="accent"
               bg-color="primary"
               popup-content-class="custom-select-popup"
             />

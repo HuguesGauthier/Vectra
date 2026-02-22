@@ -36,6 +36,7 @@ export interface Assistant {
   is_enabled?: boolean;
   user_authentication?: boolean;
   is_vectorized?: boolean;
+  model_provider?: string;
   created_at?: string;
   updated_at?: string;
   linked_connector_ids?: string[];
