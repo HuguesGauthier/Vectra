@@ -1,15 +1,16 @@
 <template>
   <q-page class="bg-primary q-pa-md">
-    <!-- Header -->
-    <div class="row items-center justify-between q-pl-md q-pt-md q-mb-md">
-      <div class="row items-center">
-        <div>
-          <div class="text-h4 text-weight-bold">
-            {{ connector?.name || $t('loading') }}
-          </div>
-          <div class="text-subtitle1 q-pt-xs">{{ $t('manageDocuments') }}</div>
-        </div>
-      </div>
+    <!-- Back Button -->
+    <div class="row items-center q-mb-lg">
+      <q-btn
+        round
+        unelevated
+        color="accent"
+        icon="arrow_back"
+        @click="router.push({ name: 'Connectors' })"
+      >
+        <AppTooltip>{{ $t('back') }}</AppTooltip>
+      </q-btn>
     </div>
 
     <div class="column q-gutter-y-md">

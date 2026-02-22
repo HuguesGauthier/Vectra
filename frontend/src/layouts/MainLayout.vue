@@ -25,18 +25,6 @@
         </q-banner>
 
         <q-toolbar style="border-bottom: 1px solid var(--q-third); position: relative">
-          <!-- Back Button for Connector Documents -->
-          <q-btn
-            v-if="route.name === 'ConnectorDocuments'"
-            round
-            color="accent"
-            dense
-            icon="arrow_back"
-            class="q-mr-sm"
-            @click="router.push({ name: 'Connectors' })"
-          >
-            <AppTooltip>{{ $t('back') }}</AppTooltip>
-          </q-btn>
 
           <!-- System Status KPIs (Admin Only) -->
           <div v-if="authStore.isAdmin" class="row items-center q-gutter-x-sm q-ml-sm no-wrap">
