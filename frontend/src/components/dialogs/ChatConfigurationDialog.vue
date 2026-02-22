@@ -153,7 +153,7 @@
                           <div class="text-caption opacity-70">{{ $t('tempSubtitle') }}</div>
                         </div>
                         <div
-                          class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold"
+                          class="param-value-badge border-sixth q-px-md q-py-xs bg-secondary text-accent text-weight-bold"
                         >
                           {{
                             internalModels[`${providerId}_temperature`] ||
@@ -215,7 +215,7 @@
                           <div class="text-caption opacity-70">{{ $t('topKSubtitle') }}</div>
                         </div>
                         <div
-                          class="param-value-badge border-sixth q-px-md q-py-xs bg-dark text-accent text-weight-bold"
+                          class="param-value-badge border-sixth q-px-md q-py-xs bg-secondary text-accent text-weight-bold"
                         >
                           {{ internalModels[`${providerId}_top_k`] || internalModels.ai_top_k }}
                         </div>

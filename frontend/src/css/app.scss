@@ -18,6 +18,9 @@
   /* Link variables */
   --q-hover-bg: #35353a;
   --q-icon-color: #6c6d76;
+
+  /* Scrollbar thumb */
+  --q-scrollbar-thumb: #555;
 }
 
 /* Light Theme Override */
@@ -36,6 +39,8 @@ body.body--light {
 
   --q-hover-bg: #dddde0;
   --q-icon-color: #6c6d76;
+
+  --q-scrollbar-thumb: #ccc;
 
   /* Invert generic backgrounds if needed */
   .bg-primary {
@@ -87,7 +92,7 @@ body.body--light {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #555; /* Darker grey for contrast */
+  background: var(--q-scrollbar-thumb);
   border-radius: 5px;
 }
 
