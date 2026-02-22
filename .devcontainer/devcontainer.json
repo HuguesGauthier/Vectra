@@ -4,6 +4,7 @@
     "../docker-compose.yml",
     "docker-compose.devcontainer.yml"
   ],
+  "dockerComposeOptions": ["--profile", "prod"],
   "service": "vectra-api",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "customizations": {
