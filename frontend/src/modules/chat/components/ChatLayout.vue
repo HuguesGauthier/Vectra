@@ -29,7 +29,9 @@
           <!-- Header Spacer -->
           <div style="height: 50px; min-height: 50px; flex-shrink: 0"></div>
 
-          <slot name="messages"></slot>
+          <div class="col column no-wrap relative-position" style="min-height: 0">
+            <slot name="messages"></slot>
+          </div>
 
           <slot name="input"></slot>
         </div>

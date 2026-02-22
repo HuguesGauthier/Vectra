@@ -1,5 +1,5 @@
 <template>
-  <div class="vectra-chat column full-height relative-position" :style="customCssVars">
+  <div class="vectra-chat column col relative-position" :style="customCssVars">
     <!-- Messages Area -->
     <div
       ref="scrollContainerRef"
@@ -264,10 +264,12 @@ defineExpose({
 }
 
 .input-container-wrapper {
-  background: linear-gradient(to top, var(--q-fifth) 60%, transparent);
+  background: transparent;
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
+  position: relative;
+  z-index: 10;
 }
 
 /* Glass panel utility */

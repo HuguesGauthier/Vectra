@@ -43,7 +43,11 @@
           class="q-mt-md"
         >
           <VectraTechSheet v-if="block.type === 'tech-sheet'" :data="block.data as any" />
-          <VectraDataTable v-else-if="block.type === 'table'" :data="block.data" />
+          <VectraDataTable
+            v-else-if="block.type === 'table'"
+            :data="block.data"
+            :text-color="assistantThemeTextColor"
+          />
         </div>
       </template>
 
@@ -58,6 +62,7 @@
       <VectraPipelineSteps
         v-if="message.isComplete && message.steps && message.steps.length"
         :steps="message.steps"
+        :text-color="assistantThemeTextColor"
         class="q-mt-sm"
       />
 
@@ -65,6 +70,7 @@
       <VectraSources
         v-if="message.isComplete && message.sources && message.sources.length"
         :sources="message.sources"
+        :text-color="assistantThemeTextColor"
         class="q-mt-sm"
       />
 
@@ -150,6 +156,23 @@ const assistantInitials = computed(() => {
   return props.assistant?.name?.charAt(0).toUpperCase() || 'A';
 });
 
+const assistantThemeTextColor = computed(() => {
+  if (isUser.value || hasError.value) return 'white';
+
+  const baseColor = props.assistant?.avatar_bg_color;
+  if (!baseColor || !baseColor.startsWith('#')) {
+    return 'white';
+  }
+
+  const hex = baseColor.replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+  return props.assistant?.avatar_text_color || (yiq >= 150 ? '#121212' : '#ffffff');
+});
+
 // Calculate a dynamic gradient for the AI bubble if a color is present
 const aiBubbleStyle = computed(() => {
   if (isUser.value || hasError.value) return {};
@@ -170,15 +193,10 @@ const aiBubbleStyle = computed(() => {
   const gD = Math.max(0, g - 50);
   const bD = Math.max(0, b - 50);
 
-  // Determine if color is light or dark to adjust text color
-  // YIQ formula
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  const textColor = props.assistant?.avatar_text_color || (yiq >= 150 ? '#121212' : '#ffffff');
-
   // Create a beautiful pure gradient effect with the selected color
   return {
     background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${rD}, ${gD}, ${bD}, 1) 100%)`,
-    color: textColor,
+    color: assistantThemeTextColor.value,
     boxShadow: `0 4px 15px rgba(0, 0, 0, 0.2)`,
     border: 'none',
   };

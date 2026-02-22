@@ -2,18 +2,23 @@
   <q-expansion-item
     class="data-table-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-grey-4"
     expand-icon="arrow_drop_down"
+    expand-icon-class="custom-chevron"
+    :style="{ color: textColor }"
   >
     <template v-slot:header>
       <div class="row items-center full-width">
-        <q-icon name="analytics" size="xs" class="q-mr-sm text-grey-4" />
-        <div class="text-subtitle2 text-weight-bold flex-1">
+        <q-icon name="analytics" size="xs" class="q-mr-sm" :style="{ color: textColor }" />
+        <div class="text-subtitle2 text-weight-bold flex-1" :style="{ color: textColor }">
           {{ $t('dataPreview') || 'Data Preview' }}
         </div>
         <div class="row q-gutter-x-sm q-ml-sm text-caption">
-          <div class="badge-pill bg-opacity">{{ rows.length }} {{ $t('rows') }}</div>
-          <div class="badge-pill bg-opacity">{{ columns?.length || 0 }} {{ $t('columns') }}</div>
+          <div class="badge-pill bg-opacity" :style="{ color: textColor }">
+            {{ rows.length }} {{ $t('rows') }}
+          </div>
+          <div class="badge-pill bg-opacity" :style="{ color: textColor }">
+            {{ columns?.length || 0 }} {{ $t('columns') }}
+          </div>
         </div>
       </div>
     </template>
@@ -21,17 +26,18 @@
     <q-card class="transparent-bg shadow-none">
       <q-card-section class="q-pa-none">
         <div class="table-container">
-          <q-table
-            flat
-            dense
-            dark
-            :rows="rows"
-            :columns="columns"
-            row-key="id"
-            :rows-per-page-options="[10, 25, 50, 0]"
-            class="transparent-bg no-border-radius"
-            table-header-class="table-header text-weight-bold text-grey-4"
-          />
+            <q-table
+              flat
+              dense
+              dark
+              :rows="rows"
+              :columns="columns"
+              row-key="id"
+              :rows-per-page-options="[10, 25, 50, 0]"
+              class="transparent-bg no-border-radius"
+              table-header-class="table-header text-weight-bold"
+              :style="{ color: textColor }"
+            />
         </div>
       </q-card-section>
     </q-card>
@@ -43,6 +49,7 @@ import { computed } from 'vue';
 
 const props = defineProps<{
   data: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+  textColor: string;
 }>();
 
 const rows = computed(() => {
@@ -80,14 +87,18 @@ const columns = computed(() => {
 
 <style scoped>
 .data-table-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
 }
 
 .header-bg {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border-bottom: 1px solid v-bind('`${textColor}26`');
 }
 
 .transparent-bg {
@@ -101,12 +112,13 @@ const columns = computed(() => {
 }
 
 .badge-pill {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
   display: flex;
   align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .bg-opacity {
@@ -127,7 +139,25 @@ const columns = computed(() => {
 }
 
 ::v-deep(.table-header) {
-  background-color: rgba(0, 0, 0, 0.3);
-  border-bottom: 2px solid var(--q-primary);
+  background-color: rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid v-bind('`${textColor}4D`');
+}
+
+::v-deep(.q-expansion-item__toggle-icon) {
+  color: v-bind('textColor') !important;
+}
+
+::v-deep(.q-table__card) {
+  color: v-bind('textColor') !important;
+}
+
+::v-deep(.q-table th) {
+  color: v-bind('textColor') !important;
+  opacity: 0.9;
+}
+
+::v-deep(.q-table td) {
+  color: v-bind('textColor') !important;
+  opacity: 0.8;
 }
 </style>

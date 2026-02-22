@@ -3,13 +3,15 @@
     class="pipeline-steps-block q-my-sm"
     header-class="header-bg"
     expand-icon="arrow_drop_down"
+    :expand-icon-class="`custom-chevron-${textColor.replace('#', '')}`"
+    :style="{ color: textColor }"
   >
     <template v-slot:header>
       <div class="row items-center full-width no-wrap">
-        <q-icon name="route" size="xs" class="q-mr-sm" />
-        <div class="text-subtitle2 text-weight-bold flex-1 ellipsis">
+        <q-icon name="route" size="xs" class="q-mr-sm" :style="{ color: textColor }" />
+        <div class="text-subtitle2 text-weight-bold flex-1 ellipsis" :style="{ color: textColor }">
           {{ $t('pipelineSteps.title') || 'Pipeline Steps' }}
-          <span class="text-caption text-weight-regular q-ml-xs opacity-60">
+          <span class="text-caption text-weight-regular q-ml-xs opacity-60" :style="{ color: textColor }">
             ({{ completedCount }} {{ $t('pipelineSteps.completed') || 'Completed' }})
           </span>
         </div>
@@ -17,10 +19,10 @@
         <!-- Summary Metrics aligned to columns -->
         <div class="row no-wrap items-center q-ml-md">
           <div style="width: 80px" class="row justify-end">
-            <div class="badge-pill bg-opacity">{{ totalDuration.toFixed(2) }}s</div>
+            <div class="badge-pill bg-opacity" :style="{ color: textColor }">{{ totalDuration.toFixed(2) }}s</div>
           </div>
           <div style="width: 110px" class="row justify-end q-ml-sm">
-            <div v-if="totalInputTokens > 0 || totalOutputTokens > 0" class="badge-pill bg-opacity">
+            <div v-if="totalInputTokens > 0 || totalOutputTokens > 0" class="badge-pill bg-opacity" :style="{ color: textColor }">
               ↑{{ totalInputTokens }} ↓{{ totalOutputTokens }}
             </div>
           </div>
@@ -32,7 +34,7 @@
       <q-card-section class="q-pt-none q-pb-md px-lg">
         <div
           class="steps-tree column q-ml-sm q-mt-sm"
-          style="border-left: 1px solid rgba(255, 255, 255, 0.1); padding-left: 12px"
+          :style="{ borderLeft: `1px solid ${textColor}26`, paddingLeft: '12px' }"
         >
           <component
             :is="StepNode"
@@ -56,6 +58,7 @@ import type { ChatStep } from '../../composables/useChatStream';
 
 const props = defineProps<{
   steps: ChatStep[];
+  textColor: string;
 }>();
 
 // --- Metrics Computation ---
@@ -136,12 +139,10 @@ const StepNode = defineComponent({
       const level = nodeProps.level;
 
       const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
-      const statusColor =
-        step.status === 'completed'
-          ? 'text-positive'
-          : step.status === 'failed'
-            ? 'text-negative'
-            : 'text-warning';
+      const statusColor = props.textColor; // Fallback to theme text color
+      // But we still want to keep the semantic colors if they have enough contrast,
+      // or just use the theme color for everything for a purer look.
+      // The user said "le font color des étapes doit etre celui choisi"
 
       const durationText =
         step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
@@ -170,7 +171,10 @@ const StepNode = defineComponent({
         [
           h(
             'div',
-            { class: `q-mr-sm text-weight-bold ${statusColor}` },
+            {
+              class: 'q-mr-sm text-weight-bold',
+              style: { color: statusColor },
+            },
             level > 0 ? `↳ ${statusIcon}` : statusIcon,
           ),
 
@@ -178,7 +182,10 @@ const StepNode = defineComponent({
             'div',
             {
               class: 'ellipsis flex-1 cursor-pointer',
-              style: { fontWeight: level > 0 ? 400 : 500 },
+              style: {
+                fontWeight: level > 0 ? 400 : 500,
+                color: props.textColor,
+              },
             },
             [
               h('span', {}, step.label),
@@ -196,14 +203,21 @@ const StepNode = defineComponent({
           ),
 
           // Metrics (columns)
-          h('div', { class: 'row no-wrap items-center text-caption text-mono opacity-80' }, [
-            h('div', { style: { width: '80px' }, class: 'row justify-end' }, [
-              durationText ? h('span', { class: 'metric-badge' }, durationText) : null,
-            ]),
-            h('div', { style: { width: '110px' }, class: 'row justify-end q-ml-sm' }, [
-              tokensText ? h('span', { class: 'metric-badge' }, tokensText) : null,
-            ]),
-          ]),
+          h(
+            'div',
+            {
+              class: 'row no-wrap items-center text-caption text-mono',
+              style: { color: props.textColor, opacity: 0.8 },
+            },
+            [
+              h('div', { style: { width: '80px' }, class: 'row justify-end' }, [
+                durationText ? h('span', { class: 'metric-badge' }, durationText) : null,
+              ]),
+              h('div', { style: { width: '110px' }, class: 'row justify-end q-ml-sm' }, [
+                tokensText ? h('span', { class: 'metric-badge' }, tokensText) : null,
+              ]),
+            ],
+          ),
         ],
       );
 
@@ -222,7 +236,7 @@ const StepNode = defineComponent({
           {
             class: 'column q-ml-md q-mt-xs',
             style: {
-              borderLeft: '1px solid rgba(255,255,255,0.05)',
+              borderLeft: `1px solid ${props.textColor}1A`,
               paddingLeft: '12px',
             },
           },
@@ -238,23 +252,29 @@ const StepNode = defineComponent({
 
 <style scoped>
 .pipeline-steps-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
 }
 
 .header-bg {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border-bottom: 1px solid v-bind('`${textColor}26`');
 }
 
 .badge-pill {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: 11px;
   display: flex;
   align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .bg-opacity {
@@ -262,10 +282,11 @@ const StepNode = defineComponent({
 }
 
 ::v-deep(.metric-badge) {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 6px;
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 8px;
   display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 ::v-deep(.text-mono) {

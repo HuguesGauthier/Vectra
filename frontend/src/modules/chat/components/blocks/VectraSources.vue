@@ -2,16 +2,17 @@
   <q-expansion-item
     class="sources-block q-my-sm"
     header-class="header-bg"
-    expand-icon-class="text-grey-4"
     expand-icon="arrow_drop_down"
+    :expand-icon-class="`custom-chevron-${textColor.replace('#', '')}`"
+    :style="{ color: textColor }"
   >
     <template v-slot:header>
       <div class="row items-center full-width">
-        <q-icon name="description" size="xs" class="q-mr-sm text-grey-4" />
-        <div class="text-subtitle2 text-weight-bold flex-1">
+        <q-icon name="description" size="xs" class="q-mr-sm" :style="{ color: textColor }" />
+        <div class="text-subtitle2 text-weight-bold flex-1" :style="{ color: textColor }">
           {{ $t('sources') || 'Sources' }}
         </div>
-        <div class="text-caption text-grey-5 q-ml-sm">
+        <div class="text-caption q-ml-sm" :style="{ color: textColor, opacity: 0.8 }">
           ({{ totalSources }} {{ $t('from') }} {{ fileCount }}
           {{ fileCount === 1 ? $t('file') : $t('files') }})
         </div>
@@ -30,7 +31,7 @@
           <div class="row items-center q-mb-sm wrap">
             <q-icon
               :name="group.isAudio ? 'audiotrack' : 'insert_drive_file'"
-              :color="group.isAudio ? 'purple' : 'blue'"
+              :style="{ color: textColor }"
               class="q-mr-sm"
               size="20px"
             />
@@ -42,9 +43,8 @@
             </span>
             <q-chip
               dense
-              color="white"
-              text-color="dark"
-              class="q-px-sm text-caption text-weight-medium bg-opacity-2"
+              :style="{ backgroundColor: `${textColor}26`, color: textColor }"
+              class="q-px-sm text-caption text-weight-medium"
             >
               {{ group.items.length }}
               {{ group.items.length === 1 ? $t('excerpt') : $t('excerpts') }}
@@ -60,6 +60,11 @@
               icon-right="open_in_new"
               :label="$t('openFile') || 'Open File'"
               class="open-file-btn text-caption q-px-sm"
+              :style="{
+                backgroundColor: `${textColor}26`,
+                border: `1px solid ${textColor}66`,
+                color: textColor,
+              }"
               @click="openFile(group.documentId)"
             />
           </div>
@@ -74,8 +79,10 @@
               <!-- Audio Player -->
               <template v-if="group.isAudio">
                 <div class="text-caption text-purple-3 q-mb-xs row items-center">
-                  <q-icon name="timer" size="xs" class="q-mr-xs" />
-                  {{ source.metadata?.timestamp_start || '00:00' }}
+                  <q-icon name="timer" size="xs" class="q-mr-xs" :style="{ color: textColor }" />
+                  <span :style="{ color: textColor }">{{
+                    source.metadata?.timestamp_start || '00:00'
+                  }}</span>
                 </div>
                 <audio
                   v-if="getAudioUrl(source)"
@@ -91,11 +98,12 @@
               <template v-else>
                 <div
                   v-if="getPageLabel(source)"
-                  class="text-caption text-blue-3 q-mb-xs text-weight-medium"
+                  class="text-caption q-mb-xs text-weight-medium"
+                  :style="{ color: textColor, opacity: 0.9 }"
                 >
                   {{ $t('page') }} {{ getPageLabel(source) }}
                 </div>
-                <div class="source-content text-caption text-grey-4">
+                <div class="source-content text-caption" :style="{ color: textColor, opacity: 0.8 }">
                   {{ truncateContent(source.content, 200) }}
                 </div>
               </template>
@@ -114,6 +122,7 @@ import type { Source } from 'src/stores/publicChatStore';
 
 const props = defineProps<{
   sources: Source[];
+  textColor: string;
 }>();
 
 const totalSources = computed(() => props.sources.length);
@@ -182,14 +191,18 @@ const truncateContent = (content?: string, length = 150) => {
 
 <style scoped>
 .sources-block {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
 }
 
 .header-bg {
-  background: rgba(0, 0, 0, 0.2);
+  background: transparent;
+  border-bottom: 1px solid v-bind('`${textColor}26`');
 }
 
 .transparent-bg {
@@ -197,17 +210,12 @@ const truncateContent = (content?: string, length = 150) => {
 }
 
 .source-group {
-  background: rgba(255, 255, 255, 0.03);
-  border-left: 3px solid transparent;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid v-bind('`${textColor}33`');
+  border-left: 4px solid v-bind('textColor');
 }
 
-.source-group.text-source {
-  border-left-color: #2196f3;
-}
-
-.source-group.audio-source {
-  border-left-color: #9c27b0;
-}
+/* Removed hardcoded color overrides to maintain full theme consistency as requested */
 
 .bg-opacity-2 {
   background: rgba(255, 255, 255, 0.1) !important;
@@ -219,14 +227,11 @@ const truncateContent = (content?: string, length = 150) => {
 }
 
 .open-file-btn {
-  background: rgba(33, 150, 243, 0.2);
-  border: 1px solid rgba(33, 150, 243, 0.4);
-  color: #64b5f6;
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 .open-file-btn:hover {
-  background: rgba(33, 150, 243, 0.3);
+  filter: brightness(1.2);
 }
 
 .gap-sm {
@@ -234,15 +239,21 @@ const truncateContent = (content?: string, length = 150) => {
 }
 
 .source-item {
-  background: rgba(0, 0, 0, 0.15);
-  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid v-bind('`${textColor}1A`');
+  border-left: 3px solid v-bind('`${textColor}66`');
 }
 .text-source .source-item {
-  border-left-color: rgba(33, 150, 243, 0.4);
+  border-left-color: v-bind('`${textColor}80`');
 }
 .audio-source .source-item {
-  border: 1px solid rgba(156, 39, 176, 0.3);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid v-bind('`${textColor}4D`');
+  border-left: 3px solid v-bind('`${textColor}99`');
+  background: rgba(255, 255, 255, 0.08);
+}
+
+::v-deep(.q-expansion-item__toggle-icon) {
+  color: v-bind('textColor') !important;
 }
 
 .source-content {

@@ -4,11 +4,17 @@
 :root {
   /* Default to Dark Theme (Existing Palette) */
   --q-primary: #323339;
+  --q-primary-rgb: 50, 51, 57;
   --q-secondary: #2c2d32;
+  --q-secondary-rgb: 44, 45, 50;
   --q-third: #393a3f;
+  --q-third-rgb: 57, 58, 63;
   --q-fourth: #393a41;
+  --q-fourth-rgb: 57, 58, 65;
   --q-fifth: #36373e;
+  --q-fifth-rgb: 54, 55, 62;
   --q-sixth: #414141;
+  --q-sixth-rgb: 65, 65, 65;
 
   /* Text Colors */
   --q-text-main: #cccccc;
@@ -27,11 +33,17 @@
 body.body--light {
   /* "Hot" Light Theme (Clean, Crisp, Modern) */
   --q-primary: #fbfbfb; /* Main Sidebar/Bg */
+  --q-primary-rgb: 251, 251, 251;
   --q-secondary: #f3f4f4; /* Content Area (Light Grey) */
+  --q-secondary-rgb: 243, 244, 244;
   --q-third: #d9d9dc; /* Borders (Subtle Grey) */
+  --q-third-rgb: 217, 217, 220;
   --q-fourth: #e7e7e9; /* Cards */
+  --q-fourth-rgb: 231, 231, 233;
   --q-fifth: #eeeeef; /* Accents/Hovers */
+  --q-fifth-rgb: 238, 238, 239;
   --q-sixth: #d9d9dc;
+  --q-sixth-rgb: 217, 217, 220;
 
   --q-text-main: #5e5e5e; /* Dark Grey/Almost Black Text */
   --q-text-sub: #7a7a7a; /* Muted Text */

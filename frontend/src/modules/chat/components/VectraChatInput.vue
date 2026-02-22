@@ -3,7 +3,7 @@
     <!-- Active STT Pulse -->
     <div v-if="isListening" class="stt-active-bg absolute-full rounded-borders"></div>
 
-    <div class="input-glass row items-center q-px-sm q-py-xs q-mb-md">
+    <div class="input-glass row items-center q-px-sm q-py-xs">
       <!-- Speech to text button -->
       <q-btn
         flat
@@ -198,14 +198,14 @@ defineExpose({
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
   z-index: 2;
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .input-glass:focus-within {
   border-color: var(--q-sixth);
   background: var(--q-secondary);
-  /* transform: translateY(-2px); */
-  /* box-shadow: 0 5px 5px rgba(0, 0, 0, 0.3); */
+  box-shadow: none;
+  transform: translateY(-2px);
 }
 
 .chat-input-field {
