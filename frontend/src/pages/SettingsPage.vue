@@ -12,49 +12,54 @@
 
 
       <!-- Main Content -->
-      <div>
-        <!-- Loading State -->
-        <div v-if="loading" class="row justify-center q-pa-xl">
-          <q-spinner size="40px" color="accent" />
+      <div class="row q-col-gutter-lg">
+        <!-- Sidebar Navigation -->
+        <div class="col-12 col-md-3">
+          <div class="settings-sidebar">
+            <div class="sidebar-header q-mb-lg q-px-md">
+              <div class="text-h5 text-weight-bolder">{{ $t('settings') }}</div>
+              <div class="text-caption ">{{ $t('manageAppConfiguration') }}</div>
+            </div>
+
+            <div class="nav-list">
+              <div
+                v-for="item in navItems"
+                :key="item.name"
+                class="nav-item"
+                :class="{ active: tab === item.name }"
+                @click="tab = item.name"
+              >
+                <div class="active-glow" v-if="tab === item.name"></div>
+                <q-icon :name="item.icon" size="20px" class="q-mr-md nav-icon" />
+                <div class="nav-label text-weight-bold">{{ item.label }}</div>
+                <q-icon name="chevron_right" size="xs" class="chevron-indicator" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div v-else class="full-width q-mb-xl">
-          <q-tabs
-            v-model="tab"
-            dense
-            class="modern-tabs"
-            active-color="white"
-            indicator-color="transparent"
-            align="left"
-            no-caps
-            inline-label
-            outside-arrows
-            mobile-arrows
-          >
-            <q-tab name="general" :label="$t('general')" />
-            <template v-if="authStore.isAdmin">
-              <q-tab name="embedding" :label="$t('embeddingEngine')" />
-              <q-tab name="rerank" :label="$t('rerankEngine')" />
-              <q-tab name="chat" :label="$t('chatEngine')" />
-            </template>
-          </q-tabs>
+        <!-- Tab Panels (Content Area) -->
+        <div class="col-12 col-md-9">
+          <!-- Loading State -->
+          <div v-if="loading" class="row justify-center q-pa-xl">
+            <q-spinner size="40px" color="accent" />
+          </div>
 
-          <q-separator class="q-mb-md" />
-
-          <q-tab-panels v-model="tab" animated class="bg-transparent">
+          <q-tab-panels v-else v-model="tab" animated transition-prev="fade" transition-next="fade" class="bg-transparent overflow-visible">
             <!-- General Tab -->
-            <q-tab-panel name="general" class="q-px-none">
+            <q-tab-panel name="general" class="q-pa-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
-                  <q-card flat bordered class="bg-secondary">
+                  <q-card flat class="settings-card">
                     <q-card-section>
-                      <div class="text-subtitle1 text-weight-bold q-mb-sm">
+                      <div class="section-title q-mb-lg">
+                        <q-icon name="display_settings" size="sm" color="accent" class="q-mr-sm" />
                         {{ $t('interface') }}
                       </div>
 
                       <!-- Language -->
-                      <div class="q-mb-md">
-                        <div class="text-caption q-mb-xs">
+                      <div class="q-mb-xl">
+                        <div class="text-subtitle2 q-mb-sm text-grey-4">
                           {{ $t('language') }}
                         </div>
                         <CardSelection v-model="models.app_language" :options="languageOptions" />
@@ -62,7 +67,7 @@
 
                       <!-- Dark Mode -->
                       <div>
-                        <div class="text-caption q-mb-xs">
+                        <div class="text-subtitle2 q-mb-sm text-grey-4">
                           {{ $t('theme') }}
                         </div>
                         <CardSelection v-model="models.ui_dark_mode" :options="themeOptions" />
@@ -74,16 +79,20 @@
             </q-tab-panel>
 
             <!-- Vectorization Engine Tab -->
-            <q-tab-panel name="embedding" class="q-px-none">
+            <q-tab-panel name="embedding" class="q-pa-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
+                  <div class="section-title q-mb-md">
+                    <q-icon name="psychology" size="sm" color="accent" class="q-mr-sm" />
+                    {{ $t('embeddingEngine') }}
+                  </div>
                   <!-- Embedding Provider Selection -->
                   <div class="q-mb-md">
                     <AiProviderGrid
                       :providers="embeddingProviderOptions"
                       show-config
                       force-enabled
-                      grid-cols="col-12 col-sm-6 col-md-3"
+                      grid-cols="col-12 col-sm-6 col-lg-4"
                       @configure="openEmbeddingConfig"
                     />
                   </div>
@@ -104,16 +113,20 @@
             </q-tab-panel>
 
             <!-- Rerank Engine Tab -->
-            <q-tab-panel name="rerank" class="q-px-none">
+            <q-tab-panel name="rerank" class="q-pa-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
+                  <div class="section-title q-mb-md">
+                    <q-icon name="sort" size="sm" color="accent" class="q-mr-sm" />
+                    {{ $t('rerankEngine') }}
+                  </div>
                   <!-- Rerank Provider Selection -->
                   <div class="q-mb-md">
                     <AiProviderGrid
                       :providers="rerankProviderOptions"
                       show-config
                       force-enabled
-                      grid-cols="col-12 col-sm-6 col-md-3"
+                      grid-cols="col-12 col-sm-6 col-lg-4"
                       @configure="openRerankConfig"
                     />
                   </div>
@@ -132,16 +145,20 @@
             </q-tab-panel>
 
             <!-- Chat/Generation Tab -->
-            <q-tab-panel name="chat" class="q-px-none">
+            <q-tab-panel name="chat" class="q-pa-none">
               <div class="row q-col-gutter-md">
                 <div class="col-12">
+                  <div class="section-title q-mb-md">
+                    <q-icon name="forum" size="sm" color="accent" class="q-mr-sm" />
+                    {{ $t('chatEngine') }}
+                  </div>
                   <!-- Chat Provider Selection -->
                   <div class="q-mb-md">
                     <AiProviderGrid
                       :providers="chatProviderOptions"
                       show-config
                       force-enabled
-                      grid-cols="col-12 col-sm-6 col-md-3"
+                      grid-cols="col-12 col-sm-6 col-lg-4"
                       @configure="openChatConfig"
                     />
                   </div>
@@ -197,6 +214,23 @@ const { themePreference, setParams } = useTheme(); // Added usage
 
 const loading = ref(true);
 const tab = ref('general');
+
+// Navigation items for the sidebar
+const navItems = computed(() => {
+  const items = [
+    { name: 'general', label: t('general'), icon: 'tune' }
+  ];
+  
+  if (authStore.isAdmin) {
+    items.push(
+      { name: 'embedding', label: t('embeddingEngine'), icon: 'psychology' },
+      { name: 'rerank', label: t('rerankEngine'), icon: 'sort' },
+      { name: 'chat', label: t('chatEngine'), icon: 'forum' }
+    );
+  }
+  
+  return items;
+});
 
 // Local state model
 const models = reactive<Record<string, string>>({
@@ -518,38 +552,130 @@ watch(
   },
 );
 </script>
+
 <style scoped>
-/* Modern Tabs Styling */
-.modern-tabs {
-  background: transparent;
+.settings-sidebar {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--q-sixth);
+  border-radius: 24px;
+  padding: 24px 0;
+  position: sticky;
+  top: 24px;
 }
 
-:deep(.modern-tabs .q-tab) {
-  border-radius: 8px;
-  margin-right: 8px;
-  min-height: 28px;
-  transition: all 0.3s ease;
-  opacity: 0.7;
-  border: 1px solid transparent;
+.sidebar-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 20px;
+}
+
+.nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
   color: var(--q-text-sub);
 }
 
-:deep(.modern-tabs .q-tab:hover) {
-  opacity: 1;
+.nav-item:hover {
   background: rgba(255, 255, 255, 0.05);
   color: var(--q-text-main);
 }
 
-:deep(.modern-tabs .q-tab--active) {
-  opacity: 1;
-  background: var(--q-accent);
-  color: white !important;
-  border-color: var(--q-accent);
-  box-shadow: 0 4px 12px rgba(var(--q-accent-rgb), 0.3);
+.nav-item.active {
+  background: var(--q-secondary);
 }
 
-/* Hide the default ripple for a cleaner feel */
-:deep(.modern-tabs .q-focus-helper) {
-  display: none;
+.nav-icon {
+  transition: transform 0.3s ease;
+}
+
+.nav-item:hover .nav-icon {
+  transform: scale(1.1);
+}
+
+.nav-item.active .nav-icon {
+  color: var(--q-accent);
+}
+
+.active-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+}
+
+.chevron-indicator {
+  margin-left: auto;
+  opacity: 0;
+  transition: all 0.3s ease;
+  transform: translateX(-10px);
+}
+
+.nav-item.active .chevron-indicator {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(5px);
+  border: 1px solid var(--q-sixth);
+  border-radius: 24px;
+  padding: 12px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  color: var(--q-text-main);
+}
+
+.overflow-visible {
+  overflow: visible !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1023px) {
+  .settings-sidebar {
+    position: static;
+    margin-bottom: 24px;
+  }
+  
+  .nav-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  
+  .nav-item {
+    white-space: nowrap;
+  }
+  
+  .active-glow {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 3px;
+    border-radius: 4px 4px 0 0;
+  }
 }
 </style>
