@@ -20,12 +20,12 @@
                 :style="welcomeAvatarStyle"
               >
                 <img v-if="assistantAvatarUrl" :src="assistantAvatarUrl" />
-                <span v-else class="text-h4 text-white">{{ assistantInitials }}</span>
+                <span v-else class="text-h4">{{ assistantInitials }}</span>
               </q-avatar>
-              <div class="text-h4 text-weight-bold q-mb-sm text-white">
+              <div class="text-h4 text-weight-bold q-mb-sm">
                 {{ introMessage.title }}
               </div>
-              <div class="text-subtitle1 text-grey-4 q-px-xl" style="opacity: 0.8; line-height: 1.6;">
+              <div class="text-subtitle1 q-px-xl" style="opacity: 0.8; line-height: 1.6;">
                 {{ introMessage.subtitle }}
               </div>
             </div>

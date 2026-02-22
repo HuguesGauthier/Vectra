@@ -82,7 +82,8 @@
       </div>
       <div
         v-else-if="message.statusMessage && !message.text"
-        class="text-grey-5 q-mt-xs text-caption row items-center"
+        class="q-mt-xs text-caption row items-center"
+        :style="{ color: assistantThemeTextColor, opacity: 0.9 }"
       >
         <q-spinner-dots size="1em" class="q-mr-xs" />
         {{ message.statusMessage }}
@@ -197,7 +198,7 @@ const aiBubbleStyle = computed(() => {
   return {
     background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${rD}, ${gD}, ${bD}, 1) 100%)`,
     color: assistantThemeTextColor.value,
-    boxShadow: `0 4px 15px rgba(0, 0, 0, 0.2)`,
+    boxShadow: 'none',
     border: 'none',
   };
 });
@@ -240,7 +241,7 @@ const contentBlocksWithoutText = computed(() => {
   border: 1px solid rgba(255, 255, 255, 0.05);
   color: var(--q-text-main);
   border-radius: 20px 20px 4px 20px; /* Sharp bottom right */
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .ai-bubble {

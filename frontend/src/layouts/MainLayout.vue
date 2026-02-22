@@ -8,7 +8,7 @@
           v-if="socketStore.storageStatus === 'offline' && authStore.isAdmin"
           dense
           inline-actions
-          class="bg-orange-9 text-white q-py-xs"
+          class="bg-orange-9 q-py-xs"
         >
           <template v-slot:avatar>
             <q-icon name="storage" />
@@ -20,7 +20,7 @@
             </span>
           </div>
           <template v-slot:action>
-            <q-btn flat color="white" label="FIX" @click="showFixStorageDialog = true" />
+            <q-btn flat label="FIX" @click="showFixStorageDialog = true" />
           </template>
         </q-banner>
 
@@ -176,7 +176,7 @@
               <q-item
                 clickable
                 to="/admin/connectors"
-                active-class="active-menu-item text-white"
+                active-class="active-menu-item "
                 class="menu-item"
               >
                 <q-item-section avatar>
@@ -190,7 +190,7 @@
               <q-item
                 clickable
                 to="/admin/assistants"
-                active-class="active-menu-item text-white"
+                active-class="active-menu-item "
                 class="menu-item"
               >
                 <q-item-section avatar>
@@ -206,7 +206,7 @@
             <q-item
               clickable
               to="/chat"
-              active-class="active-menu-item text-white"
+              active-class="active-menu-item "
               class="menu-item"
             >
               <q-item-section avatar>
@@ -223,7 +223,7 @@
             <q-item
               clickable
               to="/admin/users"
-              active-class="active-menu-item text-white"
+              active-class="active-menu-item "
               class="menu-item"
             >
               <q-item-section avatar>
@@ -273,7 +273,7 @@
               </div>
             </q-avatar>
             <div class="column col">
-              <div class="text-white text-weight-bold text-caption ellipsis">
+              <div class=" text-weight-bold text-caption ellipsis">
                 {{
                   authStore.user?.first_name || authStore.user?.last_name
                     ? `${authStore.user?.first_name || ''} ${authStore.user?.last_name || ''}`.trim()
@@ -281,7 +281,7 @@
                       (authStore.isAuthenticated ? $t('roleAdmin') : $t('roleGuest'))
                 }}
               </div>
-              <div class="text-caption text-grey-5" style="font-size: 11px">
+              <div class="text-caption" style="font-size: 11px">
                 {{ authStore.isAuthenticated ? $t('statusOnline') : $t('statusAnonymous') }}
               </div>
             </div>
@@ -384,7 +384,7 @@
 
       <!-- Storage Fix Dialog -->
       <q-dialog v-model="showFixStorageDialog">
-        <q-card style="min-width: 400px; background: var(--q-secondary); color: white">
+        <q-card style="min-width: 400px; background: var(--q-secondary);">
           <q-card-section class="row items-center q-pb-none">
             <div class="text-h6">{{ $t('storageFixTitle') }}</div>
             <q-space />
@@ -394,7 +394,7 @@
           <q-card-section class="q-pa-md">
             <div class="column q-gutter-md">
               <div class="text-subtitle2">{{ $t('storageFixPathLabel') }}</div>
-              <code class="bg-black q-pa-sm borderRadius-8" style="font-family: monospace">
+              <code class="bg-secondary q-pa-sm borderRadius-8" style="font-family: monospace">
                 d:\Vectra\.env
               </code>
 
@@ -405,7 +405,7 @@
                 <div class="q-mb-xs">{{ $t('storageFixStep4') }}</div>
               </div>
 
-              <q-banner dense class="bg-grey-9 text-grey-4 text-caption borderRadius-4 q-mt-sm">
+              <q-banner dense class="bg-primary text-caption borderRadius-4 q-mt-sm">
                 <template v-slot:avatar>
                   <q-icon name="info" size="xs" />
                 </template>
@@ -442,12 +442,12 @@
           </q-card-section>
 
           <q-card-section class="q-py-lg">
-            <div class="text-body1 q-mb-md text-grey-3" style="line-height: 1.6">
+            <div class="text-body1 q-mb-md" style="line-height: 1.6">
               {{ selectedHealthKpi?.desc }}
             </div>
 
             <div v-if="selectedHealthKpi?.details" class="details-box q-pa-sm borderRadius-8">
-              <div class="text-caption text-uppercase text-weight-bold text-grey-5 q-mb-xs">
+              <div class="text-caption text-uppercase text-weight-bold q-mb-xs">
                 Informations additionnelles
               </div>
               <div class="text-body2 text-weight-medium font-mono">
@@ -876,7 +876,6 @@ defineOptions({
   border: 1px solid var(--q-third);
   border-radius: 24px;
   overflow: hidden;
-  color: white;
   position: relative;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 
@@ -902,7 +901,7 @@ defineOptions({
   }
 
   .details-box {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--q-secondary);
     border: 1px solid var(--q-third);
     margin-top: 1rem;
     
