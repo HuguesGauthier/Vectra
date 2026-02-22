@@ -134,6 +134,7 @@ function handleClick() {
   position: relative;
   overflow: hidden;
   min-height: 140px;
+  max-width: 350px;
 }
 
 .ai-provider-card.compact {
