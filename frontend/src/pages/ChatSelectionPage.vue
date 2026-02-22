@@ -25,7 +25,7 @@
     </div>
 
     <!-- Assistants Grid -->
-    <div v-else class="row q-col-gutter-xl justify-center">
+    <div v-else class="row q-col-gutter-xl">
       <div
         v-for="assistant in assistants"
         :key="assistant.id"
