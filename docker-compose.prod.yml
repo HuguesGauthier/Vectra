@@ -1,8 +1,0 @@
-services:
-  vectra-frontend:
-    build:
-      context: ./frontend
-      target: production-stage
-    ports:
-      - "80:80"
-    # No volumes in production

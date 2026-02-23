@@ -25,11 +25,13 @@
         </q-banner>
 
         <q-toolbar style="border-bottom: 1px solid var(--q-third); position: relative">
-
           <!-- System Status KPIs (Admin Only) -->
           <div v-if="authStore.isAdmin" class="row items-center q-gutter-x-sm q-ml-sm no-wrap">
             <!-- API Status -->
-            <div class="status-badge row items-center q-px-sm q-py-xs cursor-pointer" @click="openHealthDetail('api')">
+            <div
+              class="status-badge row items-center q-px-sm q-py-xs cursor-pointer"
+              @click="openHealthDetail('api')"
+            >
               <div
                 class="live-dot q-mr-xs"
                 :class="apiStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
@@ -38,27 +40,41 @@
             </div>
 
             <!-- Worker Status -->
-            <div class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('worker')">
+            <div
+              class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer"
+              @click="openHealthDetail('worker')"
+            >
               <div
                 class="live-dot q-mr-xs"
                 :class="workerStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
               ></div>
-              <div class="text-caption text-weight-bold hidden-sm">{{ $t('systemHealth.worker') }}</div>
+              <div class="text-caption text-weight-bold hidden-sm">
+                {{ $t('systemHealth.worker') }}
+              </div>
               <div class="text-caption text-weight-bold visible-sm">WRK</div>
             </div>
 
             <!-- Storage Status -->
-            <div class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('storage')">
+            <div
+              class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer"
+              @click="openHealthDetail('storage')"
+            >
               <div
                 class="live-dot q-mr-xs"
                 :class="storageStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
               ></div>
-              <div class="text-caption text-weight-bold hidden-sm">{{ $t('systemHealth.storage') }}</div>
+              <div class="text-caption text-weight-bold hidden-sm">
+                {{ $t('systemHealth.storage') }}
+              </div>
               <div class="text-caption text-weight-bold visible-sm">DB</div>
             </div>
 
             <!-- Last Update Pulse -->
-            <div v-if="dashboardStore.stats" class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('lastUpdate')">
+            <div
+              v-if="dashboardStore.stats"
+              class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer"
+              @click="openHealthDetail('lastUpdate')"
+            >
               <div
                 class="live-dot live-dot--grey q-mr-xs"
                 :class="{ 'live-dot--active': dashboardStore.isUpdating }"
@@ -203,12 +219,7 @@
             </template>
 
             <!-- Chat (Public) -->
-            <q-item
-              clickable
-              to="/chat"
-              active-class="active-menu-item "
-              class="menu-item"
-            >
+            <q-item clickable to="/chat" active-class="active-menu-item " class="menu-item">
               <q-item-section avatar>
                 <q-icon name="chat_bubble_outline" />
               </q-item-section>
@@ -220,12 +231,7 @@
 
           <template v-if="authStore.isAdmin">
             <q-separator class="q-my-md" style="background-color: var(--q-third)" />
-            <q-item
-              clickable
-              to="/admin/users"
-              active-class="active-menu-item "
-              class="menu-item"
-            >
+            <q-item clickable to="/admin/users" active-class="active-menu-item " class="menu-item">
               <q-item-section avatar>
                 <q-icon name="people" />
               </q-item-section>
@@ -273,7 +279,7 @@
               </div>
             </q-avatar>
             <div class="column col">
-              <div class=" text-weight-bold text-caption ellipsis">
+              <div class="text-weight-bold text-caption ellipsis">
                 {{
                   authStore.user?.first_name || authStore.user?.last_name
                     ? `${authStore.user?.first_name || ''} ${authStore.user?.last_name || ''}`.trim()
@@ -384,7 +390,7 @@
 
       <!-- Storage Fix Dialog -->
       <q-dialog v-model="showFixStorageDialog">
-        <q-card style="min-width: 400px; background: var(--q-secondary);">
+        <q-card style="min-width: 400px; background: var(--q-secondary)">
           <q-card-section class="row items-center q-pb-none">
             <div class="text-h6">{{ $t('storageFixTitle') }}</div>
             <q-space />
@@ -424,10 +430,7 @@
       <q-dialog v-model="showHealthDialog">
         <q-card class="premium-health-dialog">
           <!-- Background Glow -->
-          <div
-            class="glow-overlay"
-            :class="`glow-overlay--${selectedHealthKpi?.color}`"
-          ></div>
+          <div class="glow-overlay" :class="`glow-overlay--${selectedHealthKpi?.color}`"></div>
 
           <q-card-section class="row items-center q-pb-none">
             <q-icon
@@ -552,7 +555,8 @@ function openHealthDetail(type: 'api' | 'worker' | 'storage' | 'lastUpdate') {
       icon: 'api',
       status: apiStatus.value,
       color: apiStatus.value === 'online' ? 'positive' : 'negative',
-      details: apiStatus.value === 'online' ? t('systemHealth.apiOnline') : t('systemHealth.apiOffline'),
+      details:
+        apiStatus.value === 'online' ? t('systemHealth.apiOnline') : t('systemHealth.apiOffline'),
     },
     worker: {
       title: t('systemHealth.workerTitle'),
@@ -573,7 +577,9 @@ function openHealthDetail(type: 'api' | 'worker' | 'storage' | 'lastUpdate') {
       color: storageStatus.value === 'online' ? 'positive' : 'negative',
       details:
         storageStatus.value === 'online'
-          ? t('systemHealth.storageOnline')
+          ? dashboardStore.stats?.connect?.storage_path
+            ? `${t('systemHealth.storageOnline')} (${dashboardStore.stats.connect.storage_path})`
+            : t('systemHealth.storageOnline')
           : t('systemHealth.storageOffline'),
     },
     lastUpdate: {
@@ -904,7 +910,7 @@ defineOptions({
     background: var(--q-secondary);
     border: 1px solid var(--q-third);
     margin-top: 1rem;
-    
+
     .font-mono {
       font-family: 'Fira Code', 'Roboto Mono', monospace;
       letter-spacing: -0.02em;

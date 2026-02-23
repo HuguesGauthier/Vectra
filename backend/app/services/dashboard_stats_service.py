@@ -11,6 +11,7 @@ from typing import Optional
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.settings import settings
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.usage_stat import UsageStat
@@ -67,6 +68,7 @@ class DashboardStatsService:
                 total_connectors=total_connectors,
                 system_status=system_status,
                 storage_status=storage_status,
+                storage_path=settings.VECTRA_DATA_PATH_HOST or settings.VECTRA_DATA_PATH,
                 last_sync_time=last_sync_time,
             )
 

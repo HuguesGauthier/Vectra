@@ -339,7 +339,8 @@ export default {
   notConfigured: 'Non configuré',
   rerankEngine: 'Moteur de Pertinence',
   cohereTagline: 'Précision supérieure',
-  cohereDesc: "Fournisseur de modèles d'IA spécialisé dans la pertinence et le reranking pour une précision de recherche inégalée.",
+  cohereDesc:
+    "Fournisseur de modèles d'IA spécialisé dans la pertinence et le reranking pour une précision de recherche inégalée.",
   cohereRerankDesc: 'Recommandé pour la plus haute précision.',
   localRerankDesc: "S'exécute localement sur votre processeur avec FastEmbed.",
   modelDeprecationWarning:
@@ -709,6 +710,9 @@ export default {
   welcomeMessage: 'Bonjour ! Je suis {name}.',
   howCanIHelp: "Comment puis-je vous aider aujourd'hui?",
   typeMessage: 'Écrivez votre message...',
+  send: 'Envoyer',
+  startListening: "Commencer l'écoute",
+  stopListening: "Arrêter l'écoute",
   newConversation: 'Nouvelle conversation',
   conversationReset: 'Conversation réinitialisée.',
   initializing: "Connexion à l'IA...",
@@ -1017,7 +1021,7 @@ export default {
     csv_schema_retrieval: 'Récupération Données',
     csv_synthesis: 'Génération de Fiches',
     facet_query: 'Analyse des Filtres',
-    router: 'Routeur Intelligent',
+    router: 'Routeur',
     router_processing: 'Préparation Contexte',
     router_reasoning: 'Analyse Stratégique',
     router_retrieval: 'Recherche Documents',

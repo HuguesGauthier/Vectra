@@ -141,27 +141,32 @@ async def test_get_connectors(connector_service, mock_connector_repo):
 @pytest.mark.asyncio
 async def test_update_connector_nominal(connector_service, mock_connector_repo, mock_ws_manager):
     """Test update with side effects."""
+    upload_dir = "temp_uploads"
+    old_path = os.path.join(upload_dir, "old.csv")
+    new_path = os.path.join(upload_dir, "new.csv")
+
     cid = uuid4()
     c = Connector(
         id=cid,
         name="Test Conn",
         connector_type="local_file",
-        configuration={"path": "temp_uploads/old.csv", "connector_acl": ["User"]},
+        configuration={"path": old_path, "connector_acl": ["User"]},
         status=ConnectorStatus.IDLE,
     )
 
     mock_connector_repo.get_by_id = AsyncMock(return_value=c)
     mock_connector_repo.update = AsyncMock(return_value=c)
 
-    update = ConnectorUpdate(configuration={"path": "temp_uploads/new.csv", "connector_acl": ["Admin"]})
+    update = ConnectorUpdate(configuration={"path": new_path, "connector_acl": ["Admin"]})
 
     with (
         patch("asyncio.to_thread", side_effect=mock_blocking_io),
+        patch("app.services.connector_service.get_settings") as mock_settings,
         patch.object(connector_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete,
         patch.object(connector_service, "_safe_update_acl", new_callable=AsyncMock) as mock_acl,
         patch.object(connector_service, "_safe_background_scan", new_callable=AsyncMock) as mock_scan,
     ):
-
+        mock_settings.return_value.TEMP_UPLOAD_DIR = upload_dir
         await connector_service.update_connector(cid, update)
 
         # Verification

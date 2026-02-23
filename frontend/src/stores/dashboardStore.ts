@@ -12,6 +12,8 @@ export interface ConnectStats {
   active_pipelines: number;
   total_connectors: number;
   system_status: 'ok' | 'error';
+  storage_status?: 'online' | 'offline';
+  storage_path?: string;
   last_sync_time: string | null;
 }
 

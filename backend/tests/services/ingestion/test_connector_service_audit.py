@@ -12,7 +12,10 @@ import importlib
 import app.services.connector_service
 
 importlib.reload(app.services.connector_service)
-from app.services.connector_service import MANAGED_UPLOAD_DIR, ConnectorService
+from app.services.connector_service import ConnectorService
+from app.core.settings import get_settings
+
+# MANAGED_UPLOAD_DIR is now resolved dynamically
 
 # ... imports ...
 
@@ -61,17 +64,20 @@ async def test_security_prevent_arbitrary_file_deletion(service):
     service.connector_repo.update.return_value = mock_connector
 
     # 2. Update to a new path (triggering 'cleanup' of old path)
-    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "new_file.csv"))
+    upload_dir = "temp_uploads"
+    new_path = os.path.abspath(os.path.join(upload_dir, "new_file.csv"))
     update_payload = ConnectorUpdate(configuration={"path": new_path})
 
     # Mock OS functions to simulate file existence
     with (
+        patch("app.services.connector_service.get_settings") as mock_settings,
         patch("app.services.connector_service.ConnectorService._validate_folder_path", new_callable=AsyncMock),
         patch("app.services.connector_service.os.path.exists", return_value=True),
         patch("app.services.connector_service.os.path.isfile", return_value=True),
         patch("app.services.connector_service.os.path.isdir", return_value=True),
         patch("app.services.connector_service.os.remove") as mock_remove,
     ):
+        mock_settings.return_value.TEMP_UPLOAD_DIR = upload_dir
 
         # 3. Perform Update
         await service.update_connector(connector_id, update_payload)
@@ -87,7 +93,8 @@ async def test_security_allow_managed_file_deletion(service):
     """
     connector_id = uuid4()
     # Create a path that IS inside the managed dir
-    safe_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "safefile.csv"))
+    upload_dir = "temp_uploads"
+    safe_path = os.path.abspath(os.path.join(upload_dir, "safefile.csv"))
 
     # Use real Connector object
     mock_connector = Connector(
@@ -102,16 +109,18 @@ async def test_security_allow_managed_file_deletion(service):
     service.connector_repo.update.return_value = mock_connector
 
     # Update to trigger cleanup
-    new_path = os.path.abspath(os.path.join(MANAGED_UPLOAD_DIR, "other.csv"))
+    new_path = os.path.abspath(os.path.join(upload_dir, "other.csv"))
     update_payload = ConnectorUpdate(configuration={"path": new_path})
 
     with (
+        patch("app.services.connector_service.get_settings") as mock_settings,
         patch("app.services.connector_service.ConnectorService._validate_folder_path", new_callable=AsyncMock),
         patch("app.services.connector_service.os.path.exists", return_value=True),
         patch("app.services.connector_service.os.path.isfile", return_value=True),
         patch("app.services.connector_service.os.path.isdir", return_value=True),
         patch("app.services.connector_service.os.remove") as mock_remove,
     ):
+        mock_settings.return_value.TEMP_UPLOAD_DIR = upload_dir
 
         await service.update_connector(connector_id, update_payload)
 

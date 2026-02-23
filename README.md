@@ -166,7 +166,7 @@ This mode builds and runs everything inside optimized Docker containers. It does
 
 ```bash
 # Use --profile prod to include the application services
-docker compose --profile prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+docker compose --profile prod up -d --build
 ```
 
 - **Frontend:** http://localhost (Port 80)

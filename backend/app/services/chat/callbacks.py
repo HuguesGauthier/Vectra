@@ -26,6 +26,7 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         # Initialize parent with empty ignore lists to capture all specific events we observe
         super().__init__(event_starts_to_ignore=[], event_ends_to_ignore=[])
         self.queue = queue
+        self.loop = asyncio.get_running_loop()
         self.language = language
         self._event_map = {}  # Track context (step_type, label) by event_id
         self._event_starts = {}
@@ -160,7 +161,9 @@ class StreamingCallbackHandler(BaseCallbackHandler):
         }
 
         try:
-            self.queue.put_nowait(event_data)
+            # We must use call_soon_threadsafe because these callbacks usually fire
+            # from a worker thread when engine.query is used via asyncio.to_thread
+            self.loop.call_soon_threadsafe(self.queue.put_nowait, event_data)
         except asyncio.QueueFull:
             logger.warning("Streaming queue is full, dropping event.")
 

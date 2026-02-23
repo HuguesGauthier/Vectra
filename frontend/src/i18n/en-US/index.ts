@@ -342,7 +342,8 @@ export default {
   notConfigured: 'Not configured',
   rerankEngine: 'Rerank Engine',
   cohereTagline: 'Superior Precision',
-  cohereDesc: 'AI model provider specialized in relevance and reranking for unparalleled search accuracy.',
+  cohereDesc:
+    'AI model provider specialized in relevance and reranking for unparalleled search accuracy.',
   cohereRerankDesc: 'Recommended for highest precision.',
   localRerankDesc: 'Runs privately on your CPU using FastEmbed.',
   modelDeprecationWarning:
@@ -712,6 +713,9 @@ export default {
   welcomeMessage: 'Hello! I am {name}.',
   howCanIHelp: 'How can I help you today?',
   typeMessage: 'Type your message...',
+  send: 'Send',
+  startListening: 'Start listening',
+  stopListening: 'Stop listening',
   newConversation: 'New Conversation',
   conversationReset: 'Conversation reset.',
   initializing: 'Connecting to AI...',
@@ -1015,7 +1019,7 @@ export default {
     csv_schema_retrieval: 'Data Retrieval',
     csv_synthesis: 'Sheet Generation',
     facet_query: 'Filter Analysis',
-    router: 'Intelligent Router',
+    router: 'Router',
     router_processing: 'Context Prep',
     router_reasoning: 'Strategy Analysis',
     router_retrieval: 'Document Search',

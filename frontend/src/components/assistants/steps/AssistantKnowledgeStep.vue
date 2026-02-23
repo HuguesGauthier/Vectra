@@ -132,7 +132,7 @@ import type { Assistant } from 'src/services/assistantService';
 import ConnectorSelectionDialog from 'src/components/assistants/dialogs/ConnectorSelectionDialog.vue';
 import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
-import localLogo from 'src/assets/local_logo.svg';
+import mistralLogo from 'src/assets/m-rainbow.svg';
 
 const $q = useQuasar();
 const { t } = useI18n();
@@ -234,8 +234,8 @@ function getProviderLogo(conn: Connector) {
   const provider = (conn.configuration?.ai_provider as string) || 'gemini';
   if (provider === 'openai') return openaiLogo;
   if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local' || provider === 'ollama') return localLogo;
-  return geminiLogo;
+  if (provider === 'local' || provider === 'ollama') return mistralLogo;
+  return mistralLogo;
 }
 
 function openSelector() {

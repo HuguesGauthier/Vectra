@@ -230,7 +230,11 @@ class AgenticProcessor(BaseChatProcessor):
 
             sid = ctx.metrics.start_span(PipelineStepType.QUERY_REWRITE, parent_id=parent_id)
             yield EventFormatter.format(
-                PipelineStepType.QUERY_REWRITE, StepStatus.RUNNING, sid, parent_id=parent_id, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE,
+                StepStatus.RUNNING,
+                sid,
+                parent_id=parent_id,
+                payload={"is_substep": True},
             )
 
             start_time = time.time()
@@ -403,29 +407,26 @@ class AgenticProcessor(BaseChatProcessor):
             logger.info(f"[AgenticProcessor:Router] Engine ready in {dur_init}s. Launching query...")
 
             # B. Launch Query & Background Tasks
-            # CRITICAL FIX: RouterQueryEngine doesn't have astream_query()
-            # We need to call the synchronous query() method, which returns a StreamingResponse
-            # if the underlying SQL engine has streaming=True
-            # STREAMING FIX: Use aquery (native async) instead of wrapping sync query() in a thread.
-            # asyncio.to_thread() forces the entire response to be buffered before tokens arrive,
-            # which is why the response appeared "all at once". aquery() lets the event loop
-            # yield tokens as they are generated.
-            logger.info("[AgenticProcessor] Calling aquery() for Router (async streaming)...")
+            # We use the synchronous query() method wrapped in to_thread because RouterQueryEngine's
+            # aquery() might not return a StreamingResponse. The sync query() returns the generator instantly.
+            logger.info("[AgenticProcessor] Calling sync query() via to_thread for Router...")
 
             # Emit step to show user we're executing the query
             sid_query = ctx.metrics.start_span(PipelineStepType.QUERY_EXECUTION, parent_id=parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.QUERY_EXECUTION, StepStatus.RUNNING, sid_query, parent_id=parent_span_id, payload={"is_substep": True}
+                PipelineStepType.QUERY_EXECUTION,
+                StepStatus.RUNNING,
+                sid_query,
+                parent_id=parent_span_id,
+                payload={"is_substep": True},
             )
             start_query = time.time()
 
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
-            # Execute query natively async — no thread wrapping needed.
-            # We still apply the circuit-breaker timeout for safety.
             try:
                 response = await asyncio.wait_for(
-                    engine.aquery(ctx.message),
+                    asyncio.to_thread(engine.query, ctx.message),
                     timeout=TIMEOUT_ROUTER_QUERY,
                 )
             except asyncio.TimeoutError:
@@ -467,7 +468,11 @@ class AgenticProcessor(BaseChatProcessor):
             synthesis_start = time.time()
             sid_synth = ctx.metrics.start_span(PipelineStepType.ROUTER_SYNTHESIS, parent_id=parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_SYNTHESIS, StepStatus.RUNNING, sid_synth, parent_id=parent_span_id, payload={"is_substep": True}
+                PipelineStepType.ROUTER_SYNTHESIS,
+                StepStatus.RUNNING,
+                sid_synth,
+                parent_id=parent_span_id,
+                payload={"is_substep": True},
             )
 
             async for token_event in self._stream_response_content(ctx, response, stream_handler, event_queue):
@@ -640,7 +645,18 @@ class AgenticProcessor(BaseChatProcessor):
                 else:
                     # synchronous generator wrapper
                     async def sync_gen_wrapper():
-                        for t in response.response_gen:
+                        gen_iter = iter(response.response_gen)
+                        while True:
+                            # Delegate Ollama's blocking I/O call to a worker thread
+                            def get_next():
+                                try:
+                                    return next(gen_iter)
+                                except StopIteration:
+                                    return None
+
+                            t = await asyncio.to_thread(get_next)
+                            if t is None:
+                                break
                             yield t
 
                     async for event in process_token_stream(sync_gen_wrapper()):
@@ -796,34 +812,30 @@ class AgenticProcessor(BaseChatProcessor):
             if step_type == PipelineStepType.QUERY_REWRITE and ctx.metadata.get("_manual_rewrite_done"):
                 return ""
 
-            self._record_router_metric(ctx, step_type, label, duration, payload, parent_id=final_parent_id, step_id=step_id)
+            self._record_router_metric(
+                ctx, step_type, label, duration, payload, parent_id=final_parent_id, step_id=step_id
+            )
 
         # 3. Clean up payload
         if "is_substep" not in payload:
-            payload["is_substep"] = True # Still hint for simple renderers
+            payload["is_substep"] = True  # Still hint for simple renderers
 
         if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
             del payload["source_count"]
 
         return EventFormatter.format(
-            step_type, 
-            status, 
-            step_id, 
-            parent_id=final_parent_id, 
-            payload=payload, 
-            label=label, 
-            duration=duration
+            step_type, status, step_id, parent_id=final_parent_id, payload=payload, label=label, duration=duration
         )
 
     def _record_router_metric(
-        self, 
-        ctx: ChatContext, 
-        step_type: Any, 
-        label: Optional[str], 
-        duration: float, 
+        self,
+        ctx: ChatContext,
+        step_type: Any,
+        label: Optional[str],
+        duration: float,
         payload: Dict,
         parent_id: Optional[str] = None,
-        step_id: Optional[str] = None
+        step_id: Optional[str] = None,
     ):
         tokens = payload.get("tokens", {})
         ctx.metrics.record_completed_step(
@@ -834,7 +846,7 @@ class AgenticProcessor(BaseChatProcessor):
             output_tokens=int(tokens.get("output", 0)),
             payload=payload,
             parent_id=parent_id,
-            step_id=step_id
+            step_id=step_id,
         )
 
     def _format_token(self, content: str) -> str:

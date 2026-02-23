@@ -125,12 +125,14 @@ async def test_upload_file_async_nominal(document_service):
     mock_aio_open.__aexit__.return_value = None
 
     with (
+        patch("app.services.document_service.get_settings") as mock_settings,
         patch("aiofiles.open", return_value=mock_aio_open) as m_open,
         patch.object(document_service, "_run_blocking_io") as mock_run,
         patch(
             "app.services.document_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock
         ) as mock_validate,
     ):
+        mock_settings.return_value.TEMP_UPLOAD_DIR = "temp_uploads"
         mock_validate.return_value = [{"name": "id", "type": "string"}]
         path = await document_service.upload_file(mock_file)
 
@@ -237,8 +239,10 @@ async def test_delete_temp_file_security(document_service):
     """P0 Security: Verify path traversal protection."""
     traversal_path = "temp_uploads/../../etc/passwd"
 
-    with pytest.raises(FunctionalError) as exc:
-        await document_service.delete_temp_file(traversal_path)
+    with patch("app.services.document_service.get_settings") as mock_settings:
+        mock_settings.return_value.TEMP_UPLOAD_DIR = "temp_uploads"
+        with pytest.raises(FunctionalError) as exc:
+            await document_service.delete_temp_file(traversal_path)
 
     assert exc.value.error_code == "FORBIDDEN"
 
@@ -246,9 +250,14 @@ async def test_delete_temp_file_security(document_service):
 @pytest.mark.asyncio
 async def test_delete_temp_file_nominal(document_service):
     """Happy Path: Verify standard deletion."""
-    safe_path = "temp_uploads/my_file.csv"
+    upload_dir = "temp_uploads"
+    safe_path = os.path.join(upload_dir, "my_file.csv")
 
-    with patch.object(document_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete:
+    with (
+        patch("app.services.document_service.get_settings") as mock_settings,
+        patch.object(document_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete,
+    ):
+        mock_settings.return_value.TEMP_UPLOAD_DIR = upload_dir
         result = await document_service.delete_temp_file(safe_path)
         assert result is True
         mock_delete.assert_awaited_once_with(safe_path)

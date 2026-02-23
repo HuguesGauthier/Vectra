@@ -23,6 +23,7 @@ class ConnectStats(BaseModel):
     storage_status: Literal["online", "offline"] = Field(
         default="online", description="Health status of the data storage mount"
     )
+    storage_path: Optional[str] = Field(default=None, description="Physical path where data is stored")
     last_sync_time: Optional[datetime] = Field(default=None, description="Most recent connector sync timestamp")
 
 

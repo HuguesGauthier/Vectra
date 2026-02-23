@@ -304,6 +304,9 @@ class UnifiedQueryEngineFactory:
                 query_engine_tools=all_tools,
                 verbose=True,
             )
+            # FORCE streaming for the Router Query Engine synthesis step
+            if hasattr(engine, "synthesizer") and engine.synthesizer:
+                engine.synthesizer._streaming = True
         finally:
             # Restore the previous global LLM to avoid cross-request pollution
             LlamaSettings._llm = previous_llm

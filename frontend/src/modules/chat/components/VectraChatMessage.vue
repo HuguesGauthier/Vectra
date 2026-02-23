@@ -86,7 +86,7 @@
         :style="{ color: assistantThemeTextColor, opacity: 0.9 }"
       >
         <q-spinner-dots size="1em" class="q-mr-xs" />
-        {{ message.statusMessage }}
+        <span class="q-ml-xs">{{ message.statusMessage }}</span>
       </div>
     </div>
 
@@ -231,11 +231,7 @@ const contentBlocksWithoutText = computed(() => {
 
 .user-bubble {
   /* Premium card-like feel for the user message */
-  background: linear-gradient(
-    145deg,
-    rgba(120, 120, 120, 0.1) 0%,
-    rgba(120, 120, 120, 0.05) 100%
-  );
+  background: linear-gradient(145deg, rgba(120, 120, 120, 0.1) 0%, rgba(120, 120, 120, 0.05) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
