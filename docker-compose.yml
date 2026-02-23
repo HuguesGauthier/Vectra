@@ -164,7 +164,7 @@ services:
     image: ollama/ollama:latest
     restart: always
     ports:
-      - "11434:11434"
+      - "${OLLAMA_HOST_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
       - ./scripts/start_ollama.sh:/start_ollama.sh
