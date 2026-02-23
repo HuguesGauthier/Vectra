@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
+from app.core.settings import get_settings
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import ConnectorType, DocStatus
 from app.repositories.connector_repository import ConnectorRepository
@@ -263,7 +264,7 @@ class DocumentService:
         func_name = "DocumentService.upload_file"
 
         try:
-            upload_dir = self.settings_service.settings.TEMP_UPLOAD_DIR
+            upload_dir = get_settings().TEMP_UPLOAD_DIR
             # 🔴 P0: Non-blocking directory creation
             try:
                 await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
@@ -307,7 +308,7 @@ class DocumentService:
         try:
             # 🔴 P0: Path Traversal Protection
             # os.path.abspath is safe as string manipulation, but we must verify the result.
-            abs_temp_dir = os.path.abspath(self.settings_service.settings.TEMP_UPLOAD_DIR)
+            abs_temp_dir = os.path.abspath(get_settings().TEMP_UPLOAD_DIR)
             requested_abs_path = os.path.abspath(file_path)
 
             if not requested_abs_path.startswith(abs_temp_dir):
