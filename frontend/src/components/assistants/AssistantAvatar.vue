@@ -37,17 +37,9 @@ const blobUrl = ref<string | null>(null);
 const textColor = computed(() => props.assistant.avatar_text_color || 'white');
 
 const avatarStyle = computed(() => {
-  // If we have an image, we don't strictly need background, but keeping it ensuring contrast while loading?
-  // Actually, if image loads, it covers bg.
   const bgColor = props.assistant.avatar_bg_color;
-  if (!bgColor) return {};
-  
-  if (bgColor.startsWith('#') || bgColor.startsWith('rgb')) {
-    return { backgroundColor: bgColor };
-  }
-  // Named colors would need 'color' prop on q-avatar, but complex to derive.
-  // For now assuming most are handled via styles or defaults.
-  return {};
+  if (!bgColor) return { backgroundColor: 'var(--q-primary)' };
+  return { backgroundColor: bgColor };
 });
 
 watch(

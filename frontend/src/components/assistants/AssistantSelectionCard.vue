@@ -201,21 +201,6 @@ const glowStyle = computed(() => {
   z-index: 5;
 }
 
-.auth-badge-header {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--q-text-sub);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-}
 
 .assistant-name {
   letter-spacing: -0.01em;

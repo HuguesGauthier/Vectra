@@ -291,57 +291,35 @@ const isDirty = computed(() => {
 });
 
 // --- WATCHERS ---
-watch(
-  () => props.userToEdit,
-  (user) => {
-    if (user) {
-      formData.value = {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name || '',
-        last_name: user.last_name || '',
-        job_titles: user.job_titles || [],
-        password: '',
-        role: user.role,
-        is_active: user.is_active,
-        avatar_url: user.avatar_url || '',
-        avatar_vertical_position: user.avatar_vertical_position || 50,
-      };
-      avatarFile.value = null;
-      initialData.value = { ...formData.value };
-    } else {
-      resetForm();
-    }
-  },
-  { immediate: true },
-);
+// Initial data synchronization
+const initForm = () => {
+  if (props.userToEdit) {
+    formData.value = {
+      id: props.userToEdit.id,
+      email: props.userToEdit.email,
+      first_name: props.userToEdit.first_name || '',
+      last_name: props.userToEdit.last_name || '',
+      job_titles: props.userToEdit.job_titles || [],
+      password: '',
+      role: props.userToEdit.role,
+      is_active: props.userToEdit.is_active,
+      avatar_url: props.userToEdit.avatar_url || '',
+      avatar_vertical_position: props.userToEdit.avatar_vertical_position || 50,
+    };
+  } else {
+    resetForm();
+  }
+  avatarFile.value = null;
+  initialData.value = { ...formData.value };
+};
 
-// Re-sync when dialog opens to avoid stale data from previous unsaved edits
-watch(
-  () => props.modelValue,
-  (val) => {
-    if (val) {
-      if (props.userToEdit) {
-        formData.value = {
-          id: props.userToEdit.id,
-          email: props.userToEdit.email,
-          first_name: props.userToEdit.first_name || '',
-          last_name: props.userToEdit.last_name || '',
-          job_titles: props.userToEdit.job_titles || [],
-          password: '',
-          role: props.userToEdit.role,
-          is_active: props.userToEdit.is_active,
-          avatar_url: props.userToEdit.avatar_url || '',
-          avatar_vertical_position: props.userToEdit.avatar_vertical_position || 50,
-        };
-        avatarFile.value = null;
-        initialData.value = { ...formData.value };
-      } else {
-        resetForm();
-      }
-    }
-  },
-);
+// Re-sync when dialog opens or userToEdit changes
+watch([() => props.modelValue, () => props.userToEdit], ([opened]) => {
+  // Only sync if it's currently open (or just opened)
+  if (opened) {
+    initForm();
+  }
+}, { immediate: true });
 
 // --- FUNCTIONS ---
 function resetForm() {
@@ -385,7 +363,7 @@ function handleAvatarChange(file: File | null) {
 function removeAvatar() {
   formData.value.avatar_url = '';
   formData.value.avatar_vertical_position = 50;
-  avatarFile.value = null; // This should trigger the q-file to clear/reset
+  avatarFile.value = null;
 }
 
 const getAvatarUrl = (path: string) => {
