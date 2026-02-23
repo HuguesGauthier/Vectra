@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -1049,23 +1049,7 @@ Higher than dashboard stats due to query complexity.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">142</span>
-<span class="normal">143</span>
-<span class="normal">144</span>
-<span class="normal">145</span>
-<span class="normal">146</span>
-<span class="normal">147</span>
-<span class="normal">148</span>
-<span class="normal">149</span>
-<span class="normal">150</span>
-<span class="normal">151</span>
-<span class="normal">152</span>
-<span class="normal">153</span>
-<span class="normal">154</span>
-<span class="normal">155</span>
-<span class="normal">156</span>
-<span class="normal">157</span>
-<span class="normal">158</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">158</span>
 <span class="normal">159</span>
 <span class="normal">160</span>
 <span class="normal">161</span>
@@ -1086,7 +1070,24 @@ Higher than dashboard stats due to query complexity.</p>
 <span class="normal">176</span>
 <span class="normal">177</span>
 <span class="normal">178</span>
-<span class="normal">179</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_analytics_loop</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span>
+<span class="normal">193</span>
+<span class="normal">194</span>
+<span class="normal">195</span>
+<span class="normal">196</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast_analytics_loop</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Background task that periodically broadcasts advanced analytics stats via WebSocket.</span>
 
@@ -1099,28 +1100,29 @@ Higher than dashboard stats due to query complexity.</p>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting advanced analytics broadcast loop (interval: </span><span class="si">%d</span><span class="s2">s)&quot;</span><span class="p">,</span> <span class="n">interval_seconds</span><span class="p">)</span>
 
-    <span class="kn">from</span><span class="w"> </span><span class="nn">app.core.connection_manager</span><span class="w"> </span><span class="kn">import</span> <span class="n">manager</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">app.core.websocket</span><span class="w"> </span><span class="kn">import</span> <span class="n">manager</span>
 
     <span class="k">while</span> <span class="n">_broadcast_running</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># P0 Fix: Pass the factory, not a session, to support parallel execution inside loop</span>
             <span class="n">factory</span> <span class="o">=</span> <span class="n">get_session_factory</span><span class="p">()</span>
-            <span class="c1"># Initialize SettingsService (no DB session needed for advanced analytics as they use defaults/env)</span>
-            <span class="n">settings_service</span> <span class="o">=</span> <span class="n">SettingsService</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-            <span class="n">service</span> <span class="o">=</span> <span class="n">AnalyticsService</span><span class="p">(</span><span class="n">session_factory</span><span class="o">=</span><span class="n">factory</span><span class="p">,</span> <span class="n">settings_service</span><span class="o">=</span><span class="n">settings_service</span><span class="p">)</span>
 
-            <span class="c1"># Use standard defaults for the live view</span>
-            <span class="n">stats</span> <span class="o">=</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_all_advanced_analytics</span><span class="p">(</span>
-                <span class="n">ttft_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">step_days</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">cache_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">cost_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">trending_limit</span><span class="o">=</span><span class="mi">10</span>
-            <span class="p">)</span>
+            <span class="c1"># P1 Fix: Use a dedicated session for SettingsService to ensure stability</span>
+            <span class="k">async</span> <span class="k">with</span> <span class="n">factory</span><span class="p">()</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+                <span class="n">settings_service</span> <span class="o">=</span> <span class="n">SettingsService</span><span class="p">(</span><span class="n">db</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+                <span class="c1"># Ensure defaults are seeded/loaded if needed</span>
+                <span class="c1"># await settings_service.load_cache() # Optional optimization</span>
 
-            <span class="c1"># Broadcast via WebSocket</span>
-            <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">emit_advanced_analytics_stats</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">))</span>
+                <span class="n">service</span><span class="p">:</span> <span class="n">AnalyticsService</span> <span class="o">=</span> <span class="n">AnalyticsService</span><span class="p">(</span><span class="n">session_factory</span><span class="o">=</span><span class="n">factory</span><span class="p">,</span> <span class="n">settings_service</span><span class="o">=</span><span class="n">settings_service</span><span class="p">)</span>
+
+                <span class="n">stats</span><span class="p">:</span> <span class="n">AdvancedAnalyticsResponse</span> <span class="o">=</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_all_advanced_analytics</span><span class="p">(</span>
+                    <span class="n">ttft_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">step_days</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">cache_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">cost_hours</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span> <span class="n">trending_limit</span><span class="o">=</span><span class="mi">10</span>
+                <span class="p">)</span>
+
+                <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">emit_advanced_analytics_stats</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">))</span>
 
         <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Error in analytics broadcast: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">exc_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-        <span class="c1"># Wait for next interval</span>
         <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">)</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Advanced analytics broadcast loop stopped&quot;</span><span class="p">)</span>
@@ -1134,7 +1136,7 @@ Higher than dashboard stats due to query complexity.</p>
 
 
 <h2 id="app.api.v1.endpoints.analytics.get_advanced_analytics" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_advanced_analytics</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">assistant_id</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Filter by assistant ID&#39;</span><span class="p">),</span> <span class="n">ttft_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;TTFT analysis period in hours&#39;</span><span class="p">),</span> <span class="n">step_days</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Step breakdown period in days&#39;</span><span class="p">),</span> <span class="n">cache_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Cache metrics period in hours&#39;</span><span class="p">),</span> <span class="n">cost_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Cost analysis period in hours&#39;</span><span class="p">),</span> <span class="n">trending_limit</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of trending topics&#39;</span><span class="p">))</span></code>
+            <code class="highlight language-python"><span class="n">get_advanced_analytics</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">current_user</span><span class="p">,</span> <span class="n">assistant_id</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Filter by assistant ID&#39;</span><span class="p">),</span> <span class="n">ttft_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;TTFT analysis period in hours&#39;</span><span class="p">),</span> <span class="n">step_days</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Step breakdown period in days&#39;</span><span class="p">),</span> <span class="n">cache_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Cache metrics period in hours&#39;</span><span class="p">),</span> <span class="n">cost_hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Cost analysis period in hours&#39;</span><span class="p">),</span> <span class="n">trending_limit</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of trending topics&#39;</span><span class="p">))</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -1156,6 +1158,14 @@ Higher than dashboard stats due to query complexity.</p>
           –
           <div class="doc-md-description">
             <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>current_user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.models.user.User">User</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.security.get_current_admin">get_current_admin</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The authenticated admin user.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -1237,13 +1247,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">28</span>
-<span class="normal">29</span>
-<span class="normal">30</span>
-<span class="normal">31</span>
-<span class="normal">32</span>
-<span class="normal">33</span>
-<span class="normal">34</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">34</span>
 <span class="normal">35</span>
 <span class="normal">36</span>
 <span class="normal">37</span>
@@ -1271,9 +1275,18 @@ topic diversity score, assistant token costs, and document freshness.</p>
 <span class="normal">59</span>
 <span class="normal">60</span>
 <span class="normal">61</span>
-<span class="normal">62</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/advanced&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">AdvancedAnalyticsResponse</span><span class="p">)</span>
+<span class="normal">62</span>
+<span class="normal">63</span>
+<span class="normal">64</span>
+<span class="normal">65</span>
+<span class="normal">66</span>
+<span class="normal">67</span>
+<span class="normal">68</span>
+<span class="normal">69</span>
+<span class="normal">70</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/advanced&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">AdvancedAnalyticsResponse</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_advanced_analytics</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
+    <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
     <span class="n">assistant_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UUID</span><span class="p">]</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Filter by assistant ID&quot;</span><span class="p">),</span>
     <span class="n">ttft_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;TTFT analysis period in hours&quot;</span><span class="p">),</span>
     <span class="n">step_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Step breakdown period in days&quot;</span><span class="p">),</span>
@@ -1286,6 +1299,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 <span class="sd">    Args:</span>
 <span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        current_user: The authenticated admin user.</span>
 <span class="sd">        assistant_id: Optional filter by assistant ID.</span>
 <span class="sd">        ttft_hours: TTFT analysis period in hours.</span>
 <span class="sd">        step_days: Step breakdown period in days.</span>
@@ -1316,7 +1330,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 
 <h2 id="app.api.v1.endpoints.analytics.get_assistant_costs" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_assistant_costs</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Analysis period in hours&#39;</span><span class="p">))</span></code>
+            <code class="highlight language-python"><span class="n">get_assistant_costs</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">current_user</span><span class="p">,</span> <span class="n">hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Analysis period in hours&#39;</span><span class="p">))</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -1341,6 +1355,14 @@ topic diversity score, assistant token costs, and document freshness.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
+            <b><code>current_user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.models.user.User">User</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.security.get_current_admin">get_current_admin</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The authenticated admin user.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
             <b><code>hours</code></b>
               (<code><span title="int">int</span></code>, default:
                   <code><span title="fastapi.Query">Query</span>(24, ge=1, le=168, description=&#39;Analysis period in hours&#39;)</code>
@@ -1356,7 +1378,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.AssistantCost">AssistantCost</span>]</code>
+              <code><span title="typing.List">List</span>[<span title="app.schemas.advanced_analytics.AssistantCost">AssistantCost</span>]</code>
           –
           <div class="doc-md-description">
             <p>list[AssistantCost]: A list of costs per assistant.</p>
@@ -1367,31 +1389,35 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">108</span>
-<span class="normal">109</span>
-<span class="normal">110</span>
-<span class="normal">111</span>
-<span class="normal">112</span>
-<span class="normal">113</span>
-<span class="normal">114</span>
-<span class="normal">115</span>
-<span class="normal">116</span>
-<span class="normal">117</span>
-<span class="normal">118</span>
-<span class="normal">119</span>
-<span class="normal">120</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">120</span>
 <span class="normal">121</span>
 <span class="normal">122</span>
-<span class="normal">123</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/costs&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">])</span>
+<span class="normal">123</span>
+<span class="normal">124</span>
+<span class="normal">125</span>
+<span class="normal">126</span>
+<span class="normal">127</span>
+<span class="normal">128</span>
+<span class="normal">129</span>
+<span class="normal">130</span>
+<span class="normal">131</span>
+<span class="normal">132</span>
+<span class="normal">133</span>
+<span class="normal">134</span>
+<span class="normal">135</span>
+<span class="normal">136</span>
+<span class="normal">137</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/costs&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_assistant_costs</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
+    <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
     <span class="n">hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis period in hours&quot;</span><span class="p">),</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">AssistantCost</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get token costs by assistant.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        current_user: The authenticated admin user.</span>
 <span class="sd">        hours: Analysis period in hours.</span>
 
 <span class="sd">    Returns:</span>
@@ -1408,7 +1434,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 
 <h2 id="app.api.v1.endpoints.analytics.get_document_freshness" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_document_freshness</span><span class="p">(</span><span class="n">service</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">get_document_freshness</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">current_user</span><span class="p">)</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -1432,13 +1458,21 @@ topic diversity score, assistant token costs, and document freshness.</p>
             <p>The analytics service instance.</p>
           </div>
         </li>
+        <li class="doc-section-item field-body">
+            <b><code>current_user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.models.user.User">User</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.security.get_current_admin">get_current_admin</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The authenticated admin user.</p>
+          </div>
+        </li>
     </ul>
 
 
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.DocumentFreshness">DocumentFreshness</span>]</code>
+              <code><span title="typing.List">List</span>[<span title="app.schemas.advanced_analytics.DocumentFreshness">DocumentFreshness</span>]</code>
           –
           <div class="doc-md-description">
             <p>list[DocumentFreshness]: A list representing document freshness distribution.</p>
@@ -1449,28 +1483,32 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">126</span>
-<span class="normal">127</span>
-<span class="normal">128</span>
-<span class="normal">129</span>
-<span class="normal">130</span>
-<span class="normal">131</span>
-<span class="normal">132</span>
-<span class="normal">133</span>
-<span class="normal">134</span>
-<span class="normal">135</span>
-<span class="normal">136</span>
-<span class="normal">137</span>
-<span class="normal">138</span>
-<span class="normal">139</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/freshness&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">140</span>
+<span class="normal">141</span>
+<span class="normal">142</span>
+<span class="normal">143</span>
+<span class="normal">144</span>
+<span class="normal">145</span>
+<span class="normal">146</span>
+<span class="normal">147</span>
+<span class="normal">148</span>
+<span class="normal">149</span>
+<span class="normal">150</span>
+<span class="normal">151</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/freshness&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_document_freshness</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">]:</span>
+    <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">DocumentFreshness</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get knowledge base document freshness distribution.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        current_user: The authenticated admin user.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        list[DocumentFreshness]: A list representing document freshness distribution.</span>
@@ -1486,7 +1524,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 
 <h2 id="app.api.v1.endpoints.analytics.get_trending_topics" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_trending_topics</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">assistant_id</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Filter by assistant ID&#39;</span><span class="p">),</span> <span class="n">limit</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of topics to return&#39;</span><span class="p">))</span></code>
+            <code class="highlight language-python"><span class="n">get_trending_topics</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">current_user</span><span class="p">,</span> <span class="n">assistant_id</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Filter by assistant ID&#39;</span><span class="p">),</span> <span class="n">limit</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Number of topics to return&#39;</span><span class="p">))</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -1508,6 +1546,14 @@ topic diversity score, assistant token costs, and document freshness.</p>
           –
           <div class="doc-md-description">
             <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>current_user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.models.user.User">User</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.security.get_current_admin">get_current_admin</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The authenticated admin user.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -1536,7 +1582,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-              <code><span title="list">list</span>[<span title="app.schemas.advanced_analytics.TrendingTopic">TrendingTopic</span>]</code>
+              <code><span title="typing.List">List</span>[<span title="app.schemas.advanced_analytics.TrendingTopic">TrendingTopic</span>]</code>
           –
           <div class="doc-md-description">
             <p>list[TrendingTopic]: A list of trending topics.</p>
@@ -1547,34 +1593,38 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 88</span>
-<span class="normal"> 89</span>
-<span class="normal"> 90</span>
-<span class="normal"> 91</span>
-<span class="normal"> 92</span>
-<span class="normal"> 93</span>
-<span class="normal"> 94</span>
-<span class="normal"> 95</span>
-<span class="normal"> 96</span>
-<span class="normal"> 97</span>
-<span class="normal"> 98</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 98</span>
 <span class="normal"> 99</span>
 <span class="normal">100</span>
 <span class="normal">101</span>
 <span class="normal">102</span>
 <span class="normal">103</span>
 <span class="normal">104</span>
-<span class="normal">105</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/trending&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="nb">list</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">])</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/trending&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">List</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">])</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_trending_topics</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
+    <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
     <span class="n">assistant_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">UUID</span><span class="p">]</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Filter by assistant ID&quot;</span><span class="p">),</span>
     <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Number of topics to return&quot;</span><span class="p">),</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">]:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">TrendingTopic</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get top trending questions/topics.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        current_user: The authenticated admin user.</span>
 <span class="sd">        assistant_id: Optional filter by assistant ID.</span>
 <span class="sd">        limit: Number of topics to return.</span>
 
@@ -1592,7 +1642,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 
 <h2 id="app.api.v1.endpoints.analytics.get_ttft_percentiles" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_ttft_percentiles</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Analysis period in hours&#39;</span><span class="p">))</span></code>
+            <code class="highlight language-python"><span class="n">get_ttft_percentiles</span><span class="p">(</span><span class="n">service</span><span class="p">,</span> <span class="n">current_user</span><span class="p">,</span> <span class="n">hours</span><span class="o">=</span><span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s1">&#39;Analysis period in hours&#39;</span><span class="p">))</span></code>
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-async"><code>async</code></small>
@@ -1614,6 +1664,14 @@ topic diversity score, assistant token costs, and document freshness.</p>
           –
           <div class="doc-md-description">
             <p>The analytics service instance.</p>
+          </div>
+        </li>
+        <li class="doc-section-item field-body">
+            <b><code>current_user</code></b>
+              (<code><span title="typing.Annotated">Annotated</span>[<span title="app.models.user.User">User</span>, <span title="fastapi.Depends">Depends</span>(<span title="app.core.security.get_current_admin">get_current_admin</span>)]</code>)
+          –
+          <div class="doc-md-description">
+            <p>The authenticated admin user.</p>
           </div>
         </li>
         <li class="doc-section-item field-body">
@@ -1643,15 +1701,7 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">65</span>
-<span class="normal">66</span>
-<span class="normal">67</span>
-<span class="normal">68</span>
-<span class="normal">69</span>
-<span class="normal">70</span>
-<span class="normal">71</span>
-<span class="normal">72</span>
-<span class="normal">73</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">73</span>
 <span class="normal">74</span>
 <span class="normal">75</span>
 <span class="normal">76</span>
@@ -1663,9 +1713,20 @@ topic diversity score, assistant token costs, and document freshness.</p>
 <span class="normal">82</span>
 <span class="normal">83</span>
 <span class="normal">84</span>
-<span class="normal">85</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ttft&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">TTFTPercentiles</span><span class="p">)</span>
+<span class="normal">85</span>
+<span class="normal">86</span>
+<span class="normal">87</span>
+<span class="normal">88</span>
+<span class="normal">89</span>
+<span class="normal">90</span>
+<span class="normal">91</span>
+<span class="normal">92</span>
+<span class="normal">93</span>
+<span class="normal">94</span>
+<span class="normal">95</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/ttft&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">TTFTPercentiles</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_ttft_percentiles</span><span class="p">(</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">AnalyticsService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_analytics_service</span><span class="p">)],</span>
+    <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
     <span class="n">hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">24</span><span class="p">,</span> <span class="n">ge</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">le</span><span class="o">=</span><span class="mi">168</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Analysis period in hours&quot;</span><span class="p">),</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TTFTPercentiles</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1673,12 +1734,13 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
 <span class="sd">    Args:</span>
 <span class="sd">        service: The analytics service instance.</span>
+<span class="sd">        current_user: The authenticated admin user.</span>
 <span class="sd">        hours: Analysis period in hours.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        TTFTPercentiles: The calculated TTFT percentiles (p50, p95, p99).</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_ttft_percentiles</span><span class="p">(</span><span class="n">hours</span><span class="p">)</span>
+    <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TTFTPercentiles</span><span class="p">]</span> <span class="o">=</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_ttft_percentiles</span><span class="p">(</span><span class="n">hours</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">TTFTPercentiles</span><span class="p">(</span><span class="n">p50</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">p95</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">p99</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">period_hours</span><span class="o">=</span><span class="n">hours</span><span class="p">)</span>
@@ -1725,22 +1787,22 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">182</span>
-<span class="normal">183</span>
-<span class="normal">184</span>
-<span class="normal">185</span>
-<span class="normal">186</span>
-<span class="normal">187</span>
-<span class="normal">188</span>
-<span class="normal">189</span>
-<span class="normal">190</span>
-<span class="normal">191</span>
-<span class="normal">192</span>
-<span class="normal">193</span>
-<span class="normal">194</span>
-<span class="normal">195</span>
-<span class="normal">196</span>
-<span class="normal">197</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_broadcast_task</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">199</span>
+<span class="normal">200</span>
+<span class="normal">201</span>
+<span class="normal">202</span>
+<span class="normal">203</span>
+<span class="normal">204</span>
+<span class="normal">205</span>
+<span class="normal">206</span>
+<span class="normal">207</span>
+<span class="normal">208</span>
+<span class="normal">209</span>
+<span class="normal">210</span>
+<span class="normal">211</span>
+<span class="normal">212</span>
+<span class="normal">213</span>
+<span class="normal">214</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">start_broadcast_task</span><span class="p">(</span><span class="n">interval_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Start the periodic broadcast background task.</span>
 
@@ -1782,28 +1844,27 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>app/api/v1/endpoints/analytics.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">200</span>
-<span class="normal">201</span>
-<span class="normal">202</span>
-<span class="normal">203</span>
-<span class="normal">204</span>
-<span class="normal">205</span>
-<span class="normal">206</span>
-<span class="normal">207</span>
-<span class="normal">208</span>
-<span class="normal">209</span>
-<span class="normal">210</span>
-<span class="normal">211</span>
-<span class="normal">212</span>
-<span class="normal">213</span>
-<span class="normal">214</span>
-<span class="normal">215</span>
-<span class="normal">216</span>
-<span class="normal">217</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">217</span>
 <span class="normal">218</span>
 <span class="normal">219</span>
 <span class="normal">220</span>
-<span class="normal">221</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_broadcast_task</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="normal">221</span>
+<span class="normal">222</span>
+<span class="normal">223</span>
+<span class="normal">224</span>
+<span class="normal">225</span>
+<span class="normal">226</span>
+<span class="normal">227</span>
+<span class="normal">228</span>
+<span class="normal">229</span>
+<span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span>
+<span class="normal">236</span>
+<span class="normal">237</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_broadcast_task</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Stop the periodic broadcast background task.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -1814,7 +1875,6 @@ topic diversity score, assistant token costs, and document freshness.</p>
 
     <span class="n">_broadcast_running</span> <span class="o">=</span> <span class="kc">False</span>
 
-    <span class="c1"># Wait for task to finish</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="n">_broadcast_task</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">10.0</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>

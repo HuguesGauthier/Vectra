@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
     
     
       
@@ -1061,7 +1061,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The created user object.</p>
@@ -1096,7 +1096,7 @@
     <span class="n">user_in</span><span class="p">:</span> <span class="n">UserCreate</span><span class="p">,</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
     <span class="n">current_admin</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Create new user. Admin only.</span>
 
@@ -1106,7 +1106,7 @@
 <span class="sd">        current_admin: The currently authenticated admin user.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The created user object.</span>
+<span class="sd">        User: The created user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">user_in</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -1165,7 +1165,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The deleted user object.</p>
@@ -1200,7 +1200,7 @@
     <span class="n">user_id</span><span class="p">:</span> <span class="n">UUID</span><span class="p">,</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
     <span class="n">current_admin</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Delete a user. Admin only.</span>
 
@@ -1210,7 +1210,7 @@
 <span class="sd">        current_admin: The currently authenticated admin user.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The deleted user object.</span>
+<span class="sd">        User: The deleted user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -1281,7 +1281,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The updated user object.</p>
@@ -1322,7 +1322,7 @@
     <span class="n">user_id</span><span class="p">:</span> <span class="n">UUID</span><span class="p">,</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
     <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_user</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Remove the avatar image from a user.</span>
 
@@ -1335,7 +1335,7 @@
 <span class="sd">        HTTPException: If the user is not authorized.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The updated user object.</span>
+<span class="sd">        User: The updated user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">current_user</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="n">user_id</span> <span class="ow">and</span> <span class="n">current_user</span><span class="o">.</span><span class="n">role</span> <span class="o">!=</span> <span class="n">UserRole</span><span class="o">.</span><span class="n">ADMIN</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Not authorized&quot;</span><span class="p">)</span>
@@ -1401,7 +1401,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>FileResponse</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>FileResponse</code></b> (              <code><span title="fastapi.responses.FileResponse">FileResponse</span></code>
 )          –
           <div class="doc-md-description">
             <p>The avatar image file.</p>
@@ -1440,7 +1440,7 @@
     <span class="o">*</span><span class="p">,</span>
     <span class="n">user_id</span><span class="p">:</span> <span class="n">UUID</span><span class="p">,</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileResponse</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get the avatar image file for a user.</span>
 
@@ -1499,7 +1499,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The current user object.</p>
@@ -1522,7 +1522,7 @@
 <span class="normal">27</span>
 <span class="normal">28</span>
 <span class="normal">29</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/me&quot;</span><span class="p">,</span> <span class="n">response_model</span><span class="o">=</span><span class="n">UserRead</span><span class="p">)</span>
-<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_user_me</span><span class="p">(</span><span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_user</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">read_user_me</span><span class="p">(</span><span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_user</span><span class="p">)])</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Get current user.</span>
 
@@ -1530,7 +1530,7 @@
 <span class="sd">        current_user: The currently authenticated user.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The current user object.</span>
+<span class="sd">        User: The current user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">current_user</span>
 </code></pre></div></td></tr></table></div>
@@ -1601,10 +1601,10 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
-)          –
+              <code><span title="typing.List">List</span>[<span title="app.models.user.User">User</span>]</code>
+          –
           <div class="doc-md-description">
-            <p>A list of users.</p>
+            <p>List[User]: A list of users.</p>
           </div>
         </li>
     </ul>
@@ -1637,7 +1637,7 @@
     <span class="n">current_admin</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
     <span class="n">skip</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieve users. Admin only.</span>
 
@@ -1648,7 +1648,7 @@
 <span class="sd">        limit: Maximum number of records to return.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: A list of users.</span>
+<span class="sd">        List[User]: A list of users.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">get_multi</span><span class="p">(</span><span class="n">skip</span><span class="o">=</span><span class="n">skip</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -1715,7 +1715,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The updated user object.</p>
@@ -1753,7 +1753,7 @@
     <span class="n">user_in</span><span class="p">:</span> <span class="n">UserUpdate</span><span class="p">,</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
     <span class="n">current_admin</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_admin</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Update a user. Admin only.</span>
 
@@ -1764,7 +1764,7 @@
 <span class="sd">        current_admin: The currently authenticated admin user.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The updated user object.</span>
+<span class="sd">        User: The updated user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">user_id</span><span class="p">,</span> <span class="n">user_in</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
@@ -1845,7 +1845,7 @@
 <p><span class="doc-section-title">Returns:</span></p>
     <ul>
         <li class="doc-section-item field-body">
-<b><code>Any</code></b> (              <code><span title="typing.Any">Any</span></code>
+<b><code>User</code></b> (              <code><span title="app.models.user.User">User</span></code>
 )          –
           <div class="doc-md-description">
             <p>The updated user object.</p>
@@ -1889,7 +1889,7 @@
     <span class="n">file</span><span class="p">:</span> <span class="n">UploadFile</span> <span class="o">=</span> <span class="n">File</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
     <span class="n">service</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">UserService</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_user_service</span><span class="p">)],</span>
     <span class="n">current_user</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">User</span><span class="p">,</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_current_user</span><span class="p">)],</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">User</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Upload an avatar image for a user.</span>
 
@@ -1903,7 +1903,7 @@
 <span class="sd">        HTTPException: If the user is not authorized.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Any: The updated user object.</span>
+<span class="sd">        User: The updated user object.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">current_user</span><span class="o">.</span><span class="n">id</span> <span class="o">!=</span> <span class="n">user_id</span> <span class="ow">and</span> <span class="n">current_user</span><span class="o">.</span><span class="n">role</span> <span class="o">!=</span> <span class="n">UserRole</span><span class="o">.</span><span class="n">ADMIN</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Not authorized&quot;</span><span class="p">)</span>
