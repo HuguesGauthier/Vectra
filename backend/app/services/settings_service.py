@@ -126,7 +126,11 @@ class SettingsService:
 
         # 4. Fallback to Hardcoded Default
         if value is None or value == "":
-            value = str(default) if default is not None else self.DEFAULTS.get(key, "")
+            # Clear if empty to allow environmental fallback in get_settings() if applicable
+            # but here we return specific default or DEFAULTS.
+            value = self._get_env_fallback(key)
+            if value is None or value == "":
+                value = str(default) if default is not None else self.DEFAULTS.get(key, "")
 
         # 5. Normalization (Model names etc.)
         return normalize_model_name(key, value)

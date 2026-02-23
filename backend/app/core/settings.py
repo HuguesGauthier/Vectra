@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # QDRANT
     QDRANT_HOST: str = "localhost"
-    QDRANT_API_KEY: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = "vectra-local-dev-qdrant-key-2026"
 
     # REDIS (Semantic Caching)
     REDIS_HOST: str = "localhost"
