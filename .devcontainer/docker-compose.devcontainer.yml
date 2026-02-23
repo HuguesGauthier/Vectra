@@ -1,10 +1,29 @@
 services:
   vectra-api:
-    # Overwrite the command to keep the container running if needed, 
-    # though standard compose should be fine.
-    # We add this file to allow future devcontainer-specific overrides.
     volumes:
       - ..:/workspaces/Vectra:cached
+    deploy:
+      resources:
+        reservations:
+          devices: []
+
+  vectra-worker:
+    deploy:
+      resources:
+        reservations:
+          devices: []
+
+  vectra-ollama:
+    deploy:
+      resources:
+        reservations:
+          devices: []
+
+  vectra-whisper:
+    deploy:
+      resources:
+        reservations:
+          devices: []
 
   vectra-frontend:
     volumes:
