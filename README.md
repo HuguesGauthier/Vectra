@@ -33,10 +33,10 @@ Vectra relies on a powerful **Hybrid Architecture**:
 ## Key Features
 
 - **Smart Routing:** Automatically detects user intent to determine whether to query structured data (SQL) or internal documentation (Vector).
-- **Deep Chat UI:** Features streaming responses, interactive chart rendering, and precise source citations for every answer.
-- **Model Agnostic:** Fully compatible with a wide range of LLMs, including **Mistral**, **Gemini**, and **OpenAI**, allowing you to choose the best engine for your privacy and performance needs.
+- **Vectra Chat UI:** Features streaming responses, interactive chart rendering, and precise source citations for every answer.
+- **Model Agnostic:** Fully compatible with a wide range of LLMs, including **Mistral**, **Gemini**, **Claude** and **OpenAI**, allowing you to choose the best engine for your privacy and performance needs.
 - **Self-Hosted & Secure:** A Docker-first architecture ensuring full control over your data. Your sensitive corporate information never leaves your infrastructure.
-- **Multimodal Data Ingestion:** Seamlessly processes PDFs, the complete Microsoft Office suite (Word, Excel, PowerPoint), and internal wikis.
+- **Multimodal Data Ingestion:** Seamlessly processes PDFs, the complete Microsoft Office suite (Word, Excel, PowerPoint).
 - **Scalable Vector Search:** Powered by Qdrant for high-performance retrieval, even with large volumes of corporate documentation.
 
 ## Tech Stack
@@ -47,7 +47,6 @@ Vectra is built on a high-performance, **Docker-first** architecture with native
 
 - **Framework:** Vue 3 + [Quasar Framework](https://quasar.dev) (Material Design).
 - **State Management:** Pinia.
-- **Chat Interface:** [Deep Chat](https://deepchat.dev) (Advanced AI-driven streaming UI).
 - **Visualization & Graphics:** ApexCharts for data rendering and **Three.js** for advanced 3D components.
 - **Internationalization:** Vue I18n.
 - **HTTP Client:** Axios.
@@ -67,7 +66,7 @@ Vectra is built on a high-performance, **Docker-first** architecture with native
 - **SQL Agent:** **Vanna.ai** (Specialized in translating natural language to precise SQL).
 - **Local Inference:** **Ollama** for self-hosted model execution.
 - **Audio Processing:** **Faster-Whisper** for high-performance localized speech-to-text.
-- **LLM Providers:** Native support for **Mistral**, **Gemini**, **OpenAI**, and **Cohere**.
+- **LLM Providers:** Native support for **Mistral**, **Gemini**, **Claude**, **OpenAI**, and **Cohere**.
 - **Vector Store:** **Qdrant** (High-performance vector search engine).
 
 ### Data & Storage
@@ -83,7 +82,6 @@ Vectra is built on a high-performance, **Docker-first** architecture with native
 ### Infrastructure & Operations
 
 - **Orchestration:** Docker & Docker Compose with full environment isolation.
-- **DevOps:** **GitHub Codespaces** compatible with "Zero-Config" optimized setup.
 - **Hardware Acceleration:** Native **NVIDIA GPU** support for local LLM (Ollama) and Speech-to-Text (Whisper).
 - **Observability:** Integrated management tools (pgAdmin, Redis Commander, Qdrant UI).
 
@@ -108,7 +106,7 @@ Vectra runs as a coordinated mesh of specialized services:
 
 ## Quick Start (Docker)
 
-Vectra is designed to work out-of-the-box on **Windows (Docker Desktop)**, **Linux**, and **GitHub Codespaces**.
+Vectra is designed to work out-of-the-box on **Windows (Docker Desktop)**, **Linux**, and **Mac**.
 
 ### 1. Simple Launch
 
@@ -138,7 +136,7 @@ To allows Vectra to access your local files and folders in Docker:
 
 Vectra supports multiple environments using Docker Compose profiles.
 
-### 🛠️ Hybrid Development (Recommended)
+### Hybrid Development (Recommended)
 
 This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docker and your **Application code** locally for better performance and debugging.
 
@@ -160,7 +158,7 @@ This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docke
     npm run dev
     ```
 
-### 🚀 Production (Full Docker)
+### Production (Full Docker)
 
 This mode builds and runs everything inside optimized Docker containers. It doesn't rely on local code once built.
 
@@ -172,7 +170,7 @@ docker compose --profile prod up -d --build
 - **Frontend:** http://localhost (Port 80)
 - **Backend API:** http://localhost:8000
 
-## 📜 License
+## License
 
 Vectra is open-source software licensed under the **GNU AGPL v3**.
 
@@ -181,7 +179,7 @@ Vectra is open-source software licensed under the **GNU AGPL v3**.
 
 ---
 
-## 💼 Commercial Use
+## Commercial Use
 
 If you wish to:
 
