@@ -19,13 +19,20 @@
                 class="q-mb-lg shadow-5 gradient-avatar"
                 :style="welcomeAvatarStyle"
               >
-                <img v-if="assistantAvatarUrl" :src="assistantAvatarUrl" />
+                <img
+                  v-if="assistantAvatarUrl"
+                  :src="assistantAvatarUrl"
+                  :style="{
+                    objectFit: 'cover',
+                    objectPosition: `center ${assistant?.avatar_vertical_position ?? 50}%`,
+                  }"
+                />
                 <span v-else class="text-h4">{{ assistantInitials }}</span>
               </q-avatar>
               <div class="text-h4 text-weight-bold q-mb-sm">
                 {{ introMessage.title }}
               </div>
-              <div class="text-subtitle1 q-px-xl" style="opacity: 0.8; line-height: 1.6;">
+              <div class="text-subtitle1 q-px-xl" style="opacity: 0.8; line-height: 1.6">
                 {{ introMessage.subtitle }}
               </div>
             </div>
