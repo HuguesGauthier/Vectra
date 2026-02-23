@@ -1,12 +1,28 @@
 {
-  "name": "Vectra Development Env",
+  "name": "Vectra Expert Dev Env",
   "dockerComposeFile": [
     "../docker-compose.yml",
-    "docker-compose.devcontainer.yml"
+    "docker-compose.codespaces.yml"
   ],
-  "runServices": ["vectra-api", "vectra-frontend", "vectra-worker"],
+  "runServices": [
+    "vectra-api",
+    "vectra-frontend",
+    "vectra-worker",
+    "vectra-qdrant",
+    "vectra-redis",
+    "vectra-ollama"
+  ],
   "service": "vectra-api",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "containerEnv": {
+    "ENV": "development",
+    "QDRANT_HOST": "vectra-qdrant",
+    "QDRANT_API_KEY": "vectra-local-dev-qdrant-key-2026",
+    "REDIS_HOST": "vectra-redis",
+    "REDIS_PASSWORD": "vectra_redis_2024",
+    "DATABASE_URL": "postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra",
+    "OLLAMA_BASE_URL": "http://vectra-ollama:11434"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -22,33 +38,21 @@
       }
     }
   },
-  "forwardPorts": [80, 8000, 5050, 6333, 8081, 11434],
+  "forwardPorts": [80, 8000, 5050, 6333, 8081, 11435],
   "portsAttributes": {
     "80": {
-      "label": "Frontend",
+      "label": "Frontend (Production Build)",
       "onAutoForward": "openBrowser"
     },
     "8000": {
       "label": "Backend API",
       "onAutoForward": "silent"
     },
-    "5050": {
-      "label": "pgAdmin",
-      "onAutoForward": "silent"
-    },
-    "6333": {
-      "label": "Qdrant Visualizer",
-      "onAutoForward": "silent"
-    },
-    "8081": {
-      "label": "Redis Commander",
-      "onAutoForward": "silent"
-    },
-    "11434": {
-      "label": "Ollama API",
+    "11435": {
+      "label": "Ollama API (Codespace Host)",
       "onAutoForward": "silent"
     }
   },
-  "postCreateCommand": "echo 'Codespace is ready! Build containers with: docker compose --profile prod up -d --build'",
+  "postCreateCommand": "docker exec vectra-ollama ollama pull bge-m3 && docker exec vectra-ollama ollama pull mistral && echo 'Vectra is ready! Services started automatically.'",
   "remoteUser": "root"
 }

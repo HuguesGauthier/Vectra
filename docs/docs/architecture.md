@@ -1,66 +1,67 @@
 # Vectra Architecture
 
-Vectra is an enterprise RAG (Retrieval-Augmented Generation) solution designed to transform unstructured data into actionable knowledge via an intelligent chat interface.
+Vectra is an **Agentic RAG Assistant** designed to unify structured (SQL) and unstructured (Documents) data into a single, intuitive chat interface.
 
-## Overview
+## Hybrid Architecture
 
-The architecture follows a distributed model consisting of a reactive API, an asynchronous worker for data ingestion, and a multi-provider AI stack.
+Vectra relies on a powerful dual-engine architecture:
+
+1.  **AI Analyst (Vanna.ai)**: An intelligent agent that generates SQL on-the-fly to answer ad-hoc questions and explore structured databases in real-time.
+2.  **Vector Search (LlamaIndex)**: Retrieves precise answers from internal wikis and documents (PDF, Word, Excel, PowerPoint) via **Qdrant**.
 
 ```mermaid
 graph TD
     User([User]) <--> Frontend[Frontend Vue.js/Quasar]
     Frontend <--> API[FastAPI Backend]
 
-    API <--> Postgres[(PostgreSQL)]
+    subgraph "Hybrid Core"
+        API <--> AI_Analyst[AI Analyst / Vanna.ai]
+        API <--> RAG[Vector Search / LlamaIndex]
+    end
+
+    AI_Analyst <--> SQL_DB[(Structured DB / Postgres, SQL Server...)]
+    RAG <--> Qdrant[(Vector DB / Qdrant)]
+
     API <--> Redis[(Redis Cache)]
-    API <--> Qdrant[(Qdrant Vector DB)]
-
-    API -- WebSocket triggers --> Worker[Background Worker]
-    Worker -- Ingestion --> Postgres
-    Worker -- Vectorization --> Qdrant
-
-    API -- LLM/Embed --> AI[Gemini / OpenAI / Mistral]
-    Worker -- Embeddings --> AI
+    API -- Ingestion triggers --> Worker[Background Worker]
+    Worker -- Processing --> Qdrant
 ```
 
 ## Main Components
 
 ### 1. Backend API (FastAPI)
 
-The heart of the system, responsible for real-time orchestration:
+The central orchestrator of the system:
 
-- **Session Management**: Authentication and conversation history.
-- **RAG Orchestration**: Integration with **LlamaIndex** for chunking, indexing, and retrieval.
-- **WebSocket Manager**: Real-time broadcast of responses and synchronization states.
-- **Semantic Cache**: Uses **Redis** to store results for similar queries to reduce latency and costs.
+- **Smart Routing**: Automatically detects user intent to route queries to either the AI Analyst or the Vector Search engine.
+- **Deep Chat UI Orchestration**: Manages streaming responses and interactive chart rendering.
+- **Security**: JWT-based enterprise-grade authentication.
 
-### 2. Background Worker
+### 2. AI Analyst (Vanna.ai)
 
-An autonomous service dedicated to heavy tasks:
+Specialized in translating natural language into precise SQL queries. It allows for real-time exploration of structured data without pre-defined reports.
 
-- **Multi-Source Ingestion**: Scanning and extracting data from various sources (Connectors).
-- **Vectorization Pipeline**: Transforming documents into vectors via embedding models (Gemini 004).
-- **Real-Time Synchronization**: Connected to the API via WebSocket to react instantly to user requests.
+### 3. Vector Search (LlamaIndex & Qdrant)
 
-### 3. Persistence Layer
+The backbone for unstructured data retrieval. It indexes and searches through your company's documents, acting as a "collective memory".
 
-- **PostgreSQL**: Stores metadata, connector configurations, and document structure.
-- **Qdrant**: High-performance vector database for ultra-fast semantic search.
-- **Redis**: Semantic cache and temporary storage.
+### 4. Background Worker
 
-### 4. Artificial Intelligence
+Handles multimodal data ingestion and heavy vectorization workloads, ensuring the knowledge base is always up-to-date.
 
-Vectra is "Model Agnostic" but optimized for the Google Cloud suite:
+## Security & Privacy
 
-- **Chat Models**: Gemini 1.5 Pro/Flash for complex reasoning.
-- **Embeddings**: Gemini Text Embedding 004 for state-of-the-art semantic representation.
-- **Reranking**: Uses reranking models to refine result relevance.
+- **Self-Hosted**: Full control over your data; sensitive information never leaves your infrastructure.
+- **Model Agnostic**: Compatible with **Gemini**, **OpenAI**, **Mistral**, and **Ollama** (local inference).
 
-## Data Flow (RAG)
+---
 
-1. **Request**: The user asks a question via the frontend.
-2. **Cache**: The API checks Redis to see if a similar question has already been processed.
-3. **Retrieval**: If not, Vectra queries Qdrant to extract the most relevant passages.
-4. **Augmentation**: The extracted context is injected into the LLM prompt.
-5. **Generation**: The LLM generates a sourced and accurate response.
-6. **Streaming**: The response is sent back in chunks via WebSocket for a smooth user experience.
+## Data Flow
+
+1. **User Request**: The user sends a natural language query.
+2. **Intent Analysis**: The API determines if the answer lies in structured databases or unstructured documents.
+3. **Execution**:
+   - **SQL Path**: Vanna.ai generates and executes SQL.
+   - **Vector Path**: LlamaIndex performs semantic search in Qdrant.
+4. **Response Synthesis**: The LLM compiles the findings into a sourced and clear response.
+5. **Streaming**: Results are streamed back to the UI in real-time.

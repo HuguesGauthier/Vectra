@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.websocket import manager, Websocket, get_websocket
 from app.core.database import SessionLocal, get_db
 from app.core.exceptions import EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
+from app.core.settings import get_settings
 from app.models.connector import Connector
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.vector_repository import VectorRepository
@@ -38,7 +39,7 @@ SCHEDULE_MAP = {
 }
 
 # 🔴 P0: Security Constraint - Only allow deletion in managed directories
-MANAGED_UPLOAD_DIR = "temp_uploads"
+# MANAGED_UPLOAD_DIR is now resolved dynamically from Settings
 
 
 class ConnectorService:
@@ -522,9 +523,8 @@ class ConnectorService:
         try:
             # Normalize path
             abs_path = os.path.abspath(path)
-            # We assume the uploads dir is relative to current working dir or configured root.
-            # Ideally this should come from SettingsService, but strict relative check is a good start.
-            managed_root = os.path.abspath(MANAGED_UPLOAD_DIR)
+            # We resolve the upload directory dynamically to handle environment differences
+            managed_root = os.path.abspath(get_settings().TEMP_UPLOAD_DIR)
             return abs_path.startswith(managed_root)
         except Exception:
             return False

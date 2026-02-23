@@ -112,7 +112,6 @@
                     />
                   </div>
                 </div>
-                <!-- <q-icon name="info" color="grey-7" size="sm" /> -->
               </div>
             </div>
           </div>

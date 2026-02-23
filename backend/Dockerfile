@@ -4,6 +4,7 @@ WORKDIR /app
 
 # Install system dependencies for SQL Server ODBC Driver
 RUN apt-get update && apt-get install -y \
+  git \
   curl \
   gnupg2 \
   apt-transport-https \

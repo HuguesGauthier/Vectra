@@ -86,9 +86,9 @@ const props = defineProps<{
 defineEmits(['edit']);
 
 const fullName = computed(() => {
-  return props.user.first_name
-    ? `${props.user.first_name} ${props.user.last_name || ''}`
-    : props.user.email;
+  const { first_name, last_name, email } = props.user;
+  if (!first_name && !last_name) return email;
+  return `${first_name || ''} ${last_name || ''}`.trim();
 });
 
 const statusColor = computed(() => {
@@ -206,11 +206,6 @@ const glowStyle = computed(() => {
   font-size: 0.7rem;
 }
 
-.job-title {
-  opacity: 0.7;
-  font-size: 0.85rem;
-  line-height: 1.2;
-}
 /* New Role Badge Header (Glassmorphism) */
 .role-badge-header {
   position: absolute;

@@ -378,7 +378,13 @@ watch(
 );
 
 async function handleFileUpload(file: File | null) {
-  if (!file) return;
+  if (!file) {
+    if (localAvatarUrl.value) {
+      URL.revokeObjectURL(localAvatarUrl.value);
+      localAvatarUrl.value = null;
+    }
+    return;
+  }
 
   // Case 1: Existing Assistant -> Direct Upload
   if (props.assistantId) {
@@ -401,6 +407,9 @@ async function handleFileUpload(file: File | null) {
   }
   // Case 2: New Assistant -> Local Preview & Emit
   else {
+    if (localAvatarUrl.value) {
+      URL.revokeObjectURL(localAvatarUrl.value);
+    }
     localAvatarUrl.value = URL.createObjectURL(file);
     emit('file-selected', file);
   }
@@ -423,7 +432,10 @@ async function deleteAvatar() {
       });
     }
   } else {
-    localAvatarUrl.value = null;
+    if (localAvatarUrl.value) {
+      URL.revokeObjectURL(localAvatarUrl.value);
+      localAvatarUrl.value = null;
+    }
     emit('file-selected', null);
   }
 
@@ -536,13 +548,13 @@ function stopDrag() {
 }
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', onDrag);
-  document.removeEventListener('mouseup', stopDrag);
-  document.removeEventListener('touchmove', onDrag);
-  document.removeEventListener('touchend', stopDrag);
+  stopDrag();
 
   if (blobAvatarUrl.value) {
     URL.revokeObjectURL(blobAvatarUrl.value);
+  }
+  if (localAvatarUrl.value) {
+    URL.revokeObjectURL(localAvatarUrl.value);
   }
 });
 </script>

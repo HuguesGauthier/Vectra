@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     # QDRANT
     QDRANT_HOST: str = "localhost"
-    QDRANT_API_KEY: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = "vectra-local-dev-qdrant-key-2026"
 
     # REDIS (Semantic Caching)
     REDIS_HOST: str = "localhost"
@@ -93,6 +93,16 @@ class Settings(BaseSettings):
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"
     FIRST_SUPERUSER_PASSWORD: Optional[str] = None
+
+    @property
+    def TEMP_UPLOAD_DIR(self) -> str:
+        """
+        Dynamically determine upload directory.
+        Prioritizes VECTRA_DATA_PATH (shared volume) if available.
+        Falls back to local directory for non-containerized environments.
+        """
+        base = self.VECTRA_DATA_PATH or "."
+        return os.path.join(base, "temp_uploads")
 
     model_config = SettingsConfigDict(
         # Use absolute path to find .env regardless of where the app is run from

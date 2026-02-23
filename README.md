@@ -66,6 +66,7 @@ Vectra is built on a high-performance, **Docker-first** architecture with native
 - **Orchestrator:** **LlamaIndex** (The backbone for LLM data connection and retrieval).
 - **SQL Agent:** **Vanna.ai** (Specialized in translating natural language to precise SQL).
 - **Local Inference:** **Ollama** for self-hosted model execution.
+- **Audio Processing:** **Faster-Whisper** for high-performance localized speech-to-text.
 - **LLM Providers:** Native support for **Mistral**, **Gemini**, **OpenAI**, and **Cohere**.
 - **Vector Store:** **Qdrant** (High-performance vector search engine).
 
@@ -73,30 +74,49 @@ Vectra is built on a high-performance, **Docker-first** architecture with native
 
 - **Primary Database:** PostgreSQL 15.
 - **External SQL Support:** Native connectivity for SQL Server and MySQL (via ODBC/pyodbc and pytds).
-- **Caching & Queue:** **Redis 7**.
-- **Document Processing:** \* **PDF:** PyPDF.
+- **Caching & Broker:** **Redis 7** (Used for session storage and background task queuing).
+- **Document Processing:**
+  - **PDF:** PyPDF.
   - **Word:** python-docx.
   - **Excel/CSV:** Openpyxl & Pandas.
 
-### Infrastructure & DevTools
+### Infrastructure & Operations
 
-- **Containerization:** Full Docker & Docker Compose orchestration.
-- **Hardware Acceleration:** NVIDIA GPU support for local LLM and embedding workloads.
+- **Orchestration:** Docker & Docker Compose with full environment isolation.
+- **DevOps:** **GitHub Codespaces** compatible with "Zero-Config" optimized setup.
+- **Hardware Acceleration:** Native **NVIDIA GPU** support for local LLM (Ollama) and Speech-to-Text (Whisper).
+- **Observability:** Integrated management tools (pgAdmin, Redis Commander, Qdrant UI).
+
+## The Vectra Stack (Docker Services)
+
+Vectra runs as a coordinated mesh of specialized services:
+
+| Service            | Container Name     | Role                                           |
+| :----------------- | :----------------- | :--------------------------------------------- |
+| **Backend API**    | `vectra-api`       | FastAPI server, business logic & orchestration |
+| **Frontend**       | `vectra-frontend`  | Vue 3 / Quasar dashboard interface             |
+| **Worker**         | `vectra-worker`    | Asynchronous task processing (Ingestion, Sync) |
+| **Database**       | `vectra-postgres`  | Persistent metadata & assistant storage        |
+| **Vector Store**   | `vectra-qdrant`    | Neural search engine & vector embeddings       |
+| **Cache/Queue**    | `vectra-redis`     | In-memory broker for workers and caching       |
+| **LLM Engine**     | `vectra-ollama`    | Local model inference (Mistral, BGE-M3)        |
+| **STT Engine**     | `vectra-whisper`   | Faster-Whisper for voice-to-text               |
+| **Monitor: DB**    | `vectra-pgadmin`   | Visual management for PostgreSQL               |
+| **Monitor: Redis** | `vectra-redis-web` | Redis Commander interface                      |
+
+---
 
 ## Quick Start (Docker)
 
-Get Vectra running in 2 minutes:
+Vectra is designed to work out-of-the-box on **Windows (Docker Desktop)**, **Linux**, and **GitHub Codespaces**.
+
+### 1. Simple Launch
+
+If you have Docker installed, just run:
 
 ```bash
-# 1. Clone the repo
-git clone [https://github.com/HuguesGauthier/Vectra.git](https://github.com/HuguesGauthier/Vectra.git)
+git clone https://github.com/HuguesGauthier/Vectra.git
 cd Vectra
-
-# 2. Configure environment
-cp .env.example .env
-# Edit .env with your API Keys
-
-# 3. Launch
 docker-compose up -d
 ```
 
@@ -107,9 +127,11 @@ Access the UI at: http://localhost:9000
 To allows Vectra to access your local files and folders in Docker:
 
 1. Define the base path of your documents in your `.env`:
+
    ```env
    VECTRA_DATA_PATH=D:/MyDocuments
    ```
+
 2. Any connector created with a path starting with `D:/MyDocuments` will be automatically mapped to the internal Docker `/data` volume.
 
 ## Environments Setup

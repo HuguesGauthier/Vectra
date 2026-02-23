@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
+from app.core.settings import get_settings
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import ConnectorType, DocStatus
 from app.repositories.connector_repository import ConnectorRepository
@@ -263,12 +264,17 @@ class DocumentService:
         func_name = "DocumentService.upload_file"
 
         try:
-            upload_dir = "temp_uploads"
+            upload_dir = get_settings().TEMP_UPLOAD_DIR
             # 🔴 P0: Non-blocking directory creation
-            await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
+            try:
+                await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
+            except Exception as e:
+                logger.error(f"❌ PERMISSION DENIED | Could not create {upload_dir}: {e}")
+                raise TechnicalError(f"Storage error: Cannot create upload directory at {upload_dir}", error_code="UPLOAD_DIR_ERROR")
 
             # os.path.join is purely string manipulation, safe in async.
             file_path = os.path.join(upload_dir, file.filename or "uploaded_file")
+            logger.info(f"📂 Attempting upload to: {file_path}")
 
             async with aiofiles.open(file_path, "wb") as out_file:
                 while content := await file.read(1024 * 1024):  # 1MB chunks
@@ -302,7 +308,7 @@ class DocumentService:
         try:
             # 🔴 P0: Path Traversal Protection
             # os.path.abspath is safe as string manipulation, but we must verify the result.
-            abs_temp_dir = os.path.abspath("temp_uploads")
+            abs_temp_dir = os.path.abspath(get_settings().TEMP_UPLOAD_DIR)
             requested_abs_path = os.path.abspath(file_path)
 
             if not requested_abs_path.startswith(abs_temp_dir):

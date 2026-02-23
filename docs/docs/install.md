@@ -4,7 +4,7 @@ Vectra can be deployed quickly via Docker (recommended) or manually for developm
 
 ## 🚀 Quick Start (Docker)
 
-The easiest way to launch Vectra in production or for a quick test.
+Get Vectra running in 2 minutes:
 
 1. **Clone the project**:
 
@@ -27,49 +27,71 @@ The easiest way to launch Vectra in production or for a quick test.
 
 Access the UI at: [http://localhost:9000](http://localhost:9000)
 
+### Data Persistence (Docker)
+
+To allows Vectra to access your local files and folders in Docker:
+
+1. Define the base path of your documents in your `.env`:
+   ```env
+   VECTRA_DATA_PATH=D:/MyDocuments
+   ```
+2. Any connector created with a path starting with `D:/MyDocuments` will be automatically mapped to the internal Docker `/data` volume.
+
 ---
 
-## 🛠️ Manual Installation (Development)
+## 🏗️ Environments Setup
 
-If you wish to modify the code or contribute to the project.
+Vectra supports multiple environments using Docker Compose profiles.
 
-### Prerequisites
+### 🛠️ Hybrid Development (Recommended)
 
-- **Python 3.10+**
-- **Node.js** (for the frontend)
-- **Databases**: PostgreSQL, Qdrant, and Redis must be accessible.
+This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docker and your **Application code** locally for better performance and debugging.
 
-### Backend
-
-1. Navigate to the backend folder:
+1. **Launch Infrastructure**:
+   ```bash
+   # Launches only the databases and infra services
+   docker compose up -d
+   ```
+2. **Launch Backend**:
    ```bash
    cd backend
-   ```
-2. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   .venv\Scripts\activate  # Windows
-   ```
-3. Install dependencies:
-   ```bash
    pip install -r requirements.txt
-   ```
-4. Launch the API:
-   ```bash
    python main.py
    ```
-
-### Frontend
-
-1. Navigate to the frontend folder:
+3. **Launch Frontend**:
    ```bash
    cd frontend
-   ```
-2. Install dependencies:
-   ```bash
    npm install
-   ```
-3. Launch the development server:
-   ```bash
    npm run dev
    ```
+
+### 🚀 Production (Full Docker)
+
+This mode builds and runs everything inside optimized Docker containers. It doesn't rely on local code once built.
+
+```bash
+# Use --profile prod to include the application services
+docker compose --profile prod -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+- **Frontend**: http://localhost (Port 80)
+- **Backend API**: http://localhost:8000
+
+---
+
+## 📜 License
+
+Vectra is open-source software licensed under the **GNU AGPL v3**.
+
+> [!IMPORTANT]
+> The **AGPL v3** is a "strong copyleft" license. If you modify Vectra or use it to provide a service over a network, you must make your modified source code available to the users of that service.
+
+### 💼 Commercial Use
+
+If you wish to:
+
+- **Integrate Vectra** into a proprietary software product.
+- **Build a commercial SaaS** without releasing your own source code.
+- **Benefit from Enterprise Support** and priority features.
+
+You must purchase a **Commercial License**. Please [contact the author](mailto:hugues.gauthier@gmail.com) for enterprise pricing and licensing options.

@@ -11,19 +11,19 @@ declare module '@vue/runtime-core' {
   }
 }
 
-// Default to backend URL. In prod use env var.
-// Default to backend URL. In prod use env var.
 const api = axios.create({
   baseURL: process.env.VUE_APP_API_BASE_URL || '/api/v1',
-  withCredentials: true, // Function to pass cookies to the backend
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-console.log('[Axios] Initialized with Base URL:', api.defaults.baseURL);
-console.log('[Axios] Current Origin:', window.location.origin);
-console.log('[Axios] Mode:', process.env.MODE);
+/**
+ * Helper to normalize axios error to Error object
+ */
+const wrapError = (error: unknown): Error =>
+  error instanceof Error ? error : new Error(String(error));
 
 export default boot(({ app, router }) => {
   app.config.globalProperties.$axios = axios;
@@ -35,91 +35,63 @@ export default boot(({ app, router }) => {
       const token = localStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('[Axios] Attaching Token:', token.substring(0, 10) + '...');
-      } else {
-        console.warn('[Axios] No token found in localStorage');
       }
       return config;
     },
-    (error) => {
-      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
-    },
+    (error) => Promise.reject(wrapError(error)),
   );
 
   // Response interceptor: Global Error Handling
   api.interceptors.response.use(
     (response) => response,
     (error) => {
-      // Handle Network Errors (no response)
-      if (!error.response) {
-        // IGNORE notifications endpoint for zombie checks (P0 user request)
-        // Failed notification polls shouldn't kill the session
-        if (error.config && error.config.url && error.config.url.includes('/notifications')) {
-          return Promise.reject(error instanceof Error ? error : new Error(String(error)));
-        }
+      const { config, response } = error;
 
-        const message = 'Network Error - API may be restarting or unreachable';
+      // 0. Handle Internal Polls (Notifications)
+      // Failed notification polls shouldn't kill the session or spam UI
+      if (config?.url?.includes('/notifications')) {
+        return Promise.reject(wrapError(error));
+      }
+
+      // 1. Handle Network Errors (no response)
+      if (!response) {
         Notify.create({
           type: 'negative',
-          message: message,
+          message: 'Network Error - API may be restarting or unreachable',
           position: 'bottom-right',
           timeout: 5000,
           actions: [{ label: 'Dismiss', color: 'white' }],
         });
 
-        // Clear state and redirect to login to avoid "zombie" state (P1)
-        // This is especially helpful during backend watchfile restarts.
-        // const authStore = useAuthStore();
-        // authStore.logout();
-
-        // if (router.currentRoute.value.path !== '/login') {
-        //   void router.push('/login');
-        // }
-
-        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+        return Promise.reject(wrapError(error));
       }
 
-      const { status, data, config } = error.response;
+      const { status, data } = response;
       const $t = app.config.globalProperties.$t;
 
-      // Prevent infinite loop: If the error comes from /notifications, do not trigger a new notification
-      if (config && config.url && config.url.includes('/notifications')) {
-        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
-      }
-
-      // 1. Authentication (401) or Forbidden (403)
+      // 2. Authentication (401) or Forbidden (403)
       if (status === 401 || status === 403) {
-        console.warn(`[Axios] ${status} Error - Handling session failure`);
-        console.warn('Failed Request:', config.url);
-
         const authStore = useAuthStore();
         authStore.logout();
 
-        // Only redirect to login if the current route explicitly requires authentication
         const requiresAuth = router.currentRoute.value.meta.requiresAuth;
         if (requiresAuth && router.currentRoute.value.path !== '/login') {
           void router.push('/login');
         }
       }
 
-      // 2. Functional Errors (4xx)
+      // 3. Functional Errors (4xx)
       else if (status >= 400 && status < 500) {
         const errorCode = data.code || data.error_code;
-
-        // Try to translate. Logic: if translation returns key, it means missing.
         let message = '';
 
         if (errorCode) {
           const translationKey = `errors.${errorCode}`;
           const translatedMessage = $t(translationKey);
 
-          // Check if translation exists (Quasar i18n returns key if missing)
-          if (translatedMessage && translatedMessage !== translationKey) {
-            message = translatedMessage;
-          } else {
-            // Fallback to backend message if translation missing, or generic
-            message = data.message || `Error (${errorCode})`;
-          }
+          message = (translatedMessage && translatedMessage !== translationKey)
+            ? translatedMessage
+            : (data.message || `Error (${errorCode})`);
         } else {
           message = data.message || 'Validation Error';
         }
@@ -138,9 +110,9 @@ export default boot(({ app, router }) => {
           read: false,
         });
       }
-      // 3. Technical Errors (5xx)
+
+      // 4. Technical Errors (5xx)
       else {
-        // Technical Message: System Error [code] - ID: ...
         const errorId = data.id || data.error_id || 'N/A';
         const errorCode = data.code || data.error_code || 'unknown_error';
         const techMsg = `Erreur Système [${errorCode}] - ID: ${errorId}`;
@@ -162,9 +134,10 @@ export default boot(({ app, router }) => {
         });
       }
 
-      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+      return Promise.reject(wrapError(error));
     },
   );
 });
 
 export { api };
+

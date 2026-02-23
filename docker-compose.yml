@@ -9,7 +9,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
       - VECTRA_DATA_PATH=/data
       - QDRANT_HOST=vectra-qdrant
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-vectra-local-dev-qdrant-key-2026}
       # Redis Configuration
       - REDIS_HOST=vectra-redis
       - REDIS_PORT=6379
@@ -30,13 +30,6 @@ services:
       - vectra
     volumes:
       - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   vectra-frontend:
     profiles: ["prod"]
@@ -60,7 +53,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
       - VECTRA_DATA_PATH=/data
       - QDRANT_HOST=vectra-qdrant
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-vectra-local-dev-qdrant-key-2026}
       # Redis Configuration
       - REDIS_HOST=vectra-redis
       - REDIS_PORT=6379
@@ -78,13 +71,6 @@ services:
       - vectra
     volumes:
       - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   vectra-postgres:
     image: postgres:15
@@ -128,7 +114,7 @@ services:
     image: qdrant/qdrant
     restart: always
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY}
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-vectra-local-dev-qdrant-key-2026}
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -177,8 +163,6 @@ services:
   vectra-ollama:
     image: ollama/ollama:latest
     restart: always
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
       - ./scripts/start_ollama.sh:/start_ollama.sh
@@ -192,33 +176,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     networks:
       - vectra
 
   vectra-whisper:
-    image: fedirz/faster-whisper-server:latest-cuda
+    image: fedirz/faster-whisper-server:latest-cpu
     restart: always
     environment:
       - WHISPER__MODEL=base
-      - WHISPER__DEVICE=cuda
+      - WHISPER__DEVICE=cpu
     ports:
       - "8003:8000"
     volumes:
       - whisper_data:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     networks:
       - vectra
 

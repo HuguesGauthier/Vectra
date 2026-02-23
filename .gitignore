@@ -25,5 +25,6 @@ __MACOSX/
 backend/user_avatars/
 backend/assistant_avatars/
 
-# Documentation
-doc/
+# utils
+prompts/
+agent/
