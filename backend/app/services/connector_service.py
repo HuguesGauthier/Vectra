@@ -38,7 +38,7 @@ SCHEDULE_MAP = {
 }
 
 # 🔴 P0: Security Constraint - Only allow deletion in managed directories
-MANAGED_UPLOAD_DIR = "temp_uploads"
+# MANAGED_UPLOAD_DIR is now resolved dynamically from Settings
 
 
 class ConnectorService:
@@ -524,7 +524,7 @@ class ConnectorService:
             abs_path = os.path.abspath(path)
             # We assume the uploads dir is relative to current working dir or configured root.
             # Ideally this should come from SettingsService, but strict relative check is a good start.
-            managed_root = os.path.abspath(MANAGED_UPLOAD_DIR)
+            managed_root = os.path.abspath(self.settings_service.settings.TEMP_UPLOAD_DIR)
             return abs_path.startswith(managed_root)
         except Exception:
             return False

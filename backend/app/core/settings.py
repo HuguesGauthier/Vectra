@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://vectra:vectra@localhost:5432/vectra"
     BACKEND_WS_URL: str = "ws://localhost:8000/api/v1/ws?client_type=worker"
     VECTRA_DATA_PATH: Optional[str] = None  # Local path on Windows (mapped to /data in Docker)
+    TEMP_UPLOAD_DIR: str = "/data/temp_uploads"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 3600

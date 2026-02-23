@@ -263,7 +263,7 @@ class DocumentService:
         func_name = "DocumentService.upload_file"
 
         try:
-            upload_dir = "temp_uploads"
+            upload_dir = self.settings_service.settings.TEMP_UPLOAD_DIR
             # 🔴 P0: Non-blocking directory creation
             await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
 
@@ -302,7 +302,7 @@ class DocumentService:
         try:
             # 🔴 P0: Path Traversal Protection
             # os.path.abspath is safe as string manipulation, but we must verify the result.
-            abs_temp_dir = os.path.abspath("temp_uploads")
+            abs_temp_dir = os.path.abspath(self.settings_service.settings.TEMP_UPLOAD_DIR)
             requested_abs_path = os.path.abspath(file_path)
 
             if not requested_abs_path.startswith(abs_temp_dir):
