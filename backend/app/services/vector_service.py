@@ -240,32 +240,33 @@ class VectorService:
             start_time = time.time()
             client_type = "Async" if is_async else "Sync"
 
-                    # Resolve API Key: Strictly treat empty/missing as None
-                    qdrant_api_key = await self.settings_service.get_value("qdrant_api_key")
-                    clean_api_key = qdrant_api_key.strip() if qdrant_api_key else None
-                    if clean_api_key == "":
-                        clean_api_key = None
+            # Resolve API Key: Strictly treat empty/missing as None
+            qdrant_api_key = await self.settings_service.get_value("qdrant_api_key")
+            clean_api_key = qdrant_api_key.strip() if qdrant_api_key else None
+            if clean_api_key == "":
+                clean_api_key = None
 
-                    logger.info(
-                        f"START | Initializing {client_type} Qdrant Client | "
-                        f"Host: {self.env_settings.QDRANT_HOST} | "
-                        f"Auth: {'KEY_PRESENT' if clean_api_key else 'NONE'}"
-                    )
+            logger.info(
+                f"START | Initializing {client_type} Qdrant Client | "
+                f"Host: {self.env_settings.QDRANT_HOST} | "
+                f"Auth: {'KEY_PRESENT' if clean_api_key else 'NONE'}"
+            )
 
-                    warnings.filterwarnings(
-                        "ignore", category=UserWarning, message=".*Api key is used with an insecure connection.*"
-                    )
+            try:
+                warnings.filterwarnings(
+                    "ignore", category=UserWarning, message=".*Api key is used with an insecure connection.*"
+                )
 
-                    ClientClass = qdrant_client.AsyncQdrantClient if is_async else qdrant_client.QdrantClient
+                ClientClass = qdrant_client.AsyncQdrantClient if is_async else qdrant_client.QdrantClient
 
-                    new_client = ClientClass(
-                        host=self.env_settings.QDRANT_HOST,
-                        port=6333,
-                        https=False,
-                        api_key=clean_api_key,
-                        timeout=10.0,
-                        prefer_grpc=False,
-                    )
+                new_client = ClientClass(
+                    host=self.env_settings.QDRANT_HOST,
+                    port=6333,
+                    https=False,
+                    api_key=clean_api_key,
+                    timeout=10.0,
+                    prefer_grpc=False,
+                )
 
                 setattr(storage, attribute_name, new_client)
 
