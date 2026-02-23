@@ -3,8 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.core.exceptions import (ConfigurationError, ExternalDependencyError,
-                                 TechnicalError)
+from app.core.exceptions import ConfigurationError, ExternalDependencyError, TechnicalError
 from app.services.prompt_service import PromptService
 
 
@@ -45,17 +44,74 @@ async def test_optimize_instruction_success(service, mock_settings_service):
     mock_settings_service.get_value.side_effect = ["key_123", "gemini-pro"]
 
     with patch.object(PromptService, "_get_optimizer_prompt", new_callable=AsyncMock) as mock_load:
-        mock_load.return_value = "System: {user_input}"
+        # Prompt WITH split marker
+        mock_load.return_value = "System System # INPUT User: {user_input}"
 
-        with patch("app.services.prompt_service.GoogleGenAI") as mock_llm_cls:
+        with patch("app.services.prompt_service.LLMFactory.create_llm") as mock_create:
             mock_llm_inst = AsyncMock()
-            mock_llm_inst.acomplete.return_value = MagicMock(text="Optimized instruction")
-            mock_llm_cls.return_value = mock_llm_inst
+            # mock_llm_inst.achat returns a response object with message.content
+            mock_response = MagicMock()
+            mock_response.message.content = "Optimized instruction"
+            mock_llm_inst.achat.return_value = mock_response
+            mock_create.return_value = mock_llm_inst
 
             result = await service.optimize_instruction("test input")
 
             assert result == "Optimized instruction"
-            mock_llm_inst.acomplete.assert_called_once_with("System: test input")
+            assert mock_llm_inst.achat.called
+            messages = mock_llm_inst.achat.call_args[0][0]
+            assert len(messages) == 2
+            assert messages[0].content == "System System"
+            assert messages[1].content == "User: test input"
+
+
+@pytest.mark.asyncio
+async def test_optimize_instruction_fallback_no_marker(service, mock_settings_service):
+    """Verify fallback when # INPUT is missing."""
+    mock_settings_service.get_value.side_effect = ["key_123", "gemini-pro"]
+
+    with patch.object(PromptService, "_get_optimizer_prompt", new_callable=AsyncMock) as mock_load:
+        mock_load.return_value = "Just system content"
+
+        with patch("app.services.prompt_service.LLMFactory.create_llm") as mock_create:
+            mock_llm_inst = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.message.content = "Optimized"
+            mock_llm_inst.achat.return_value = mock_response
+            mock_create.return_value = mock_llm_inst
+
+            await service.optimize_instruction("test input")
+
+            messages = mock_llm_inst.achat.call_args[0][0]
+            assert messages[0].content == "Just system content"
+            assert "test input" in messages[1].content
+
+
+@pytest.mark.asyncio
+async def test_optimize_instruction_empty_input(service):
+    """Verify TechnicalError on empty input."""
+    with pytest.raises(TechnicalError) as exc:
+        await service.optimize_instruction("")
+    assert "user_input cannot be empty" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_optimize_instruction_truncation(service, mock_settings_service):
+    """Verify input truncation for very long inputs."""
+    mock_settings_service.get_value.side_effect = ["key_123", "gemini-pro"]
+    long_input = "a" * 11000
+
+    with patch.object(PromptService, "_get_optimizer_prompt", new_callable=AsyncMock) as mock_load:
+        mock_load.return_value = "# INPUT {user_input}"
+        with patch("app.services.prompt_service.LLMFactory.create_llm") as mock_create:
+            mock_llm_inst = AsyncMock()
+            mock_llm_inst.achat.return_value = MagicMock(message=MagicMock(content="Reduced"))
+            mock_create.return_value = mock_llm_inst
+
+            await service.optimize_instruction(long_input)
+
+            messages = mock_llm_inst.achat.call_args[0][0]
+            assert len(messages[1].content) == 10000
 
 
 @pytest.mark.asyncio
@@ -65,21 +121,21 @@ async def test_optimize_instruction_no_api_key(service, mock_settings_service):
 
     with pytest.raises(ConfigurationError) as exc:
         await service.optimize_instruction("test input")
-    assert "GEMINI_API_KEY is not set" in str(exc.value)
+    assert "No LLM provider is configured" in str(exc.value)
 
 
 @pytest.mark.asyncio
 async def test_optimize_instruction_api_error(service, mock_settings_service):
     """Verify mapping of external API errors."""
-    mock_settings_service.get_value.return_value = "key_123"
+    mock_settings_service.get_value.side_effect = ["key_123", "gemini-pro"]
 
     with patch.object(PromptService, "_get_optimizer_prompt", new_callable=AsyncMock) as mock_load:
         mock_load.return_value = "System: {user_input}"
 
-        with patch("app.services.prompt_service.GoogleGenAI") as mock_llm_cls:
+        with patch("app.services.prompt_service.LLMFactory.create_llm") as mock_create:
             mock_llm_inst = AsyncMock()
-            mock_llm_inst.acomplete.side_effect = Exception("API Quota exceeded")
-            mock_llm_cls.return_value = mock_llm_inst
+            mock_llm_inst.achat.side_effect = Exception("API Quota exceeded")
+            mock_create.return_value = mock_llm_inst
 
             with pytest.raises(ExternalDependencyError):
                 await service.optimize_instruction("test input")

@@ -21,6 +21,6 @@ def estimate_tokens(text: str) -> int:
         This is an approximation. Actual token counts may vary by ±15-20%
         depending on the tokenizer used (GPT, Gemini, etc.).
     """
-    if not text:
+    if not text or not isinstance(text, str):
         return 0
     return int(len(text.split()) * 1.3)

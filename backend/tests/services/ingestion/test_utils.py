@@ -1,12 +1,17 @@
 import os
+import sys
 from unittest.mock import MagicMock, mock_open, patch
 from uuid import uuid4
+
+# Mock dependencies globally for test collection
+sys.modules["pyodbc"] = MagicMock()
+sys.modules["vanna"] = MagicMock()
+sys.modules["vanna.base"] = MagicMock()
 
 import pandas as pd
 import pytest
 
-from app.core.exceptions import (FileSystemError, FunctionalError,
-                                 TechnicalError)
+from app.core.exceptions import FileSystemError, FunctionalError, TechnicalError
 from app.models.connector_document import ConnectorDocument
 from app.services.ingestion.utils import IngestionUtils
 
@@ -49,6 +54,19 @@ class TestIngestionUtils:
             # Should log warning but not raise
             IngestionUtils.update_doc_metadata(doc, "fail.txt")
             assert doc.file_size is None
+
+    @pytest.mark.asyncio
+    async def test_update_doc_metadata_async(self):
+        doc = ConnectorDocument(id=uuid4(), connector_id=uuid4(), file_path="test.txt")
+        full_path = "/tmp/test.txt"
+
+        with patch("os.stat") as mock_stat:
+            mock_stat.return_value.st_size = 100
+            mock_stat.return_value.st_mtime = 1600000000
+
+            await IngestionUtils.update_doc_metadata_async(doc, full_path)
+
+            assert doc.file_size == 100
 
     # --- validate_csv_file ---
 

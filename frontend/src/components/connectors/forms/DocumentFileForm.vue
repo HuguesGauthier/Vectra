@@ -3,7 +3,6 @@
     <q-input
       v-model="localData.file_name"
       :label="$t('name')"
-      dark
       color="white"
       standout
       lazy-rules="ondemand"
@@ -13,8 +12,8 @@
     <q-file
       v-model="activeFile"
       :display-value="activeFile ? undefined : localData.file_path"
+      :accept="accept"
       clearable
-      dark
       color="white"
       standout
       :label="$t('filePath')"
@@ -51,6 +50,10 @@ import { useNotification } from 'src/composables/useNotification';
 import type { ConnectorDocument } from 'src/services/connectorDocumentService';
 
 // --- DEFINITIONS ---
+defineProps<{
+  accept?: string;
+}>();
+
 // The form modifies this data model directly via local copy
 const data = defineModel<Partial<ConnectorDocument>>('data', { required: true });
 

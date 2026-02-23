@@ -11,6 +11,7 @@ from typing import Annotated, Dict, List, Optional, Union
 from uuid import UUID
 
 from fastapi import Depends
+
 # LlamaIndex Imports
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.node_parser import SentenceSplitter
@@ -20,7 +21,7 @@ from qdrant_client.http import models as qmodels
 from qdrant_client.http.models import PointStruct
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import manager, Websocket
 from app.core.exceptions import TechnicalError
 from app.core.settings import settings
 from app.factories.ingestion_factory import IngestionFactory
@@ -35,6 +36,7 @@ from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
+logger.debug("ingestion_orchestrator.py loaded")
 
 
 class IngestionStoppedError(Exception):
@@ -120,8 +122,7 @@ class IngestionOrchestrator:
             pipeline, vector_store, batch_size, workers, text_splitter, docstore = await self.setup_pipeline(connector)
 
             # Reconstruct path
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             full_path = get_full_path_from_connector(connector, doc.file_path)
 
@@ -179,8 +180,7 @@ class IngestionOrchestrator:
             connector = await self.connector_repo.get_by_id(connector_id)
             pipeline, vector_store, batch_size, workers, text_splitter, docstore = await self.setup_pipeline(connector)
 
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             file_paths = []
             docs_map = {}
@@ -207,20 +207,29 @@ class IngestionOrchestrator:
 
     # --- GENERIC FILE INGESTION (LlamaIndex Pipeline) ---
 
-    async def setup_pipeline(self, connector: Connector):
+    async def setup_pipeline(self, connector: Connector, disable_extraction: bool = False):
         """
         Setup the LlamaIndex IngestionPipeline for generic files.
         NOW WITH CACHING ENABLED for massive performance/cost savings!
         """
         try:
-            client = self.vector_service.get_qdrant_client()
-            aclient = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_qdrant_client()
+            aclient = await self.vector_service.get_async_qdrant_client()
             provider = connector.configuration.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider)
 
             vector_store = QdrantVectorStore(client=client, aclient=aclient, collection_name=collection)
 
             workers = 5
+            is_local = provider in ["local", "ollama"]
+            if is_local:
+                workers = settings.computed_local_workers
+            else:
+                # Remote APIs: Disable multiprocessing (workers=0) to avoid pickling issues on Windows
+                # and because overhead outweighs gain for small batches.
+                workers = 0
+
+            logger.info(f"⚡ Performance Mode: Using {workers} workers (provider={provider})")
             batch_size = 50 if provider != "local" else 5
 
             # Use threading for embeddings
@@ -248,29 +257,52 @@ class IngestionOrchestrator:
             indexing_config = connector.configuration.get("indexing_config", {})
             use_smart_extraction = indexing_config.get("use_smart_extraction", False)
 
-            if use_smart_extraction:
+            if use_smart_extraction and not disable_extraction:
                 logger.info("✨ Smart metadata extraction ENABLED for this connector")
 
                 # Import extractor
-                from app.core.ingestion.extractors import \
-                    ComboMetadataExtractor
+                from app.core.ingestion.extractors import ComboMetadataExtractor
+                from app.factories.llm_factory import LLMFactory
 
-                # Get fast LLM for extraction
+                # Determine Extraction Provider & Model
                 extraction_model = await self.settings_service.get_value("gemini_extraction_model")
-
-                # Instantiate LLM for extraction
-                from llama_index.llms.google_genai import GoogleGenAI
-
+                extraction_provider = "gemini"
                 api_key = await self.settings_service.get_value("gemini_api_key")
+                base_url = None
+
+                # P0: Support Local Extraction (Ollama)
+                # If gemini is not configured or we want to force local (logic can be refined)
+                # Current logic: If gemini key is missing, try local. Or if local is explicitly set?
+                # Simpler logic: Check if we are in "Local" mode for embedding?
+                # Actually, extraction can be independent.
+                # Let's check if gemini_api_key is present. If not, fallback to local settings.
+
+                if not api_key:
+                    local_model = await self.settings_service.get_value("local_extraction_model")
+                    if local_model:
+                        extraction_model = local_model
+                        extraction_provider = "ollama"
+                        base_url = await self.settings_service.get_value("local_extraction_url")
+                        logger.info(f"Using Local Extraction (Ollama) | Model: {extraction_model}")
+                    else:
+                        logger.warning(
+                            "⚠️ No valid extraction configuration found (Gemini key missing, Local model missing)."
+                        )
+                        extraction_model = None
 
                 if not extraction_model:
-                    logger.warning("⚠️ gemini_extraction_model not configured. Skipping smart extraction.")
-                elif not api_key:
-                    logger.warning("⚠️ Gemini API key not found. Skipping smart extraction.")
+                    logger.warning("⚠️ Extraction model not configured. Skipping smart extraction.")
                 else:
-                    extraction_llm = GoogleGenAI(
-                        model=extraction_model, api_key=api_key, temperature=0.0  # Deterministic for extraction
-                    )
+                    try:
+                        extraction_llm = LLMFactory.create_llm(
+                            provider=extraction_provider,
+                            model_name=extraction_model,
+                            api_key=api_key or "ollama",  # Ollama doesn't strict need key
+                            base_url=base_url,
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to create extraction LLM: {e}")
+                        extraction_llm = None
 
                     # Retrieve application language preference (defaulting to 'fr' if not found)
                     app_language = await self.settings_service.get_value("app_language", "fr")
@@ -455,28 +487,8 @@ class IngestionOrchestrator:
 
         # 2. EXECUTION PHASE (Pipeline)
         try:
-            # P0: Determine Optimized Worker Count
-            if settings.ENABLE_PHOENIX_TRACING:
-                workers = 0
-                logger.debug("🕊️ Phoenix Tracing Enabled: Forcing synchronous execution (workers=0)")
-            else:
-                # Heuristic: Cap workers for API-based embedding (Gemini/OpenAI)
-                # to avoid massive pickling overhead on Windows.
-                is_local = False
-                if pipeline.transformations:
-                    # Check if any transformation is a local model (heuristic)
-                    last_t_name = type(pipeline.transformations[-1]).__name__
-                    if "HuggingFace" in last_t_name:
-                        is_local = True
-
-                cpu_count = multiprocessing.cpu_count()
-                if not is_local:
-                    # Remote APIs: Overhead of spawning 15 workers outweighs gain for small batches
-                    workers = min(4, cpu_count)
-                else:
-                    workers = max(1, int(cpu_count * 0.75))
-
-                logger.debug(f"⚡ Performance Mode: Using {workers} workers (is_local={is_local})")
+            # Use the workers value passed from setup_pipeline (P0 Dynamic scaling fix)
+            workers = num_workers
 
             logger.info(
                 f"🚀 Running batch ingestion pipeline for {len(all_llama_documents)} segments from {len(valid_docs)} file(s)..."
@@ -486,6 +498,7 @@ class IngestionOrchestrator:
             for doc in valid_docs:
                 await manager.emit_document_update(str(doc.id), DocStatus.PROCESSING, "Embedding and indexing...")
 
+            logger.info(f"⏳ Executing pipeline with {workers} workers...")
             nodes = await pipeline.arun(documents=all_llama_documents, num_workers=workers, show_progress=False)
 
             # 3. FINALIZATION PHASE (Cleanup & Updates)
@@ -613,16 +626,14 @@ class IngestionOrchestrator:
             await self.doc_repo.update(doc.id, {"status": DocStatus.PROCESSING})
 
             # Resolve Dependencies - Path Reconstruction
-            from app.core.interfaces.base_connector import \
-                get_full_path_from_connector
+            from app.core.interfaces.base_connector import get_full_path_from_connector
 
             full_path = get_full_path_from_connector(connector, doc.file_path)
 
             # --- SMART PIPELINE FACTORY ---
             # Injected imports (better to be at top, but acceptable here for optional dependency isolation)
             from app.schemas.ingestion import IndexingStrategy
-            from app.services.ingestion.transformers.smart_row_transformer import \
-                SmartRowTransformer
+            from app.services.ingestion.transformers.smart_row_transformer import SmartRowTransformer
 
             file_metadata = doc.file_metadata or {}
             ai_schema_dict = file_metadata.get("ai_schema")
@@ -648,7 +659,7 @@ class IngestionOrchestrator:
             embed_model = await self.vector_service.get_embedding_model(provider=provider)
 
             # P0 FIX: Ensure Collection Exists (was missing in CSV flow)
-            client = self.vector_service.get_qdrant_client()
+            client = await self.vector_service.get_qdrant_client()
             if not client.collection_exists(collection_name):
                 logger.info(f"Creating collection {collection_name}")
                 from qdrant_client.http import models as qmodels
@@ -669,7 +680,7 @@ class IngestionOrchestrator:
             # 3. Stream & Process
             # 3. Stream & Process (Non-Blocking)
             # P0: Offload CPU-bound CSV parsing to thread pool to prevent Event Loop blocking
-            processor = self._processor_factory(chunk_size=100)
+            processor = self._processor_factory()
 
             def _process_stream():
                 """CPU-bound sync generator wrapper"""
@@ -767,13 +778,9 @@ class IngestionOrchestrator:
             if doc:
                 try:
                     await self.doc_repo.update(doc.id, {"status": DocStatus.FAILED, "error_message": str(e)})
-                except:
-                    pass
-            if doc:
-                try:
-                    await self.doc_repo.update(doc.id, {"status": DocStatus.FAILED, "error_message": str(e)})
-                except:
-                    pass
+                    await manager.emit_document_update(str(doc.id), DocStatus.FAILED, f"Error: {str(e)}")
+                except Exception as ex:
+                    logger.warning(f"Failed to record failure for {doc_id}: {ex}")
             raise e
 
     # --- SQL SPECIALIZED INGESTION ---
@@ -836,8 +843,10 @@ class IngestionOrchestrator:
                 metadata_separator="\n",
             )
 
-            # 4. Run Pipeline
-            pipeline, vector_store, _, workers, _, docstore = await self.setup_pipeline(connector)
+            # 4. Run Pipeline (Disable Smart Extraction for SQL DDL -> We want raw code, not summary)
+            pipeline, vector_store, _, workers, _, docstore = await self.setup_pipeline(
+                connector, disable_extraction=True
+            )
 
             logger.info(f"Computing embeddings for SQL Schema: {view_name}")
 

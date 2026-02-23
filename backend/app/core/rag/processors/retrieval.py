@@ -15,8 +15,7 @@ class RetrievalProcessor(BaseProcessor):
         try:
             similarity_top_k = ctx.assistant.top_k_retrieval or 10
 
-            # P0: Extract ACLs from Assistant Configuration
-            # P0: Extract ACLs from Assistant Configuration
+            # Extract ACLs from Assistant Configuration
             # "configuration" is a dict stored in DB. Key is "tags" per Schema.
             acls = ctx.assistant.configuration.get("tags", [])
             if isinstance(acls, str):
@@ -62,6 +61,7 @@ class RetrievalProcessor(BaseProcessor):
                 step_type="retrieval",
                 status="completed",
                 label=f"Retrieved {len(nodes)} documents (Filtered {filtered_count})",
+                payload={"retrieved_document_ids": retrieved_doc_ids},
             )
 
             # CRITICAL FIX: Pass nodes to next processor

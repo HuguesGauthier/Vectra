@@ -1,14 +1,6 @@
-"""
-Schema Discovery Service
-========================
-Handles AI-powered CSV schema inference and validation.
-Extracted from IngestionService for SRP.
-"""
-
 import asyncio
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -17,20 +9,16 @@ import aiofiles
 from fastapi import Depends
 from llama_index.llms.google_genai import GoogleGenAI
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from app.core.connection_manager import manager
 from app.core.database import get_db
-from app.core.exceptions import (ConfigurationError, EntityNotFound,
-                                 FileSystemError, TechnicalError)
+from app.core.exceptions import ConfigurationError, EntityNotFound, FileSystemError, TechnicalError
 from app.core.interfaces.base_connector import get_full_path_from_connector
 from app.core.time import SystemClock, TimeProvider
 from app.models.enums import DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
-from app.services.connector_state_service import (ConnectorStateService,
-                                                  get_connector_state_service)
+from app.services.connector_state_service import ConnectorStateService, get_connector_state_service
 from app.services.settings_service import SettingsService, get_settings_service
 
 logger = logging.getLogger(__name__)
@@ -83,7 +71,7 @@ class SchemaDiscoveryService:
         self.doc_repo = DocumentRepository(db)
         self.connector_repo = ConnectorRepository(db)
 
-        # Config (could be injected, keeping simple for now)
+        # Config
         self.csv_preview_rows = 5
         self.csv_max_size_mb = 10
         self.llm_timeout_seconds = 30
@@ -95,6 +83,7 @@ class SchemaDiscoveryService:
         AI-powered CSV schema discovery using Gemini LLM.
         """
         logger.info(f"START | CSV Analysis | {doc_id}")
+        doc = None
 
         try:
             await self.settings_service.load_cache()
@@ -110,8 +99,15 @@ class SchemaDiscoveryService:
             csv_preview = await self._read_csv_preview(full_path)
 
             api_key = await self.settings_service.get_value("gemini_api_key")
+
+            # P0: Allow fallback to Local/Ollama if Gemini key is missing
+            local_extraction_model = await self.settings_service.get_value("local_extraction_model")
+
+            if not api_key and not local_extraction_model:
+                raise ConfigurationError("GEMINI_API_KEY missing and no Local Extraction model configured")
+
             if not api_key:
-                raise ConfigurationError("GEMINI_API_KEY missing in settings")
+                api_key = "ollama"  # Signal to use local
 
             schema_json = await self._discover_schema_with_llm(api_key, csv_preview)
 
@@ -120,39 +116,35 @@ class SchemaDiscoveryService:
             metadata["ai_schema"] = schema_json
 
             await self.doc_repo.update(doc.id, {"file_metadata": metadata, "status": DocStatus.INDEXING})
-            # Use state service or manager? IngestionService used manager for this specific event.
-            # But StateService is preferred for status updates.
-            # For now, replicate existing behavior calling manager directly for the specific message,
-            # or better, use state service if it supports custom messages.
-            # StateService.update_document_status handles status and basic message.
-            # We want "Schema discovered."
             await self.state_service.update_document_status(doc.id, DocStatus.INDEXING, "Schema discovered.")
 
             logger.info(f"SUCCESS | CSV Analysis | {doc_id}")
 
         except (EntityNotFound, ConfigurationError, FileSystemError) as e:
             logger.warning(f"USER_ERROR | {doc_id} | {e}")
-            if "doc" in locals():
+            if doc:
                 await self.state_service.mark_document_failed(doc.id, str(e))
             raise
 
         except (asyncio.TimeoutError, TransientIngestionError) as e:
             logger.error(f"TRANSIENT_ERROR | {doc_id} | {e}")
-            if "doc" in locals():
+            if doc:
                 await self.state_service.mark_document_failed(doc.id, f"LLM error: {e}")
             raise
 
         except Exception as e:
             logger.critical(f"UNEXPECTED_ERROR | {doc_id} | {e}", exc_info=True)
-            if "doc" in locals():
+            if doc:
                 await self.state_service.mark_document_failed(doc.id, "Internal error")
             raise
 
     async def _validate_csv_file(self, path: str) -> None:
-        if not await self._file_exists(path):
+        p = Path(path)
+        if not await asyncio.to_thread(p.exists):
             raise FileSystemError(f"CSV file not found: {path}")
 
-        file_size_mb = await self._get_file_size_mb(path)
+        size_bytes = (await asyncio.to_thread(p.stat)).st_size
+        file_size_mb = size_bytes / (1024**2)
         if file_size_mb > self.csv_max_size_mb:
             raise FileSystemError(f"CSV file too large: {file_size_mb:.1f}MB > {self.csv_max_size_mb}MB limit")
 
@@ -169,34 +161,63 @@ class SchemaDiscoveryService:
         return "".join(lines)
 
     async def _discover_schema_with_llm(self, api_key: str, csv_preview: str) -> dict:
-        model_name = await self.settings_service.get_value("gemini_extraction_model")
+        gemini_model = await self.settings_service.get_value("gemini_extraction_model")
+        local_model = await self.settings_service.get_value("local_extraction_model")
+
+        provider = "gemini"
+        model_name = gemini_model
+        base_url = None
+
+        # P0: Logic to choose provider
+        # If API key is for Gemini (starts with AI...), use Gemini.
+        # If API key is "ollama" or empty (handled below), use Local.
+        # Ideally, we should pass the provider explicitely.
+        # But here `api_key` argument comes from `analyze_and_map_csv` which fetches `gemini_api_key`.
+        # We need to refactor `analyze_and_map_csv` to be provider-aware.
+
+        # Quick fix within this method for now, but better to refactor caller.
+        # However, let's look at `analyze_and_map_csv`.
+
+        # REFACTORING CALLER LOGIC INLINE HERE FOR SAFETY (Detecting provider from key presence)
+        # If the passed `api_key` looks like a Gemini key, use Gemini.
+        # If it's missing or we prefer local, use local settings.
+
+        display_key = api_key[:5] if api_key else "None"
+
+        if not api_key or api_key == "ollama":
+            provider = "ollama"
+            model_name = local_model
+            base_url = await self.settings_service.get_value("local_extraction_url")
+            api_key = "ollama"  # Dummy for factory
 
         if not model_name:
-            raise ConfigurationError("gemini_extraction_model is not configured in settings")
+            raise ConfigurationError("Extraction model not configured")
 
-        # Ensure 'models/' prefix if missing (Gemini API quirk)
-        if not model_name.startswith("models/") and "gemini" in model_name:
-            model_name = f"models/{model_name}"
+        from app.factories.llm_factory import LLMFactory
 
-        llm = GoogleGenAI(model=model_name, api_key=api_key, temperature=0.0)
+        llm = LLMFactory.create_llm(
+            provider=provider, model_name=model_name, api_key=api_key, temperature=0.0, base_url=base_url
+        )
+
         prompt = PROMPT_SCHEMA_DISCOVERY.replace("{csv_preview}", csv_preview)
 
+        # P0 Fix: Move TransientIngestionError detection into retry decorator
         @retry(
             stop=stop_after_attempt(self.llm_retry_attempts),
             wait=wait_exponential(multiplier=1, min=2, max=10),
-            retry=retry_if_exception_type(asyncio.TimeoutError),
+            retry=retry_if_exception_type((asyncio.TimeoutError, TransientIngestionError)),
             reraise=True,
         )
-        async def _call_with_timeout():
+        async def _call_with_retry():
             try:
                 response = await asyncio.wait_for(llm.acomplete(prompt), timeout=self.llm_timeout_seconds)
                 return response.text
             except asyncio.TimeoutError as e:
-                logger.warning(f"LLM_TIMEOUT | Attempt failed")
+                logger.warning("LLM_TIMEOUT | External call timed out")
                 raise TransientIngestionError(f"LLM request timed out after {self.llm_timeout_seconds}s") from e
 
         try:
-            response_text = await _call_with_timeout()
+            response_text = await _call_with_retry()
             return self._parse_llm_response(response_text)
         except TransientIngestionError:
             raise
@@ -219,13 +240,6 @@ class SchemaDiscoveryService:
             raise TechnicalError(f"LLM response missing required keys: {missing}")
 
         return schema
-
-    async def _file_exists(self, path: str) -> bool:
-        return await asyncio.to_thread(Path(path).exists)
-
-    async def _get_file_size_mb(self, path: str) -> float:
-        size_bytes = await asyncio.to_thread(Path(path).stat)
-        return size_bytes.st_size / (1024**2)
 
 
 async def get_schema_discovery_service(

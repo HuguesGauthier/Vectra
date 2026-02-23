@@ -2,33 +2,14 @@
 User Schemas - Pydantic definitions for API request/response.
 """
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
-from pydantic import ConfigDict, EmailStr, Field
+from pydantic import EmailStr, Field
 from sqlmodel import SQLModel
 
-from app.schemas.enums import UserRole
-
-# Constants
-MAX_EMAIL_LENGTH = 255
-MAX_ROLE_LENGTH = 50
-
-
-class UserBase(SQLModel):
-    """
-    Base properties for User.
-    """
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    email: EmailStr = Field(index=True, unique=True, max_length=MAX_EMAIL_LENGTH, description="User email address")
-    role: UserRole = Field(default=UserRole.USER, max_length=MAX_ROLE_LENGTH, description="User role (admin/user)")
-    is_active: bool = Field(default=True, description="Active status")
-    first_name: Optional[str] = Field(None, max_length=100)
-    last_name: Optional[str] = Field(None, max_length=100)
-    avatar_url: Optional[str] = Field(None, max_length=500, description="Profile picture URL")
-    avatar_vertical_position: int = Field(default=50, ge=0, le=100, description="Avatar vertical position (0-100)")
+from app.models.enums import UserRole
+from app.models.user import MAX_EMAIL_LENGTH, MAX_ROLE_LENGTH, UserBase
 
 
 class UserCreate(UserBase):
@@ -46,6 +27,7 @@ class UserUpdate(SQLModel):
     role: Optional[UserRole] = None
     first_name: Optional[str] = Field(None, max_length=100)
     last_name: Optional[str] = Field(None, max_length=100)
+    job_titles: Optional[List[str]] = Field(default_factory=list)
     avatar_url: Optional[str] = Field(None, max_length=500)
     avatar_vertical_position: Optional[int] = Field(None, ge=0, le=100)
 

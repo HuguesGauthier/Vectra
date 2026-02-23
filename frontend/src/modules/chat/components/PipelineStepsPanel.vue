@@ -70,16 +70,16 @@ const currentStep = computed(() => {
 
 <style scoped>
 .pipeline-step-indicator {
-  padding: 8px 16px;
+  padding: 4px 12px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: inline-flex;
   align-items: center;
-  max-width: 400px;
+  max-width: 300px;
   backdrop-filter: blur(10px);
-  margin-bottom: 12px;
-  font-size: 12px;
+  font-size: 11px;
+  height: 32px;
 }
 
 .pipeline-step-indicator.status-running {

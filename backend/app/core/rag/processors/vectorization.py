@@ -10,7 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class VectorizationProcessor(BaseProcessor):
+    """
+    Processor responsible for converting the rewritten query into a vector embedding.
+    Uses the injected embedding model to generate the vector representation.
+    """
+
     async def process(self, ctx: PipelineContext) -> AsyncGenerator[PipelineEvent, None]:
+
         yield PipelineEvent(type="step", step_type="vectorization", status="running")
         try:
             query = ctx.rewritten_query or ctx.user_message

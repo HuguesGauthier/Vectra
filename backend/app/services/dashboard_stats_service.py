@@ -5,7 +5,7 @@ Provides real-time aggregated metrics from the database for Connect, Vectorize, 
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import and_, func, or_, select
@@ -14,8 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.usage_stat import UsageStat
-from app.schemas.dashboard_stats import (ChatStats, ConnectStats,
-                                         DashboardStats, VectorizeStats)
+from app.schemas.dashboard_stats import ChatStats, ConnectStats, DashboardStats, VectorizeStats
 from app.schemas.enums import ConnectorStatus, DocStatus
 
 logger = logging.getLogger(__name__)
@@ -59,16 +58,17 @@ class DashboardStatsService:
             # System status is "error" if any connector has recent errors
             system_status = "error" if error_count > 0 else "ok"
 
+            from app.core.utils.storage import get_storage_status
+
+            storage_status = "online" if get_storage_status() else "offline"
+
             return ConnectStats(
                 active_pipelines=active_pipelines,
                 total_connectors=total_connectors,
                 system_status=system_status,
+                storage_status=storage_status,
                 last_sync_time=last_sync_time,
             )
-
-        except Exception as e:
-            logger.error(f"Failed to get connect stats: {e}", exc_info=True)
-            return ConnectStats()
 
         except Exception as e:
             logger.error(f"Failed to get connect stats: {e}", exc_info=True)
@@ -130,7 +130,7 @@ class DashboardStatsService:
         """
         try:
             # Get date 30 days ago
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            thirty_days_ago = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=30)
 
             # Query for chat metrics from last 30 days
             stmt = select(

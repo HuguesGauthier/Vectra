@@ -22,6 +22,7 @@ from app.api.v1.endpoints import (
     notifications,
     pricing,
     prompts,
+    providers,
     settings,
     system,
     trending,
@@ -42,6 +43,7 @@ router.include_router(files.router, prefix="/files", tags=["Files"])
 router.include_router(notifications.router, prefix="/notifications", tags=["Notifications"])
 router.include_router(pricing.router, prefix="/pricing", tags=["Pricing"])
 router.include_router(prompts.router, prefix="/prompts", tags=["Prompts"])
+router.include_router(providers.router, prefix="/providers", tags=["Providers"])
 router.include_router(settings.router, prefix="/settings", tags=["Settings"])
 router.include_router(system.router, prefix="/system", tags=["System"])
 router.include_router(trending.router, prefix="/trends", tags=["Trending"])

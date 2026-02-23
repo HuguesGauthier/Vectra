@@ -11,7 +11,6 @@
       use-input
       use-chips
       multiple
-      dark
       color="white"
       standout
       input-debounce="0"

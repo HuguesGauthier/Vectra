@@ -11,8 +11,9 @@ class CsvStreamProcessor:
     Reads CSV files line by line (generator) to avoid loading the entire file into memory.
     """
 
-    def __init__(self, chunk_size: int = 100):
-        self.chunk_size = chunk_size
+    def __init__(self):
+        """Initialize the CSV processor."""
+        pass
 
     def iter_records(self, file_path: str, renaming_map: Optional[Dict[str, str]] = None) -> Iterator[Dict]:
         """
@@ -25,25 +26,24 @@ class CsvStreamProcessor:
             renaming_map = {}
 
         try:
-            # open with utf-8-sig to handle potentially BOM
+            # open with utf-8-sig to handle potential BOM
             with open(file_path, mode="r", encoding="utf-8-sig", newline="") as f:
                 reader = csv.DictReader(f)
 
                 for row in reader:
-                    # Apply renaming if provided
-                    if renaming_map:
-                        normalized_row = {}
-                        for k, v in row.items():
-                            # Handle potential None keys (parsing errors)
-                            if k is None:
-                                continue
+                    normalized_row = {}
+                    for k, v in row.items():
+                        # Handle potential None keys (parsing errors or extra columns)
+                        if k is None:
+                            continue
 
-                            key_to_use = renaming_map.get(k, k)
-                            if key_to_use:
-                                normalized_row[key_to_use] = v
+                        # Apply renaming if provided, otherwise keep original
+                        key_to_use = renaming_map.get(k, k)
+                        if key_to_use:
+                            normalized_row[key_to_use] = v
+
+                    if normalized_row:
                         yield normalized_row
-                    else:
-                        yield {k: v for k, v in row.items() if k is not None}
 
         except FileNotFoundError:
             logger.error(f"CSV File not found: {file_path}")

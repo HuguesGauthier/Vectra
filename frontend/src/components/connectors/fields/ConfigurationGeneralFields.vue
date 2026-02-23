@@ -6,8 +6,8 @@
       :model-value="modelValue.name"
       @update:model-value="(val) => updateName(String(val || ''))"
       :label="$t('name')"
-      color="white"
-      standout
+      outlined
+      autofocus
       :rules="[(val) => !!val || $t('fieldRequired')]"
     />
 
@@ -15,8 +15,7 @@
       :model-value="modelValue.description"
       @update:model-value="(val) => updateDescription(String(val || ''))"
       :label="$t('description')"
-      color="white"
-      standout
+      outlined
       type="textarea"
       rows="3"
     />

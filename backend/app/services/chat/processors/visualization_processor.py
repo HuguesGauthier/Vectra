@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Dict, Any
 
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.types import ChatContext, PipelineStepType
@@ -20,8 +20,6 @@ class VisualizationProcessor(BaseChatProcessor):
     - Determines if visualization is needed (Orchestration Predicate).
     - Delegates Data Extraction, Classification, and Formatting to VisualizationService.
     - Yields events and metrics to the pipeline.
-
-    Refactored to reduce complexity and decouple business logic.
     """
 
     def __init__(self):
@@ -33,29 +31,30 @@ class VisualizationProcessor(BaseChatProcessor):
         """
         Main entry point for visualization processing.
         """
-        logger.info("\033[95m🎨 VisualizationProcessor.process() CALLED\033[0m")
+        logger.info("VisualizationProcessor.process() CALLED")
 
         try:
             # 1. Eligibility Check (Fast Guard Clause)
             if not self._should_run_visualization(ctx):
-                logger.info("ℹ️ Visualization skipped based on eligibility checks.")
+                logger.info("Visualization skipped based on eligibility checks.")
                 return
 
-            # 2. Start Pipeline Step (always show it)
-            yield EventFormatter.format(PipelineStepType.VISUALIZATION_ANALYSIS, "running", ctx.language)
+            # 2. Start Pipeline Step
+            sid = ctx.metrics.start_span(PipelineStepType.VISUALIZATION_ANALYSIS)
+            yield EventFormatter.format(PipelineStepType.VISUALIZATION_ANALYSIS, "running", sid)
             start_time = time.time()
 
-            # 3. AI Decision - Should we visualize?
-            should_visualize = await self._ask_ai_for_visualization(ctx)
+            # 3. AI Decision - Should we visualize? (Synchronous check now)
+            should_visualize = self._ask_ai_for_visualization(ctx)
 
             if not should_visualize:
-                logger.info("🤖 AI decided no visualization needed")
-                # Complete the step with "skipped" status
+                logger.info("AI decided no visualization needed")
                 duration = round(time.time() - start_time, 3)
+                self._record_metrics(ctx, duration, {})
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
-                    ctx.language,
+                    sid,
                     payload={"status": "skipped_no_request"},
                     duration=duration,
                 )
@@ -67,19 +66,21 @@ class VisualizationProcessor(BaseChatProcessor):
             data_info = await self.viz_service.extract_data_info(ctx)
 
             if data_info.row_count == 0:
-                logger.warning("⚠️ No data extracted - aborting visualization")
+                logger.warning("No data extracted - aborting visualization")
+                duration = round(time.time() - start_time, 3)
+                self._record_metrics(ctx, duration, {})
                 yield EventFormatter.format(
                     PipelineStepType.VISUALIZATION_ANALYSIS,
                     "completed",
-                    ctx.language,
+                    sid,
                     payload={"status": "skipped_no_data"},
-                    duration=0,
+                    duration=duration,
                 )
                 return
 
             # B. Classify Type
             viz_type, tokens = await self.viz_service.classify_visualization_type(ctx, data_info)
-            logger.info(f"✅ Classified as: {viz_type}")
+            logger.info(f"Classified as: {viz_type}")
 
             # C. Format Data
             viz_data = self.viz_service.format_visualization_data(ctx, viz_type, data_info)
@@ -92,7 +93,7 @@ class VisualizationProcessor(BaseChatProcessor):
             yield EventFormatter.format(
                 PipelineStepType.VISUALIZATION_ANALYSIS,
                 "completed",
-                ctx.language,
+                sid,
                 payload={"tokens": tokens},
                 duration=duration,
             )
@@ -102,13 +103,15 @@ class VisualizationProcessor(BaseChatProcessor):
                 return
 
             if viz_data:
-                logger.info("📤 Sending visualization payload")
+                logger.info("Sending visualization payload")
                 yield json.dumps({"type": "visualization", "data": viz_data}, default=str) + "\n"
 
         except Exception as e:
-            logger.error(f"❌ Visualization process failed: {e}", exc_info=True)
+            logger.error(f"Visualization process failed: {e}", exc_info=True)
+            # Fetch sid from locals if created, else fallback
+            sid = locals().get("sid", "viz_failed")
             yield EventFormatter.format(
-                PipelineStepType.VISUALIZATION_ANALYSIS, "failed", ctx.language, payload={"error": str(e)}
+                PipelineStepType.VISUALIZATION_ANALYSIS, "failed", sid, payload={"error": str(e)}
             )
 
     # --- Orchestration Predicates ---
@@ -123,9 +126,13 @@ class VisualizationProcessor(BaseChatProcessor):
         if not ctx.full_response_text and not ctx.sql_results:
             return False
 
-        # 3. Check for error/question patterns (Negative Signals)
+        # 3. Check for blocking patterns (Negative Signals)
+        # Using context manager or safer access if full_response_text could be None?
+        # Type hint says str, but let's be safe.
+        response_text = ctx.full_response_text or ""
         blocking_patterns = ["je n'ai trouvé aucun", "no products found", "pas de résultat"]
-        response_lower = ctx.full_response_text.lower()
+        response_lower = response_text.lower()
+
         if any(p in response_lower for p in blocking_patterns):
             return False
 
@@ -135,14 +142,7 @@ class VisualizationProcessor(BaseChatProcessor):
 
         return False
 
-    def _detect_text_data_patterns(self, text: str) -> bool:
-        """Simple heuristic to detect numbers/data in text."""
-        import re
-
-        patterns = [r"\d+\s*\d*", r"Total.*:\s*\d+", r":::\s*table"]
-        return any(re.search(p, text) for p in patterns)
-
-    def _record_metrics(self, ctx: ChatContext, duration: float, tokens: dict):
+    def _record_metrics(self, ctx: ChatContext, duration: float, tokens: Dict[str, int]):
         """Records telemetry."""
         if ctx.metrics:
             ctx.metrics.record_completed_step(
@@ -153,16 +153,15 @@ class VisualizationProcessor(BaseChatProcessor):
                 output_tokens=tokens.get("output", 0),
             )
 
-    async def _ask_ai_for_visualization(self, ctx: ChatContext) -> bool:
+    def _ask_ai_for_visualization(self, ctx: ChatContext) -> bool:
         """
         Determines if visualization should be generated based on user intent.
-        Uses explicit keyword detection for now (can be enhanced with LLM later).
-        Returns: True if visualization should be generated
+        Now synchronous as it currently only does keyword matching.
         """
-        message_lower = ctx.message.lower()
+        message_lower = (ctx.message or "").lower()
 
         # Explicit visualization keywords
-        viz_keywords = [
+        viz_keywords = {
             "graph",
             "chart",
             "visualize",
@@ -199,28 +198,27 @@ class VisualizationProcessor(BaseChatProcessor):
             "chaleur",
             "slope",
             "pente",
-        ]
+        }
 
-        # Check for explicit request
-        has_explicit_request = any(kw in message_lower for kw in viz_keywords)
-
-        if has_explicit_request:
-            logger.info(f"🎨 Explicit visualization request detected in: '{ctx.message}'")
+        # Check for explicit request (Set lookup is O(1))
+        # Simple loop is fine given logical OR nature
+        if any(kw in message_lower for kw in viz_keywords):
+            logger.info(f"Explicit visualization request detected.")
             return True
 
-        logger.info(f"ℹ️ No explicit visualization request in: '{ctx.message}'")
+        logger.info(f"No explicit visualization request found.")
         return False
-
-    MAX_ROWS_VISUALIZATION = 50
 
     def _is_redundant_table(self, viz_type: str, ctx: ChatContext) -> bool:
         """
         Prevents showing a Table card if the response already contains a GenUI table block.
-        Checks structured metadata since raw text is now cleaned.
         """
         if viz_type != "table":
             return False
 
-        # Check if we already have a 'table' content block extracted
+        # Safe access to metadata
+        if not ctx.metadata:
+            return False
+
         content_blocks = ctx.metadata.get("content_blocks", [])
         return any(block.get("type") == "table" for block in content_blocks)

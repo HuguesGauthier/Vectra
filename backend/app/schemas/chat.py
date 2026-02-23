@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Security Limits
 MAX_MESSAGE_LENGTH = 50000  # Characters (prohibit massive copy-paste)
@@ -28,6 +28,8 @@ class MessageRole(str, Enum):
 
 class Message(BaseModel):
     """Single chat message."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     role: MessageRole
     content: str = Field(min_length=1, max_length=MAX_CONTENT_LENGTH)
@@ -90,7 +92,9 @@ class ChatRequest(BaseModel):
 class SourceNode(BaseModel):
     """RAG Source Citation."""
 
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     text: str
     metadata: Dict[str, Any]
     score: Optional[float] = None
@@ -98,6 +102,8 @@ class SourceNode(BaseModel):
 
 class ChatResponse(BaseModel):
     """Chat completion response."""
+
+    model_config = ConfigDict(from_attributes=True)
 
     response: str
     sources: List[SourceNode] = Field(default_factory=list)

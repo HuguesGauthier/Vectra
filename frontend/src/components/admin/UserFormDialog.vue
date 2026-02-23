@@ -1,152 +1,184 @@
 <template>
-  <q-dialog v-model="isOpen" persistent position="right" maximized>
-    <q-card style="width: 50vh; background-color: var(--q-fifth)">
-      <q-card-section>
+  <q-dialog v-model="isOpen" :persistent="isDirty" @shake="handleCancel">
+    <q-card style="width: 500px; max-width: 90vw; background-color: var(--q-fifth); max-height: 85vh; display: flex; flex-direction: column;">
+
+      <q-card-section class="bg-secondary border-bottom row items-center q-pb-none">
         <div class="text-h6">{{ isEditing ? $t('editUser') : $t('addUser') }}</div>
+        <q-space />
+        <q-btn icon="close" flat round dense @click="handleCancel" />
       </q-card-section>
 
-      <q-card-section>
-        <!-- Avatar Upload Section -->
-        <div class="column items-center q-mb-md">
-          <div class="avatar-container" @mousedown="startDrag" @touchstart="startDrag">
-            <q-avatar size="100px" :color="formData.avatar_url ? 'transparent' : 'grey-7'">
-              <img
-                v-if="formData.avatar_url"
-                :src="
-                  formData.avatar_url.startsWith('data:')
-                    ? formData.avatar_url
-                    : `http://localhost:8000/api/v1${formData.avatar_url}`
-                "
-                :style="{
-                  objectFit: 'cover',
-                  objectPosition: `center ${formData.avatar_vertical_position}%`,
-                  pointerEvents: 'none',
-                  userSelect: 'none',
-                }"
-              />
-              <q-icon v-else name="person" size="60px" color="grey-4" />
-            </q-avatar>
+      <div class="dialog-body">
 
-            <!-- Drag hint overlay -->
-            <div v-if="formData.avatar_url" class="drag-hint">
-              <q-icon name="drag_indicator" size="20px" color="white" style="opacity: 0.7" />
+        <q-card-section>
+          <!-- Avatar Upload Section -->
+          <div class="column items-center q-mb-md">
+            <div class="avatar-container" @mousedown="startDrag" @touchstart.passive="startDrag">
+              <q-avatar size="100px" :color="formData.avatar_url ? 'transparent' : 'grey-7'">
+                <img
+                  v-if="formData.avatar_url"
+                  :src="getAvatarUrl(formData.avatar_url)"
+                  :style="{
+                    objectFit: 'cover',
+                    objectPosition: `center ${formData.avatar_vertical_position}%`,
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                  }"
+                />
+                <q-icon v-else name="person" size="60px" color="grey-4" />
+              </q-avatar>
+
+              <!-- Drag hint overlay -->
+              <div v-if="formData.avatar_url" class="drag-hint">
+                <q-icon name="drag_indicator" size="20px" color="white" style="opacity: 0.7" />
+              </div>
             </div>
+
+            <q-file
+              v-model="avatarFile"
+              accept="image/*"
+              @update:model-value="handleAvatarChange"
+              max-file-size="2097152"
+              class="q-mt-sm"
+              dense
+              outlined
+              bg-color="primary"
+              style="max-width: 250px"
+            >
+              <template v-slot:prepend>
+                <q-icon name="photo_camera" />
+              </template>
+              <template v-slot:hint>
+                {{ $t('maxFileSize', { size: '2MB' }) }}
+              </template>
+            </q-file>
+
+            <!-- Position indicator -->
+            <div v-if="formData.avatar_url" class="text-caption text-grey-6 q-mt-xs">
+              {{ $t('dragToPosition') }}
+            </div>
+
+            <q-btn
+              v-if="formData.avatar_url"
+              flat
+              dense
+              size="sm"
+              color="negative"
+              class="q-mt-xs"
+              @click="removeAvatar"
+            >
+              {{ $t('removePhoto') }}
+            </q-btn>
           </div>
+        </q-card-section>
 
-          <q-file
-            v-model="avatarFile"
-            accept="image/*"
-            @update:model-value="handleAvatarChange"
-            max-file-size="2097152"
-            class="q-mt-sm"
-            dense
-            outlined
-            bg-color="primary"
-            style="max-width: 250px"
-          >
-            <template v-slot:prepend>
-              <q-icon name="photo_camera" />
-            </template>
-            <template v-slot:hint>
-              {{ $t('maxFileSize', { size: '2MB' }) }}
-            </template>
-          </q-file>
+        <q-card-section>
+          <q-form ref="formRef" @submit.prevent="handleSubmit" class="q-gutter-md">
+            <q-input
+              v-model="formData.email"
+              :label="$t('email')"
+              outlined
+              color="accent"
+              bg-color="primary"
+              lazy-rules
+              autofocus
+              autocomplete="email"
+              :rules="emailRules"
+            />
 
-          <!-- Position indicator -->
-          <div v-if="formData.avatar_url" class="text-caption text-grey-6 q-mt-xs">
-            {{ $t('dragToPosition') }}
-          </div>
+            <q-input
+              v-model="formData.first_name"
+              :label="$t('firstName')"
+              outlined
+              color="accent"
+              bg-color="primary"
+              autocomplete="given-name"
+            />
 
-          <q-btn
-            v-if="formData.avatar_url"
-            flat
-            dense
-            size="sm"
-            color="negative"
-            class="q-mt-xs"
-            @click="removeAvatar"
-          >
-            {{ $t('removePhoto') }}
-          </q-btn>
-        </div>
-      </q-card-section>
+            <q-input
+              v-model="formData.last_name"
+              :label="$t('lastName')"
+              outlined
+              color="accent"
+              bg-color="primary"
+              autocomplete="family-name"
+            />
 
-      <q-card-section>
-        <q-form ref="formRef" @submit.prevent="handleSubmit" class="q-gutter-md">
-          <q-input
-            v-model="formData.email"
-            :label="$t('email')"
-            outlined
-            color="accent"
-            bg-color="primary"
-            lazy-rules
-            :rules="emailRules"
-          />
+            <!-- Job Titles (Tags) -->
+            <q-select
+              v-model="formData.job_titles"
+              :label="$t('jobTitles')"
+              use-input
+              use-chips
+              multiple
+              hide-dropdown-icon
+              input-debounce="0"
+              new-value-mode="add-unique"
+              outlined
+              bg-color="primary"
+              popup-content-class="custom-select-popup"
+            />
 
-          <q-input
-            v-model="formData.first_name"
-            :label="$t('firstName')"
-            outlined
-            color="accent"
-            bg-color="primary"
-          />
+            <q-input
+              v-model="formData.password"
+              :label="isEditing ? $t('newPasswordOptional') : $t('password')"
+              type="password"
+              outlined
+              color="accent"
+              bg-color="primary"
+              autocomplete="new-password"
+              :rules="passwordRules"
+            />
 
-          <q-input
-            v-model="formData.last_name"
-            :label="$t('lastName')"
-            outlined
-            color="accent"
-            bg-color="primary"
-          />
+            <q-select
+              v-model="formData.role"
+              :options="roleOptions"
+              :label="$t('role')"
+              outlined
+              color="accent"
+              options-cover
+              emit-value
+              map-options
+              bg-color="primary"
+              popup-content-class="custom-select-popup"
+            />
 
-          <q-input
-            v-model="formData.password"
-            :label="isEditing ? $t('newPasswordOptional') : $t('password')"
-            type="password"
-            outlined
-            color="accent"
-            bg-color="primary"
-            :rules="passwordRules"
-          />
+            <q-toggle
+              v-model="formData.is_active"
+              :label="$t('isActive')"
+              color="accent"
+              keep-color
+              :disable="isEditingSelf"
+            >
+              <AppTooltip v-if="isEditingSelf">{{ $t('cannotDeactivateSelf') }}</AppTooltip>
+            </q-toggle>
+          </q-form>
+        </q-card-section>
+      </div>
 
-          <q-select
-            v-model="formData.role"
-            :options="roleOptions"
-            :label="$t('role')"
-            outlined
-            color="accent"
-            options-cover
-            emit-value
-            map-options
-            bg-color="primary"
-            popup-content-class="custom-select-popup"
-          />
-
-          <q-toggle
-            v-model="formData.is_active"
-            :label="$t('isActive')"
-            color="accent"
-            keep-color
-            :disable="isEditingSelf"
-          >
-            <AppTooltip v-if="isEditingSelf">{{ $t('cannotDeactivateSelf') }}</AppTooltip>
-          </q-toggle>
-
-          <div class="row justify-end q-mt-md q-gutter-x-sm">
-            <q-btn :label="$t('cancel')" color="grey" flat @click="handleCancel" />
-            <q-btn :label="$t('save')" type="submit" color="accent" unelevated />
-          </div>
-        </q-form>
-      </q-card-section>
+      <q-card-actions class="bg-secondary border-top q-pa-md">
+        <q-btn
+          v-if="isEditing && !isEditingSelf"
+          :label="$t('delete')"
+          color="negative"
+          flat
+          @click="$emit('delete')"
+          class="q-mr-auto"
+        />
+        <q-btn :label="$t('save')" @click="handleSubmit" color="accent" unelevated :loading="loading" />
+      </q-card-actions>
     </q-card>
+
   </q-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { type QForm } from 'quasar';
 import { api } from 'boot/axios';
+import { useNotification } from 'src/composables/useNotification';
+import { useDialog } from 'src/composables/useDialog';
 import AppTooltip from 'components/common/AppTooltip.vue';
 
 // --- TYPES ---
@@ -157,6 +189,7 @@ export interface User {
   last_name?: string;
   role: string;
   is_active: boolean;
+  job_titles?: string[];
   avatar_url?: string;
   avatar_vertical_position?: number;
 }
@@ -166,6 +199,7 @@ export interface UserFormData {
   email: string;
   first_name: string;
   last_name: string;
+  job_titles: string[];
   password: string;
   role: string;
   is_active: boolean;
@@ -192,17 +226,22 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
   save: [data: Partial<UserFormData>];
+  delete: [];
   cancel: [];
 }>();
 
 // --- STATE ---
 const { t } = useI18n();
+const { notifyBackendError } = useNotification();
+const { confirm } = useDialog();
+const loading = ref(false);
 
 const formData = ref<UserFormData>({
   id: '',
   email: '',
   first_name: '',
   last_name: '',
+  job_titles: [],
   password: '',
   role: 'user',
   is_active: true,
@@ -210,6 +249,7 @@ const formData = ref<UserFormData>({
   avatar_vertical_position: 50,
 });
 
+const initialData = ref<UserFormData>({ ...formData.value });
 const avatarFile = ref<File | null>(null);
 const formRef = ref<QForm | null>(null);
 
@@ -245,6 +285,11 @@ const passwordRules = computed(() =>
   isEditing.value ? [] : [(val: string) => !!val || t('fieldRequired')],
 );
 
+const isDirty = computed(() => {
+  if (avatarFile.value) return true;
+  return JSON.stringify(formData.value) !== JSON.stringify(initialData.value);
+});
+
 // --- WATCHERS ---
 watch(
   () => props.userToEdit,
@@ -255,6 +300,7 @@ watch(
         email: user.email,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
+        job_titles: user.job_titles || [],
         password: '',
         role: user.role,
         is_active: user.is_active,
@@ -262,11 +308,39 @@ watch(
         avatar_vertical_position: user.avatar_vertical_position || 50,
       };
       avatarFile.value = null;
+      initialData.value = { ...formData.value };
     } else {
       resetForm();
     }
   },
   { immediate: true },
+);
+
+// Re-sync when dialog opens to avoid stale data from previous unsaved edits
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) {
+      if (props.userToEdit) {
+        formData.value = {
+          id: props.userToEdit.id,
+          email: props.userToEdit.email,
+          first_name: props.userToEdit.first_name || '',
+          last_name: props.userToEdit.last_name || '',
+          job_titles: props.userToEdit.job_titles || [],
+          password: '',
+          role: props.userToEdit.role,
+          is_active: props.userToEdit.is_active,
+          avatar_url: props.userToEdit.avatar_url || '',
+          avatar_vertical_position: props.userToEdit.avatar_vertical_position || 50,
+        };
+        avatarFile.value = null;
+        initialData.value = { ...formData.value };
+      } else {
+        resetForm();
+      }
+    }
+  },
 );
 
 // --- FUNCTIONS ---
@@ -276,6 +350,7 @@ function resetForm() {
     email: '',
     first_name: '',
     last_name: '',
+    job_titles: [],
     password: '',
     role: 'user',
     is_active: true,
@@ -283,6 +358,7 @@ function resetForm() {
     avatar_vertical_position: 50,
   };
   avatarFile.value = null;
+  initialData.value = { ...formData.value };
 }
 
 function handleAvatarChange(file: File | null) {
@@ -312,6 +388,17 @@ function removeAvatar() {
   avatarFile.value = null; // This should trigger the q-file to clear/reset
 }
 
+const getAvatarUrl = (path: string) => {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('data:')) return path;
+
+  const baseUrl = api.defaults.baseURL || '';
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${cleanBase}${cleanPath}`;
+};
+
 // Drag to position avatar
 let isDragging = false;
 let startY = 0;
@@ -330,7 +417,8 @@ function startDrag(e: MouseEvent | TouchEvent) {
   document.addEventListener('touchmove', onDrag);
   document.addEventListener('touchend', stopDrag);
 
-  e.preventDefault();
+  // Consider preventDefault only if not tapping (simple enhancement, safe to leave as is)
+  // e.preventDefault();
 }
 
 function onDrag(e: MouseEvent | TouchEvent) {
@@ -358,12 +446,18 @@ function stopDrag() {
   document.removeEventListener('touchend', stopDrag);
 }
 
+// Clean up listeners on destroy to prevent memory leaks (P0 Fix)
+onUnmounted(() => {
+  stopDrag();
+});
+
 async function handleSubmit() {
   if (!formRef.value) return;
 
   const valid = await formRef.value.validate();
   if (!valid) return;
 
+  loading.value = true;
   try {
     let avatarUrl = formData.value.avatar_url || '';
 
@@ -377,6 +471,7 @@ async function handleSubmit() {
       email: formData.value.email,
       first_name: formData.value.first_name,
       last_name: formData.value.last_name,
+      job_titles: formData.value.job_titles,
       role: formData.value.role,
       is_active: formData.value.is_active,
       avatar_url: avatarUrl,
@@ -400,6 +495,9 @@ async function handleSubmit() {
     emit('save', dataToSave);
   } catch (error) {
     console.error('Failed to submit form:', error);
+    notifyBackendError(error, t('validationError'));
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -424,8 +522,22 @@ async function uploadAvatar(userId: string): Promise<string> {
 }
 
 function handleCancel() {
-  emit('cancel');
-  isOpen.value = false;
+  if (isDirty.value) {
+    confirm({
+      title: t('unsavedChanges'),
+      message: t('unsavedChangesMessage'),
+      confirmLabel: t('yes'),
+      cancelLabel: t('no'),
+      confirmColor: 'negative',
+      onConfirm: () => {
+        emit('cancel');
+        isOpen.value = false;
+      },
+    });
+  } else {
+    emit('cancel');
+    isOpen.value = false;
+  }
 }
 </script>
 
@@ -437,6 +549,7 @@ function handleCancel() {
   border-radius: 50%;
   transition: all 0.2s;
   cursor: move;
+  touch-action: none;
 }
 
 .avatar-container:hover .drag-hint {
@@ -460,7 +573,21 @@ function handleCancel() {
   justify-content: center;
 }
 
+.border-bottom {
+  border-bottom: 1px solid var(--q-sixth) !important;
+}
+
+.border-top {
+  border-top: 1px solid var(--q-sixth) !important;
+}
+
+.dialog-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
 /* Input field borders */
+
 :deep(.q-field--outlined .q-field__control):before {
   border-color: var(--q-sixth) !important;
   border-width: 1px !important;

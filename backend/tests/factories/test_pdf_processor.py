@@ -4,7 +4,7 @@ Tests for PDF processor with smart local-first routing.
 Updated to test the new quality-based routing strategy with Gemini.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -39,8 +39,10 @@ class TestPdfProcessorBasics:
     @pytest.mark.asyncio
     async def test_initialization_without_api_key(self):
         """Processor should initialize correctly without API key."""
-        with patch("app.factories.processors.pdf_processor.get_settings") as mock_settings:
-            mock_settings.return_value.GEMINI_API_KEY = None
+        with patch("app.factories.processors.pdf_processor.get_settings") as mock_get_settings:
+            mock_settings = MagicMock()
+            mock_settings.GEMINI_API_KEY = None
+            mock_get_settings.return_value = mock_settings
             processor = PdfProcessor()
             assert processor._has_api_key is False
 

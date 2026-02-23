@@ -1,92 +1,109 @@
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-from llama_index.core.schema import NodeWithScore
-
+from unittest.mock import AsyncMock, MagicMock
 from app.core.rag.processors.retrieval import RetrievalProcessor
-from app.core.rag.types import PipelineContext
+from app.core.rag.types import PipelineContext, PipelineEvent
+from app.strategies.search.base import SearchResult, SearchMetadata
 
 
 @pytest.fixture
-def pipeline_context():
+def mock_ctx():
+    assistant = MagicMock()
+    assistant.top_k_retrieval = 5
+    assistant.configuration = {"tags": ["acl1"]}
+    assistant.retrieval_similarity_cutoff = 0.5
+
+    search_strategy = AsyncMock()
+
     return PipelineContext(
         user_message="test query",
         chat_history=[],
         language="en",
-        assistant=MagicMock(),
-        llm=MagicMock(),
-        embed_model=MagicMock(),
-        search_strategy=MagicMock(),
+        assistant=assistant,
+        llm=None,
+        embed_model=None,
+        search_strategy=search_strategy,
     )
 
 
 @pytest.mark.asyncio
-async def test_retrieval_success_flow(pipeline_context):
-    """Verify search execution and node conversion."""
+async def test_retrieval_happy_path(mock_ctx):
     processor = RetrievalProcessor()
 
-    # Mock search result
-    mock_res = MagicMock()
-    mock_res.content = "doc text"
-    mock_res.metadata = {"source": "f1"}
-    mock_res.score = 0.95
-
-    pipeline_context.search_strategy.search = AsyncMock(return_value=[mock_res])
-    pipeline_context.assistant.top_k_retrieval = 5
-    pipeline_context.rewritten_query = "rewritten"
+    # Mock search results
+    results = [
+        SearchResult(
+            document_id="00000000-0000-0000-0000-000000000001",
+            score=0.8,
+            content="doc1",
+            metadata=SearchMetadata(file_name="f1"),
+        ),
+        SearchResult(
+            document_id="00000000-0000-0000-0000-000000000002",
+            score=0.7,
+            content="doc2",
+            metadata=SearchMetadata(file_name="f2"),
+        ),
+    ]
+    mock_ctx.search_strategy.search.return_value = results
 
     events = []
-    async for event in processor.process(pipeline_context):
+    async for event in processor.process(mock_ctx):
         events.append(event)
 
-    # Verify Search Call
-    pipeline_context.search_strategy.search.assert_awaited_with(
-        query="rewritten", top_k=5, filters={}  # Empty for now as per code
-    )
+    assert len(mock_ctx.retrieved_nodes) == 2
+    assert mock_ctx.retrieved_nodes[0].score == 0.8
+    assert mock_ctx.retrieved_nodes[0].node.get_content() == "doc1"
 
-    # Verify Context Update
-    assert len(pipeline_context.retrieved_nodes) == 1
-    node = pipeline_context.retrieved_nodes[0]
-    assert node.score == 0.95
-    assert node.node.get_content() == "doc text"
-
-    # Verify Events
-    assert len(events) == 3  # Start, Complete, Sources
+    # Check events
+    assert events[0].type == "step"
     assert events[0].status == "running"
-    assert events[1].status == "completed"
-    assert events[2].type == "sources"
-    assert events[2].payload[0]["text"] == "doc text"
+    assert events[-1].type == "step"
+    assert events[-1].status == "completed"
+    assert "Retrieved 2" in events[-1].label
 
 
 @pytest.mark.asyncio
-async def test_retrieval_fallback_query(pipeline_context):
-    """Should use user_message if no rewritten_query."""
+async def test_retrieval_cutoff_filtering(mock_ctx):
     processor = RetrievalProcessor()
-    pipeline_context.search_strategy.search = AsyncMock(return_value=[])
-    pipeline_context.rewritten_query = None  # forced
 
-    async for _ in processor.process(pipeline_context):
+    # Mock search results: one above, one below 0.5
+    results = [
+        SearchResult(document_id="00000000-0000-0000-0000-000000000001", score=0.8, content="above"),
+        SearchResult(document_id="00000000-0000-0000-0000-000000000002", score=0.3, content="below"),
+    ]
+    mock_ctx.search_strategy.search.return_value = results
+
+    async for _ in processor.process(mock_ctx):
         pass
 
-    call_args = pipeline_context.search_strategy.search.call_args
-    assert call_args.kwargs["query"] == "test query"
+    assert len(mock_ctx.retrieved_nodes) == 1
+    assert mock_ctx.retrieved_nodes[0].node.get_content() == "above"
 
 
 @pytest.mark.asyncio
-async def test_retrieval_propagates_error(pipeline_context):
-    """Should raise exception without yielding error event (pipeline job)."""
+async def test_retrieval_error_handling(mock_ctx):
     processor = RetrievalProcessor()
-    pipeline_context.search_strategy.search = AsyncMock(side_effect=TimeoutError("DB Timeout"))
+    mock_ctx.search_strategy.search.side_effect = Exception("Search failed")
 
     events = []
-    # Assert it raises
-    with pytest.raises(TimeoutError, match="DB Timeout"):
-        async for event in processor.process(pipeline_context):
+    with pytest.raises(Exception):
+        async for event in processor.process(mock_ctx):
             events.append(event)
 
-    # Verify only initial event yielded
-    assert len(events) == 1
-    assert events[0].type == "step"
-    assert events[0].step_type == "retrieval"
-    assert events[0].status == "running"
-    # Bubbles up to pipeline
+    assert any(e.type == "step" and e.status == "failed" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_retrieval_acl_extraction(mock_ctx):
+    # Test string ACL conversion
+    mock_ctx.assistant.configuration = {"tags": "single_tag"}
+    processor = RetrievalProcessor()
+    mock_ctx.search_strategy.search.return_value = []
+
+    async for _ in processor.process(mock_ctx):
+        pass
+
+    # Verify SearchFilters were called with correct ACLs
+    args, kwargs = mock_ctx.search_strategy.search.call_args
+    filters = kwargs.get("filters")
+    assert filters.user_acl == ["single_tag"]

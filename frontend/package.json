@@ -20,7 +20,6 @@
     "@types/three": "^0.182.0",
     "apexcharts": "3.54.1",
     "axios": "^1.13.2",
-    "deep-chat": "^2.4.1",
     "jwt-decode": "^4.0.0",
     "markdown-it": "^14.1.0",
     "pinia": "^3.0.4",

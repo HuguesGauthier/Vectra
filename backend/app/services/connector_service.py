@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import time
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Optional, Set
 from uuid import UUID
 
@@ -9,22 +10,21 @@ from fastapi import Depends
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.connection_manager import manager
+from app.core.websocket import manager, Websocket, get_websocket
 from app.core.database import SessionLocal, get_db
-from app.core.exceptions import (EntityNotFound, FunctionalError,
-                                 InternalDataCorruption, TechnicalError)
+from app.core.exceptions import EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector import Connector
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.vector_repository import VectorRepository
-from app.schemas.connector import (ConnectorCreate, ConnectorResponse,
-                                   ConnectorUpdate)
+from app.schemas.connector import ConnectorCreate, ConnectorResponse, ConnectorUpdate
 from app.schemas.enums import ConnectorStatus, ConnectorType
 from app.services.ingestion_service import IngestionService
 from app.services.scanner_service import ScannerService
 from app.services.settings_service import SettingsService, get_settings_service
-from app.services.sql_discovery_service import (SQLDiscoveryService,
-                                                get_sql_discovery_service)
+from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
+from app.repositories.connector_sync_log_repository import ConnectorSyncLogRepository
+from app.core.interfaces.base_connector import translate_host_path
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +48,6 @@ class ConnectorService:
     Security Hardened: Prevents arbitrary file deletion.
     """
 
-    # 🟠 P1: Prevent GC of fire-and-forget tasks
-    _background_tasks: Set[asyncio.Task] = set()
-
     def __init__(
         self,
         connector_repo: ConnectorRepository,
@@ -60,11 +57,15 @@ class ConnectorService:
         sql_discovery_service: Optional[SQLDiscoveryService] = None,
     ):
         self.connector_repo = connector_repo
+        self.sync_log_repo = ConnectorSyncLogRepository(connector_repo.db)  # Use same session
         self.scanner_service = scanner_service
         self.db = connector_repo.db
         self.settings_service = settings_service or SettingsService(self.db)
         self.vector_service = vector_service or VectorService(self.settings_service)
         self.sql_discovery_service = sql_discovery_service or SQLDiscoveryService(self.db, self.settings_service)
+
+        # 🟠 P1: Prevent GC of fire-and-forget tasks (Instance-level)
+        self._background_tasks: Set[asyncio.Task] = set()
 
     @staticmethod
     async def _run_blocking_io(func, *args):
@@ -137,7 +138,7 @@ class ConnectorService:
 
             # 🟡 P2: Use Enum instead of Magic String
             if connector_data.connector_type == ConnectorType.LOCAL_FILE:
-                await self._validate_file_path(connector_data.configuration)
+                await self._validate_file_path(connector_data.configuration, connector_data.connector_type)
             elif connector_data.connector_type == ConnectorType.LOCAL_FOLDER:
                 await self._validate_folder_path(connector_data.configuration)
 
@@ -162,7 +163,7 @@ class ConnectorService:
             elapsed = round((time.time() - start_time) * 1000, 2)
             logger.info(f"CREATED | {func_name} | {new_connector.id} | {elapsed}ms")
 
-            return ConnectorResponse.model_validate(new_connector)
+            return resp
 
         except (FunctionalError, IntegrityError):
             raise
@@ -196,7 +197,7 @@ class ConnectorService:
             if connector_update.configuration:
                 # Type-specific validation
                 if db_connector.connector_type == ConnectorType.LOCAL_FILE:
-                    await self._validate_file_path(connector_update.configuration)
+                    await self._validate_file_path(connector_update.configuration, db_connector.connector_type)
                 elif db_connector.connector_type == ConnectorType.LOCAL_FOLDER:
                     await self._validate_folder_path(connector_update.configuration)
 
@@ -288,7 +289,7 @@ class ConnectorService:
             if db_connector.configuration:
                 # 🔴 P0 SECURITY FIX: Guarded Deletion
                 if db_connector.connector_type == ConnectorType.LOCAL_FILE:
-                    path = db_connector.configuration.get("path")
+                    path = translate_host_path(db_connector.configuration.get("path"))
                     if path and self._is_managed_path(path):
                         self._track_task(self._safe_delete_file(path))
 
@@ -374,9 +375,8 @@ class ConnectorService:
             supported_types = [
                 ConnectorType.LOCAL_FILE,
                 ConnectorType.LOCAL_FOLDER,
-                ConnectorType.SQL,  # Added support
-                ConnectorType.VANNA_SQL,  # Added support for Vanna SQL
-                "vanna_sql",  # String fallback
+                ConnectorType.SQL,
+                ConnectorType.VANNA_SQL,
             ]
 
             logger.info(
@@ -389,41 +389,120 @@ class ConnectorService:
                 )
 
             # Branching Logic
-            # Branching Logic
-            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL, "vanna_sql"]:
-                # SQL Scan (including Vanna SQL)
-                logger.info("SCAN ROUTE | SQL PATH SELECTED")
-                await self.sql_discovery_service.scan_and_persist_views(connector.id)
+            sync_log = await self.sync_log_repo.create_log(connector.id)
+            stats = {"added": 0, "updated": 0, "deleted": 0}
 
-            elif connector.connector_type == ConnectorType.LOCAL_FILE:
-                # File Scan
-                logger.info("SCAN ROUTE | FILE PATH SELECTED")
-                path = connector.configuration.get("path")
-                if not path:
-                    raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
-                await self.scanner_service.scan_folder(connector.id, path, recursive=False)
+            try:
+                if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]:
+                    # SQL Scan (including Vanna SQL)
+                    logger.info("SCAN ROUTE | SQL PATH SELECTED")
+                    stats = await self.sql_discovery_service.scan_and_persist_views(connector.id)
 
-            elif connector.connector_type == ConnectorType.LOCAL_FOLDER:
-                # Folder Scan
-                logger.info("SCAN ROUTE | FOLDER PATH SELECTED")
-                path = connector.configuration.get("path")
-                if not path:
-                    raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
-                recursive = connector.configuration.get("recursive", False)
-                await self.scanner_service.scan_folder(connector.id, path, recursive=recursive)
+                elif connector.connector_type == ConnectorType.LOCAL_FILE:
+                    # File Scan
+                    logger.info("SCAN ROUTE | FILE PATH SELECTED")
+                    path = translate_host_path(connector.configuration.get("path"))
+                    if not path:
+                        raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
+                    stats = await self.scanner_service.scan_folder(connector.id, path, recursive=False)
 
-            else:
-                raise FunctionalError("Invalid config: unknown connector type", error_code="INVALID_CONFIG")
+                elif connector.connector_type == ConnectorType.LOCAL_FOLDER:
+                    # Folder Scan
+                    logger.info("SCAN ROUTE | FOLDER PATH SELECTED")
+                    path = translate_host_path(connector.configuration.get("path"))
+                    if not path:
+                        raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG")
+                    recursive = connector.configuration.get("recursive", False)
+                    stats = await self.scanner_service.scan_folder(connector.id, path, recursive=recursive)
+
+                else:
+                    raise FunctionalError("Invalid config: unknown connector type", error_code="INVALID_CONFIG")
+
+                # Log Success
+                total_docs = stats.get("added", 0) + stats.get("updated", 0)
+                await self.sync_log_repo.update_log(sync_log.id, status="success", documents_synced=total_docs)
+
+            except Exception as e:
+                # Log Failure
+                await self.sync_log_repo.update_log(sync_log.id, status="failure", error_message=str(e))
+                raise
 
             # Fetch fresh record after scan side-effects
             fresh = await self.connector_repo.get_by_id(connector_id)
             return ConnectorResponse.model_validate(fresh)
 
         except Exception as e:
-            if isinstance(e, (EntityNotFound, FunctionalError)):
+            if isinstance(e, (EntityNotFound, FunctionalError, TechnicalError)):
                 raise
             logger.error(f"Manual scan failed: {e}", exc_info=True)
-            raise TechnicalError("Scan failed", error_code="SCAN_ERROR")
+            raise TechnicalError(f"Scan failed: {e}", error_code="SCAN_ERROR")
+
+    async def train_vanna(
+        self,
+        connector_id: UUID,
+        document_ids: List[UUID],
+        document_service: Any,
+    ) -> Dict[str, Any]:
+        """
+        Train Vanna AI on specific documents for vanna_sql connector.
+        Refactored from API endpoint (P1).
+        """
+        connector = await self.get_connector(connector_id)
+        if not connector:
+            return {"success": False, "message": "Connector not found"}
+
+        if connector.connector_type != ConnectorType.VANNA_SQL:
+            return {"success": False, "message": "Training is only available for vanna_sql connectors"}
+
+        # Use centralized Factory to get the correctly configured Vanna Service
+        from app.services.chat.vanna_services import VannaServiceFactory
+
+        vanna_svc = await VannaServiceFactory(
+            self.settings_service,
+            connector_id=connector_id,
+            context_provider=connector.configuration.get("ai_provider"),
+            connector_config=connector.configuration,
+        )
+
+        trained_count = 0
+        failed_count = 0
+
+        for doc_id in document_ids:
+            try:
+                document = await document_service.document_repo.get_by_id(doc_id)
+                if not document:
+                    logger.warning(f"Document {doc_id} not found, skipping")
+                    failed_count += 1
+                    continue
+
+                ddl_content = (document.file_metadata or {}).get("ddl")
+                if not ddl_content:
+                    logger.warning(f"Document {doc_id} has no DDL content, skipping")
+                    failed_count += 1
+                    continue
+
+                # Train Vanna - blocking call moved to thread
+                await asyncio.to_thread(vanna_svc.train, ddl=ddl_content)
+
+                # Mark as trained
+                meta = document.file_metadata or {}
+                meta["trained"] = True
+                meta["trained_at"] = datetime.now(timezone.utc).isoformat()
+
+                await document_service.update_document(document.id, {"file_metadata": meta})
+                trained_count += 1
+                logger.info(f"Trained Vanna on document: {document.file_name}")
+
+            except Exception as doc_error:
+                logger.error(f"Failed to train document {doc_id}: {doc_error}")
+                failed_count += 1
+
+        return {
+            "success": True,
+            "message": f"Training completed. {trained_count} documents trained, {failed_count} failed.",
+            "trained_count": trained_count,
+            "failed_count": failed_count,
+        }
 
     # --- Helpers ---
     @staticmethod
@@ -451,25 +530,40 @@ class ConnectorService:
             return False
 
     @classmethod
-    async def _validate_file_path(cls, config: dict):
-        """Non-blocking validation of file existence."""
+    async def _validate_file_path(cls, config: dict, connector_type: ConnectorType):
+        """Non-blocking validation of file existence and type."""
         if not config or "path" not in config:
             raise FunctionalError("Invalid config: path missing", error_code="INVALID_CONFIG", status_code=400)
 
-        path = config["path"]
+        path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isfile, path)
         if not exists:
-            raise FunctionalError(f"File not found: {path}", error_code="FILE_NOT_FOUND", status_code=400)
+            error_msg = f"File not found: {path}"
+            from app.core.utils.storage import get_storage_status
+
+            if not get_storage_status():
+                error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            raise FunctionalError(error_msg, error_code="FILE_NOT_FOUND", status_code=400)
+
+        # ARCHITECT FIX: Validate extension for CSV connectors
+        if connector_type == ConnectorType.LOCAL_FILE:
+            if not path.lower().endswith(".csv"):
+                raise FunctionalError("This connector only supports CSV files", error_code="INVALID_EXTENSION")
 
     @classmethod
     async def _validate_folder_path(cls, config: dict):
         """Non-blocking validation of directory existence."""
         if not config or "path" not in config:
             return
-        path = config["path"]
+        path = translate_host_path(config["path"])
         exists = await cls._run_blocking_io(os.path.isdir, path)
         if not exists:
-            raise FunctionalError(f"Path not found: {path}", error_code="PATH_NOT_FOUND", status_code=400)
+            error_msg = f"Path not found: {path}"
+            from app.core.utils.storage import get_storage_status
+
+            if not get_storage_status():
+                error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            raise FunctionalError(error_msg, error_code="PATH_NOT_FOUND", status_code=400)
 
     @classmethod
     async def _safe_delete_file(cls, path: str):
@@ -488,12 +582,21 @@ class ConnectorService:
             ai_provider = config.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider=ai_provider)
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             await repo.update_acl(collection, "connector_id", str(connector_id), acl)
 
             logger.info(f"BACKGROUND ACL UPDATED | Connector: {connector_id}")
         except Exception as e:
+            # P0: Ignore 404/Not Found errors. This happens if the connector is new and hasn't been vectorized yet.
+            # The collection (or points) don't exist, so there's nothing to update. Safe to ignore.
+            error_msg = str(e).lower()
+            if "not found" in error_msg or "doesn't exist" in error_msg or "404" in error_msg:
+                logger.debug(
+                    f"BACKGROUND ACL SKIPPED | Connector: {connector_id} | Collection not found (Not vectorized yet)"
+                )
+                return
+
             logger.error(f"BACKGROUND ACL FAIL | Connector: {connector_id} | Error: {e}")
 
     async def _safe_delete_vectors(self, connector_id: UUID, config: dict):
@@ -502,7 +605,7 @@ class ConnectorService:
             ai_provider = config.get("ai_provider")
             collection = await self.vector_service.get_collection_name(provider=ai_provider)
 
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             repo = VectorRepository(client)
             await repo.delete_by_connector_id(collection, connector_id)
 
@@ -516,14 +619,30 @@ class ConnectorService:
             async with SessionLocal() as db:
                 recursive = config.get("recursive", False)
 
-                path = config.get("path")
+                path = translate_host_path(config.get("path"))
                 if not path:
                     logger.warning(f"BACKGROUND SCAN | No path found for {connector_id}")
                     return
 
                 scanner = ScannerService(db)
-                await scanner.scan_folder(connector_id, path, recursive=recursive)
-                logger.info(f"BACKGROUND SCAN SUCCESS | Connector: {connector_id}")
+
+                # Log Sync Start (Background)
+                repo = ConnectorSyncLogRepository(db)
+                sync_log = await repo.create_log(connector_id)
+
+                try:
+                    stats = await scanner.scan_folder(connector_id, path, recursive=recursive)
+                    logger.info(f"BACKGROUND SCAN SUCCESS | Connector: {connector_id}")
+
+                    # Log Sync Success
+                    total = stats.get("added", 0) + stats.get("updated", 0)
+                    await repo.update_log(sync_log.id, status="success", documents_synced=total)
+
+                except Exception as e:
+                    # Log Sync Failure
+                    logger.error(f"BACKGROUND SCAN INNER ERROR | {e}")
+                    await repo.update_log(sync_log.id, status="failure", error_message=str(e))
+                    raise
         except Exception as e:
             logger.error(f"BACKGROUND SCAN FAIL | Connector: {connector_id} | Error: {e}")
 
@@ -533,6 +652,7 @@ async def get_connector_service(
     db: Annotated[AsyncSession, Depends(get_db)],
     vector_service: Annotated[VectorService, Depends(get_vector_service)],
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
+    sql_discovery_service: Annotated[SQLDiscoveryService, Depends(get_sql_discovery_service)],
 ) -> ConnectorService:
     """Dependency provider for ConnectorService."""
     return ConnectorService(
@@ -540,4 +660,5 @@ async def get_connector_service(
         scanner_service=ScannerService(db),
         vector_service=vector_service,
         settings_service=settings_service,
+        sql_discovery_service=sql_discovery_service,
     )

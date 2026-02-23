@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/me", response_model=UserRead)
-async def read_user_me(current_user: Annotated[User, Depends(get_current_user)]) -> Any:
+async def read_user_me(current_user: Annotated[User, Depends(get_current_user)]) -> User:
     """
     Get current user.
 
@@ -24,7 +24,7 @@ async def read_user_me(current_user: Annotated[User, Depends(get_current_user)])
         current_user: The currently authenticated user.
 
     Returns:
-        Any: The current user object.
+        User: The current user object.
     """
     return current_user
 
@@ -35,7 +35,7 @@ async def read_users(
     current_admin: Annotated[User, Depends(get_current_admin)],
     skip: int = 0,
     limit: int = 100,
-) -> Any:
+) -> List[User]:
     """
     Retrieve users. Admin only.
 
@@ -46,7 +46,7 @@ async def read_users(
         limit: Maximum number of records to return.
 
     Returns:
-        Any: A list of users.
+        List[User]: A list of users.
     """
     return await service.get_multi(skip=skip, limit=limit)
 
@@ -57,7 +57,7 @@ async def create_user(
     user_in: UserCreate,
     service: Annotated[UserService, Depends(get_user_service)],
     current_admin: Annotated[User, Depends(get_current_admin)],
-) -> Any:
+) -> User:
     """
     Create new user. Admin only.
 
@@ -67,7 +67,7 @@ async def create_user(
         current_admin: The currently authenticated admin user.
 
     Returns:
-        Any: The created user object.
+        User: The created user object.
     """
     return await service.create(user_in)
 
@@ -79,7 +79,7 @@ async def update_user(
     user_in: UserUpdate,
     service: Annotated[UserService, Depends(get_user_service)],
     current_admin: Annotated[User, Depends(get_current_admin)],
-) -> Any:
+) -> User:
     """
     Update a user. Admin only.
 
@@ -90,7 +90,7 @@ async def update_user(
         current_admin: The currently authenticated admin user.
 
     Returns:
-        Any: The updated user object.
+        User: The updated user object.
     """
     return await service.update(user_id, user_in)
 
@@ -101,7 +101,7 @@ async def delete_user(
     user_id: UUID,
     service: Annotated[UserService, Depends(get_user_service)],
     current_admin: Annotated[User, Depends(get_current_admin)],
-) -> Any:
+) -> User:
     """
     Delete a user. Admin only.
 
@@ -111,7 +111,7 @@ async def delete_user(
         current_admin: The currently authenticated admin user.
 
     Returns:
-        Any: The deleted user object.
+        User: The deleted user object.
     """
     return await service.delete(user_id)
 
@@ -123,7 +123,7 @@ async def upload_user_avatar(
     file: UploadFile = File(...),
     service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> Any:
+) -> User:
     """
     Upload an avatar image for a user.
 
@@ -137,7 +137,7 @@ async def upload_user_avatar(
         HTTPException: If the user is not authorized.
 
     Returns:
-        Any: The updated user object.
+        User: The updated user object.
     """
     if current_user.id != user_id and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -151,7 +151,7 @@ async def delete_user_avatar(
     user_id: UUID,
     service: Annotated[UserService, Depends(get_user_service)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> Any:
+) -> User:
     """
     Remove the avatar image from a user.
 
@@ -164,7 +164,7 @@ async def delete_user_avatar(
         HTTPException: If the user is not authorized.
 
     Returns:
-        Any: The updated user object.
+        User: The updated user object.
     """
     if current_user.id != user_id and current_user.role != UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
@@ -177,7 +177,7 @@ async def get_user_avatar(
     *,
     user_id: UUID,
     service: Annotated[UserService, Depends(get_user_service)],
-) -> Any:
+) -> FileResponse:
     """
     Get the avatar image file for a user.
 

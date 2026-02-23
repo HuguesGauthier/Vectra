@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import Annotated, Any, List, Optional
@@ -12,23 +11,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_password_hash
+from app.core.settings import get_settings
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
 from app.schemas.user import UserCreate, UserUpdate
 
 logger = logging.getLogger(__name__)
 
-# Avatar storage directory
 # Avatar storage directory - Absolute path relative to backend root
-# Assuming this file is in app/services/, backend/ is 2 levels up relative to app/
+settings = get_settings()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-AVATAR_DIR = BASE_DIR / "user_avatars"
 
-if not AVATAR_DIR.exists():
-    try:
-        AVATAR_DIR.mkdir(parents=True, exist_ok=True)
-    except Exception as e:
-        logger.warning(f"Failed to create user avatar directory: {e}")
+# Persistent Storage Logic
+if settings.VECTRA_DATA_PATH:
+    AVATAR_DIR = Path(settings.VECTRA_DATA_PATH) / "user_avatars"
+else:
+    AVATAR_DIR = BASE_DIR / "user_avatars"
 
 
 class UserService:
@@ -43,7 +41,7 @@ class UserService:
         try:
             user = await self.repository.get(user_id)
             if not user:
-                raise EntityNotFound(entity_name="User", entity_id=str(user_id))
+                raise EntityNotFound(entity_type="User", entity_id=str(user_id))
             return user
         except EntityNotFound:
             raise
@@ -78,11 +76,11 @@ class UserService:
             )
 
         try:
+            # Pydantic's model_dump is more robust for field mapping
+            user_data = user_in.model_dump(exclude={"password"})
             user = User(
-                email=user_in.email,
+                **user_data,
                 hashed_password=get_password_hash(user_in.password),
-                role=user_in.role,
-                is_active=user_in.is_active,
             )
             # Use repository create
             return await self.repository.create(user)
@@ -137,7 +135,15 @@ class UserService:
         Uses run_in_executor to prevent blocking the Event Loop during I/O.
         """
         try:
-            # Validate file type
+            # 1. Ensure avatar directory exists (Lazy initialization)
+            def _ensure_dir():
+                if not AVATAR_DIR.exists():
+                    AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _ensure_dir)
+
+            # 2. Validate file type
             if not file.content_type or not file.content_type.startswith("image/"):
                 raise FunctionalError("File must be an image")
 
@@ -211,10 +217,10 @@ class UserService:
         def _delete_sync():
             try:
                 # Search for files starting with this UUID
-                for file in AVATAR_DIR.glob(f"{user_id}.*"):
-                    if file.is_file():
-                        os.remove(file)
-                        logger.debug(f"Removed avatar file: {file}")
+                for f in AVATAR_DIR.glob(f"{user_id}.*"):
+                    if f.is_file():
+                        f.unlink(missing_ok=True)
+                        logger.debug(f"Removed avatar file: {f}")
             except Exception as e:
                 logger.warning(f"Failed to cleanup avatar file for {user_id}: {e}")
 
@@ -227,15 +233,16 @@ class UserService:
         if not user or not user.avatar_url:
             return None
 
-        # Search for file with any extension matching the user_id
-        # Since we don't store the filename/extension in the DB anymore (just the API URL)
-        # we have to look it up on disk.
-        params = AVATAR_DIR.glob(f"{user_id}.*")
-        try:
-            # Return the first match if any
-            return next(params)
-        except StopIteration:
-            return None
+        # P0 FIX: Offload glob to thread pool
+        def _find_path():
+            try:
+                params = list(AVATAR_DIR.glob(f"{user_id}.*"))
+                return params[0] if params else None
+            except Exception:
+                return None
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, _find_path)
 
 
 async def get_user_service(db: Annotated[AsyncSession, Depends(get_db)]) -> UserService:

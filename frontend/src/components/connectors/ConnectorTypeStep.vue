@@ -3,7 +3,7 @@
     <div class="col-12 col-md-8 col-lg-6">
       <!-- Trigger Card -->
       <q-card
-        class="selection-card cursor-pointer q-pa-lg relative-position"
+        class="selection-card cursor-pointer q-pa-lg relative-position bg-secondary"
         v-ripple
         @click="isOpen = true"
       >
@@ -74,10 +74,11 @@
               class="col-12 col-sm-6 col-md-4 col-lg-3"
             >
               <q-card
-                class="selection-card cursor-pointer full-height q-pa-sm"
+                class="selection-card cursor-pointer q-pa-sm bg-secondary"
                 :class="{ selected: modelValue === type.id }"
                 v-ripple
                 @click="selectType(type.id)"
+                style="min-height: 160px"
               >
                 <q-card-section class="column items-center text-center">
                   <q-avatar

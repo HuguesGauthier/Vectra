@@ -3,19 +3,74 @@
     <CustomTitleBar />
     <q-layout view="lHh LpR lFf" container class="col">
       <q-header class="bg-secondary" style="color: var(--q-icon-color)">
+        <!-- Storage Warning Banner -->
+        <q-banner
+          v-if="socketStore.storageStatus === 'offline' && authStore.isAdmin"
+          dense
+          inline-actions
+          class="bg-orange-9 q-py-xs"
+        >
+          <template v-slot:avatar>
+            <q-icon name="storage" />
+          </template>
+          <div class="row items-center">
+            <span class="text-weight-bold q-mr-sm">🚨 {{ $t('storageOfflineTitle') }}</span>
+            <span class="text-caption text-italic">
+              {{ $t('storageOfflineDesc') }}
+            </span>
+          </div>
+          <template v-slot:action>
+            <q-btn flat label="FIX" @click="showFixStorageDialog = true" />
+          </template>
+        </q-banner>
+
         <q-toolbar style="border-bottom: 1px solid var(--q-third); position: relative">
-          <!-- Back Button for Connector Documents -->
-          <q-btn
-            v-if="route.name === 'ConnectorDocuments'"
-            round
-            color="accent"
-            dense
-            icon="arrow_back"
-            class="q-mr-sm"
-            @click="router.push({ name: 'Connectors' })"
-          >
-            <AppTooltip>{{ $t('back') }}</AppTooltip>
-          </q-btn>
+
+          <!-- System Status KPIs (Admin Only) -->
+          <div v-if="authStore.isAdmin" class="row items-center q-gutter-x-sm q-ml-sm no-wrap">
+            <!-- API Status -->
+            <div class="status-badge row items-center q-px-sm q-py-xs cursor-pointer" @click="openHealthDetail('api')">
+              <div
+                class="live-dot q-mr-xs"
+                :class="apiStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
+              ></div>
+              <div class="text-caption text-weight-bold">{{ $t('systemHealth.api') }}</div>
+            </div>
+
+            <!-- Worker Status -->
+            <div class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('worker')">
+              <div
+                class="live-dot q-mr-xs"
+                :class="workerStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
+              ></div>
+              <div class="text-caption text-weight-bold hidden-sm">{{ $t('systemHealth.worker') }}</div>
+              <div class="text-caption text-weight-bold visible-sm">WRK</div>
+            </div>
+
+            <!-- Storage Status -->
+            <div class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('storage')">
+              <div
+                class="live-dot q-mr-xs"
+                :class="storageStatus === 'online' ? 'live-dot--active' : 'bg-negative'"
+              ></div>
+              <div class="text-caption text-weight-bold hidden-sm">{{ $t('systemHealth.storage') }}</div>
+              <div class="text-caption text-weight-bold visible-sm">DB</div>
+            </div>
+
+            <!-- Last Update Pulse -->
+            <div v-if="dashboardStore.stats" class="status-badge row items-center q-px-sm q-py-xs no-wrap cursor-pointer" @click="openHealthDetail('lastUpdate')">
+              <div
+                class="live-dot live-dot--grey q-mr-xs"
+                :class="{ 'live-dot--active': dashboardStore.isUpdating }"
+              ></div>
+              <div class="text-caption text-weight-bold hidden-md">
+                {{ formattedLastUpdate }}
+              </div>
+              <div class="text-caption text-weight-bold visible-md">
+                {{ $t('systemHealth.lastUpdate') }}
+              </div>
+            </div>
+          </div>
 
           <q-space />
 
@@ -70,19 +125,20 @@
       >
         <div class="column full-height">
           <q-list class="col" padding>
-            <q-item
-              class="q-ma-none q-pa-md justify-center"
-              clickable
-              to="/"
-              :style="{ visibility: isHomePage ? 'hidden' : 'visible' }"
-            >
-              <VectraLogo
-                :color-left="currentColors.left"
-                :color-right="currentColors.right"
-                :color-mid="currentColors.mid"
-                :disable-animation="true"
-                style="width: 150px; height: 150px"
-              />
+            <q-item class="q-ma-none q-pa-sm" clickable :to="isHomePage ? undefined : '/'">
+              <q-item-section avatar>
+                <VectraLogo
+                  :color-left="currentColors.left"
+                  :color-right="currentColors.right"
+                  :color-mid="currentColors.mid"
+                  :disable-animation="true"
+                  :small="true"
+                  style="width: 36px; height: 36px"
+                />
+              </q-item-section>
+              <q-item-section>
+                <span class="vectra-brand-name">Vectra</span>
+              </q-item-section>
             </q-item>
 
             <!-- Admin Menu Items -->
@@ -120,7 +176,7 @@
               <q-item
                 clickable
                 to="/admin/connectors"
-                active-class="active-menu-item text-white"
+                active-class="active-menu-item "
                 class="menu-item"
               >
                 <q-item-section avatar>
@@ -134,7 +190,7 @@
               <q-item
                 clickable
                 to="/admin/assistants"
-                active-class="active-menu-item text-white"
+                active-class="active-menu-item "
                 class="menu-item"
               >
                 <q-item-section avatar>
@@ -150,7 +206,7 @@
             <q-item
               clickable
               to="/chat"
-              active-class="active-menu-item text-white"
+              active-class="active-menu-item "
               class="menu-item"
             >
               <q-item-section avatar>
@@ -167,7 +223,7 @@
             <q-item
               clickable
               to="/admin/users"
-              active-class="active-menu-item text-white"
+              active-class="active-menu-item "
               class="menu-item"
             >
               <q-item-section avatar>
@@ -207,10 +263,17 @@
                 <q-icon v-if="authStore.isAdmin" name="admin_panel_settings" size="20px" />
                 <q-icon v-else name="account_circle" size="32px" color="white" />
               </template>
-              <div v-if="authStore.isAuthenticated" class="status-badge bg-positive"></div>
+              <div v-if="authStore.isAuthenticated" class="user-status-dot bg-positive"></div>
+              <!-- Storage Health Dot (Admins Only) -->
+              <div
+                v-if="authStore.isAdmin && socketStore.storageStatus === 'offline'"
+                class="storage-badge bg-negative"
+              >
+                <q-tooltip> {{ $t('storage') }}: {{ $t('statusOffline') }} </q-tooltip>
+              </div>
             </q-avatar>
             <div class="column col">
-              <div class="text-white text-weight-bold text-caption ellipsis">
+              <div class=" text-weight-bold text-caption ellipsis">
                 {{
                   authStore.user?.first_name || authStore.user?.last_name
                     ? `${authStore.user?.first_name || ''} ${authStore.user?.last_name || ''}`.trim()
@@ -218,7 +281,7 @@
                       (authStore.isAuthenticated ? $t('roleAdmin') : $t('roleGuest'))
                 }}
               </div>
-              <div class="text-caption text-grey-5" style="font-size: 11px">
+              <div class="text-caption" style="font-size: 11px">
                 {{ authStore.isAuthenticated ? $t('statusOnline') : $t('statusAnonymous') }}
               </div>
             </div>
@@ -318,6 +381,86 @@
       <q-page-container class="bg-primary column">
         <router-view />
       </q-page-container>
+
+      <!-- Storage Fix Dialog -->
+      <q-dialog v-model="showFixStorageDialog">
+        <q-card style="min-width: 400px; background: var(--q-secondary);">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6">{{ $t('storageFixTitle') }}</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+
+          <q-card-section class="q-pa-md">
+            <div class="column q-gutter-md">
+              <div class="text-subtitle2">{{ $t('storageFixPathLabel') }}</div>
+              <code class="bg-secondary q-pa-sm borderRadius-8" style="font-family: monospace">
+                .env
+              </code>
+
+              <div class="text-body2 q-mt-md">
+                <div class="q-mb-xs">{{ $t('storageFixStep1') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep2') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep3') }}</div>
+                <div class="q-mb-xs">{{ $t('storageFixStep4') }}</div>
+              </div>
+
+              <q-banner dense class="bg-primary text-caption borderRadius-4 q-mt-sm">
+                <template v-slot:avatar>
+                  <q-icon name="info" size="xs" />
+                </template>
+                docker compose --profile app up -d --build
+              </q-banner>
+            </div>
+          </q-card-section>
+
+          <q-card-actions align="right">
+            <q-btn flat label="OK" color="primary" v-close-popup />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
+      <!-- Health KPI Detail Dialog -->
+      <q-dialog v-model="showHealthDialog">
+        <q-card class="premium-health-dialog">
+          <!-- Background Glow -->
+          <div
+            class="glow-overlay"
+            :class="`glow-overlay--${selectedHealthKpi?.color}`"
+          ></div>
+
+          <q-card-section class="row items-center q-pb-none">
+            <q-icon
+              :name="selectedHealthKpi?.icon"
+              size="32px"
+              :color="selectedHealthKpi?.color"
+              class="q-mr-md"
+            />
+            <div class="text-h6 text-weight-bold">{{ selectedHealthKpi?.title }}</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+
+          <q-card-section class="q-py-lg">
+            <div class="text-body1 q-mb-md" style="line-height: 1.6">
+              {{ selectedHealthKpi?.desc }}
+            </div>
+
+            <div v-if="selectedHealthKpi?.details" class="details-box q-pa-sm borderRadius-8">
+              <div class="text-caption text-uppercase text-weight-bold q-mb-xs">
+                {{ $t('additionalInformation') }}
+              </div>
+              <div class="text-body2 text-weight-medium font-mono">
+                {{ selectedHealthKpi.details }}
+              </div>
+            </div>
+          </q-card-section>
+
+          <q-card-actions align="right" class="q-pa-md">
+            <q-btn flat :label="t('close')" :color="selectedHealthKpi?.color" v-close-popup />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </q-layout>
   </div>
 </template>
@@ -330,35 +473,121 @@ import { useNotification } from 'src/composables/useNotification';
 import { useAuthStore } from 'src/stores/authStore';
 import { useSocketStore } from 'src/stores/socketStore';
 import { useConnectorStore } from 'src/stores/ConnectorStore';
+import { useDashboardStore } from 'src/stores/dashboardStore';
 import { useTheme } from 'src/composables/useTheme';
 import { settingsService } from 'src/services/settingsService';
 import { useRouter, useRoute } from 'vue-router';
+import { date } from 'quasar';
 import NotificationList from 'src/components/notifications/NotificationList.vue';
 import CustomTitleBar from 'src/components/layout/CustomTitleBar.vue';
 import AppTooltip from 'src/components/common/AppTooltip.vue';
 import DebugPanel from 'src/components/debug/DebugPanel.vue';
 import VectraLogo from 'src/components/home/VectraLogo.vue';
 
-// --- DEFINITIONS ---
-defineOptions({
-  name: 'MainLayout',
-});
-
 const { locale, t } = useI18n({ useScope: 'global' });
 const { themePreference, setParams } = useTheme();
-
-// --- STATE ---
-const leftDrawerOpen = ref(true);
-const rightDrawerOpen = ref(false);
-const rightDrawerTab = ref('notifications'); // 'notifications' | 'debug'
-const notificationStore = useNotificationStore();
-const authStore = useAuthStore();
+const { notify } = useNotification();
 const router = useRouter();
 const route = useRoute();
-const socketStore = useSocketStore();
 
+const authStore = useAuthStore();
+const socketStore = useSocketStore();
+const notificationStore = useNotificationStore();
 const connectorStore = useConnectorStore();
-const { notify } = useNotification();
+const dashboardStore = useDashboardStore();
+
+// --- STATE ---
+const leftDrawerOpen = ref(false);
+const rightDrawerOpen = ref(false);
+const showFixStorageDialog = ref(false);
+const showHealthDialog = ref(false);
+const rightDrawerTab = ref('notifications'); // 'notifications' | 'debug'
+
+const selectedHealthKpi = ref<{
+  title: string;
+  desc: string;
+  icon: string;
+  status: string;
+  color: string;
+  details?: string;
+} | null>(null);
+
+// État réactif pour stocker les couleurs actuelles du logo
+// Initialisé avec les couleurs par défaut
+const currentColors = reactive({
+  left: '#2A4B7C',
+  right: '#b08989',
+  mid: '#a6a5a5',
+});
+
+// --- COMPUTED ---
+
+const isHomePage = computed(() => route.path === '/');
+
+const themeIcon = computed(() => {
+  if (themePreference.value === 'auto') return 'brightness_auto';
+  return themePreference.value === 'dark' ? 'dark_mode' : 'light_mode';
+});
+
+// --- HEARTBEAT COMPUTED ---
+const apiStatus = computed(() => (socketStore.isConnected ? 'online' : 'offline'));
+const workerStatus = computed(() => (socketStore.isWorkerOnline ? 'online' : 'offline'));
+const storageStatus = computed(() => socketStore.storageStatus);
+
+const formattedLastUpdate = computed(() => {
+  if (!dashboardStore.lastUpdated) return '';
+  const now = Date.now();
+  const diff = now - dashboardStore.lastUpdated;
+  if (diff < 1000) return t('justNow');
+  if (diff < 60000) return Math.floor(diff / 1000) + 's ' + t('ago');
+  return date.formatDate(dashboardStore.lastUpdated, 'HH:mm:ss');
+});
+
+// --- FUNCTIONS ---
+function openHealthDetail(type: 'api' | 'worker' | 'storage' | 'lastUpdate') {
+  const config = {
+    api: {
+      title: t('systemHealth.apiTitle'),
+      desc: t('systemHealth.apiDescription'),
+      icon: 'api',
+      status: apiStatus.value,
+      color: apiStatus.value === 'online' ? 'positive' : 'negative',
+      details: apiStatus.value === 'online' ? t('systemHealth.apiOnline') : t('systemHealth.apiOffline'),
+    },
+    worker: {
+      title: t('systemHealth.workerTitle'),
+      desc: t('systemHealth.workerDescription'),
+      icon: 'engineering',
+      status: workerStatus.value,
+      color: workerStatus.value === 'online' ? 'positive' : 'negative',
+      details:
+        workerStatus.value === 'online'
+          ? t('systemHealth.workerOnline')
+          : t('systemHealth.workerOffline'),
+    },
+    storage: {
+      title: t('systemHealth.storageTitle'),
+      desc: t('systemHealth.storageDescription'),
+      icon: 'storage',
+      status: storageStatus.value,
+      color: storageStatus.value === 'online' ? 'positive' : 'negative',
+      details:
+        storageStatus.value === 'online'
+          ? t('systemHealth.storageOnline')
+          : t('systemHealth.storageOffline'),
+    },
+    lastUpdate: {
+      title: t('systemHealth.lastUpdateTitle'),
+      desc: t('systemHealth.lastUpdateDescription'),
+      icon: 'sync',
+      status: dashboardStore.isUpdating ? 'updating' : 'online',
+      color: 'info',
+      details: `${t('systemHealth.lastUpdate')}: ${formattedLastUpdate.value}`,
+    },
+  };
+  selectedHealthKpi.value = config[type];
+  showHealthDialog.value = true;
+}
 
 /**
  * Updates the application language and persists the choice to the backend.
@@ -377,23 +606,6 @@ async function setLanguage(lang: string) {
     console.error('Failed to persist language preference', err);
   }
 }
-
-// État réactif pour stocker les couleurs actuelles du logo
-// Initialisé avec les couleurs par défaut
-const currentColors = reactive({
-  left: '#2A4B7C',
-  right: '#E08E45',
-  mid: '#7D6868',
-});
-
-// --- COMPUTED ---
-
-const isHomePage = computed(() => route.path === '/');
-
-const themeIcon = computed(() => {
-  if (themePreference.value === 'auto') return 'brightness_auto';
-  return themePreference.value === 'dark' ? 'dark_mode' : 'light_mode';
-});
 
 // --- FUNCTIONS ---
 function toggleTheme() {
@@ -462,6 +674,8 @@ onMounted(() => {
       void notificationStore.fetchNotifications();
       // Ensure connectors are loaded to know the status
       void connectorStore.fetchAll(true);
+      // Fetch dashboard stats for toolbar KPIs
+      void dashboardStore.fetchStats();
     }
 
     window.addEventListener('doc-update', handleDocUpdate);
@@ -508,6 +722,10 @@ function handleDocUpdate(event: Event) {
     });
   }
 }
+
+defineOptions({
+  name: 'MainLayout',
+});
 </script>
 
 <style scoped>
@@ -544,6 +762,69 @@ function handleDocUpdate(event: Event) {
   border: 1px solid var(--q-fourth);
 }
 .status-badge {
+  background: var(--q-secondary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--q-third);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.status-badge:hover {
+  border-color: var(--q-sixth);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #666;
+  transition: all 0.3s ease;
+}
+
+.live-dot--grey {
+  background-color: #888;
+}
+
+.live-dot--active {
+  background-color: #00e676;
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.4);
+  animation: pulse-live 2s ease-in-out infinite;
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.visible-sm {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .hidden-sm {
+    display: none;
+  }
+  .visible-sm {
+    display: block;
+  }
+}
+
+@media (max-width: 1000px) {
+  .hidden-md {
+    display: none;
+  }
+}
+
+.user-status-dot {
   position: absolute;
   bottom: -2px;
   right: -2px;
@@ -552,9 +833,26 @@ function handleDocUpdate(event: Event) {
   border-radius: 50%;
   border: 2px solid var(--q-secondary); /* Match background */
 }
+.storage-badge {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--q-secondary); /* Match background */
+}
 .hover-white:hover {
   color: var(--q-text-main) !important;
   background-color: var(--q-hover-bg); /* Darker hover for buttons */
+}
+
+.vectra-brand-name {
+  font-size: 2.5em;
+  font-weight: 700;
+  color: var(--q-text-main);
+  letter-spacing: 0.5px;
+  padding-left: 4px;
 }
 
 .chat-header-portal {
@@ -568,5 +866,59 @@ function handleDocUpdate(event: Event) {
 
 .chat-header-portal > * {
   pointer-events: auto;
+}
+
+/* Premium Health Dialog Stylling */
+.premium-health-dialog {
+  min-width: 450px;
+  background: linear-gradient(145deg, var(--q-secondary) 0%, var(--q-secondary) 100%);
+  background-color: var(--q-secondary);
+  border: 1px solid var(--q-third);
+  border-radius: 24px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+
+  .glow-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 150px;
+    pointer-events: none;
+    opacity: 0.3;
+    transition: opacity 0.5s ease;
+
+    &--positive {
+      background: radial-gradient(circle at 50% 0%, #00e67640 0%, transparent 70%);
+    }
+    &--negative {
+      background: radial-gradient(circle at 50% 0%, #ff525240 0%, transparent 70%);
+    }
+    &--info {
+      background: radial-gradient(circle at 50% 0%, #2196f340 0%, transparent 70%);
+    }
+  }
+
+  .details-box {
+    background: var(--q-secondary);
+    border: 1px solid var(--q-third);
+    margin-top: 1rem;
+    
+    .font-mono {
+      font-family: 'Fira Code', 'Roboto Mono', monospace;
+      letter-spacing: -0.02em;
+    }
+  }
+}
+
+.visible-md {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  .visible-md {
+    display: block;
+  }
 }
 </style>

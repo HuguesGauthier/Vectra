@@ -23,6 +23,7 @@ export interface Assistant {
   instructions: string;
   model?: string;
   use_reranker?: boolean;
+  rerank_provider?: string;
 
   top_k_retrieval?: number;
   retrieval_similarity_cutoff?: number;
@@ -34,12 +35,14 @@ export interface Assistant {
   configuration?: AssistantConfig;
   is_enabled?: boolean;
   user_authentication?: boolean;
+  is_vectorized?: boolean;
+  model_provider?: string;
   created_at?: string;
   updated_at?: string;
   linked_connector_ids?: string[];
 
   // Full objects for relationship loading
-  linked_connectors?: { id: string; name: string }[];
+  linked_connectors?: { id: string; name: string; last_vectorized_at?: string }[];
 }
 
 export const assistantService = {
@@ -49,7 +52,7 @@ export const assistantService = {
   },
 
   async getById(id: string): Promise<Assistant> {
-    const response = await api.get(`${API_PATH}/${id}/`);
+    const response = await api.get(`${API_PATH}/${id}`);
     return response.data;
   },
 
@@ -90,5 +93,13 @@ export const assistantService = {
 
   getAvatarUrl(id: string): string {
     return `${api.defaults.baseURL}${API_PATH}/${id}/avatar`;
+  },
+
+  async getAvatarBlob(id: string): Promise<Blob> {
+    const response = await api.get(`${API_PATH}/${id}/avatar`, {
+      responseType: 'blob',
+      params: { t: Date.now() },
+    });
+    return response.data;
   },
 };

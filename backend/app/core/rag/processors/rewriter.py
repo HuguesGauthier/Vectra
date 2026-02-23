@@ -10,7 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class QueryRewriterProcessor(BaseProcessor):
+    """
+    Processor responsible for rewriting the user query based on chat history.
+    Uses LLM to generate a standalone question that captures conversational context.
+    """
+
     async def process(self, ctx: PipelineContext) -> AsyncGenerator[PipelineEvent, None]:
+
         # OPTIMIZATION: Skip rewriting if no meaningful history (saves ~4s per query)
         # Rewriting is only useful when there's conversational context
         if not ctx.chat_history or len(ctx.chat_history) < 3:

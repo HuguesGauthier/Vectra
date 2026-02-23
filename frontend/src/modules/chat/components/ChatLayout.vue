@@ -29,7 +29,9 @@
           <!-- Header Spacer -->
           <div style="height: 50px; min-height: 50px; flex-shrink: 0"></div>
 
-          <slot name="messages"></slot>
+          <div class="col column no-wrap relative-position" style="min-height: 0">
+            <slot name="messages"></slot>
+          </div>
 
           <slot name="input"></slot>
         </div>
@@ -50,7 +52,18 @@ defineProps<{
 .chat-container {
   width: 50vw;
   min-width: 350px;
-  border-radius: 20px;
+  border-radius: 24px;
   overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    var(--q-secondary) 0%,
+    rgba(var(--q-secondary-rgb), 0.9) 100%
+  ) !important;
+  border: 1px solid var(--q-third);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+:deep(.bg-primary) {
+  background: radial-gradient(circle at 50% 0%, var(--q-secondary) 0%, var(--q-primary) 100%) !important;
 }
 </style>

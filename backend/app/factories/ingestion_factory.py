@@ -6,7 +6,7 @@ Implements the Factory Pattern with thread-safe instance caching.
 
 import logging
 import threading
-from typing import Dict, Final, Type
+from typing import Dict, Final, List, Type
 
 from app.core.exceptions import ValidationError
 from app.factories.processors.archive_processor import ArchiveProcessor
@@ -16,8 +16,7 @@ from app.factories.processors.csv_processor import CsvProcessor
 from app.factories.processors.email_processor import EmailProcessor
 from app.factories.processors.image_processor import ImageProcessor
 from app.factories.processors.office_processor import OfficeProcessor
-from app.factories.processors.pdf_processor import \
-    PdfProcessor  # Hybrid with fallback
+from app.factories.processors.pdf_processor import PdfProcessor  # Hybrid with fallback
 from app.factories.processors.text_processor import TextProcessor
 
 logger = logging.getLogger(__name__)
@@ -184,7 +183,7 @@ class IngestionFactory:
             logger.info(f"Registered {processor_class.__name__} for extension: {ext}")
 
     @classmethod
-    def get_supported_extensions(cls) -> list[str]:
+    def get_supported_extensions(cls) -> List[str]:
         """
         Get list of all supported file extensions.
 

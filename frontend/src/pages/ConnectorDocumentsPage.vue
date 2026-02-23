@@ -1,15 +1,16 @@
 <template>
   <q-page class="bg-primary q-pa-md">
-    <!-- Header -->
-    <div class="row items-center justify-between q-pl-md q-pt-md q-mb-md">
-      <div class="row items-center">
-        <div>
-          <div class="text-h4 text-weight-bold">
-            {{ connector?.name || $t('loading') }}
-          </div>
-          <div class="text-subtitle1 q-pt-xs">{{ $t('manageDocuments') }}</div>
-        </div>
-      </div>
+    <!-- Back Button -->
+    <div class="row items-center q-mb-lg">
+      <q-btn
+        round
+        unelevated
+        color="accent"
+        icon="arrow_back"
+        @click="router.push({ name: 'Connectors' })"
+      >
+        <AppTooltip>{{ $t('back') }}</AppTooltip>
+      </q-btn>
     </div>
 
     <div class="column q-gutter-y-md">
@@ -194,6 +195,7 @@
           <q-card-section class="q-pt-none bg-primary">
             <DocumentFileForm
               v-model:data="newDocument"
+              :accept="connector?.connector_type === ConnectorType.LOCAL_FILE ? '.csv' : '*'"
               @save="onSaveDocumentConnector"
               @cancel="drawerOpen = false"
             />
@@ -206,7 +208,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { date, useQuasar, type QTableColumn } from 'quasar';
 
@@ -232,11 +234,12 @@ defineOptions({
 });
 
 const route = useRoute();
+const router = useRouter();
 
 const i18n = useI18n();
 const { t } = i18n;
 const $q = useQuasar();
-const { notifySuccess } = useNotification();
+const { notifySuccess, notifyBackendError } = useNotification();
 const { confirm } = useDialog();
 const connectorStore = useConnectorStore();
 const docStore = useConnectorDocumentStore();
@@ -337,6 +340,7 @@ onMounted(async () => {
   window.addEventListener('doc-update', handleDocUpdate as EventListener);
   window.addEventListener('doc-created', handleDocCreated as EventListener);
   window.addEventListener('doc-deleted', handleDocDeleted as EventListener);
+  window.addEventListener('keydown', handleKeydown);
 
   await loadConnector();
   await onRequest();
@@ -347,7 +351,14 @@ onUnmounted(() => {
   window.removeEventListener('doc-update', handleDocUpdate as EventListener);
   window.removeEventListener('doc-created', handleDocCreated as EventListener);
   window.removeEventListener('doc-deleted', handleDocDeleted as EventListener);
+  window.removeEventListener('keydown', handleKeydown);
 });
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && !drawerOpen.value) {
+    void router.push({ name: 'Connectors' });
+  }
+}
 
 // --- FUNCTIONS ---
 
@@ -459,21 +470,17 @@ async function onSaveDocumentConnector() {
     $q.loading.hide();
     const err = e as { response?: { data?: { code?: string } } };
 
-    // console.log('ConnectorDocumentsPage error:', err.response?.data);
-
     // Check for CSV validation errors and reset the form
     if (
       err.response?.data?.code === 'csv_id_column_missing' ||
       err.response?.data?.code === 'csv_id_column_not_unique'
     ) {
-      // console.log('Resetting newDocument due to CSV validation error');
       // Reset the document form to allow user to upload a corrected file
       newDocument.value = { configuration: {} };
-      // Error will be displayed by global interceptor
       return;
     }
 
-    // console.error(e);
+    notifyBackendError(e, t('failedToSaveDocument', 'Failed to save document'));
   }
 }
 
@@ -607,7 +614,6 @@ function handleDocProgress(event: Event) {
 
 function handleDocUpdate(event: Event) {
   const customEvent = event as CustomEvent;
-  console.log('[DEBUG] handleDocUpdate', customEvent.detail);
   const {
     id,
     status,

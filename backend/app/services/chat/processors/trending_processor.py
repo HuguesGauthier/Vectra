@@ -20,16 +20,13 @@ from uuid import UUID
 from app.models.usage_stat import UsageStat
 from app.repositories.topic_repository import TopicRepository
 from app.repositories.usage_repository import UsageRepository
-from app.services.chat.processors.base_chat_processor import (
-    BaseChatProcessor, ChatProcessorError)
+from app.services.chat.processors.base_chat_processor import BaseChatProcessor, ChatProcessorError
+
 # Framework / Core
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter
-# Repositories & Services
-# Note: Lazy loading inside method is acceptable if circular imports are a risk,
-# but for Type Checking we prefer top-level.
-# We assume standard architecture here.
+from app.services.chat.utils import EventFormatter, resolve_embedding_provider
 from app.services.trending_service import TrendingService
+from app.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +69,10 @@ class TrendingProcessor(BaseChatProcessor):
                 yield event
         else:
             # Still emit the step event for UI consistency, but mark as completed immediately
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, ctx.language)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=0)
+            sid = ctx.metrics.start_span(PipelineStepType.TRENDING)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, sid)
+            ctx.metrics.end_span(sid)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=0)
 
         # 2. Administrative Statistics (Always Run)
         await self._persist_usage_statistics_safe(ctx)
@@ -95,7 +94,8 @@ class TrendingProcessor(BaseChatProcessor):
 
     async def _execute_trending_safe(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
         """Executes trending logic with Circuit Breaker pattern."""
-        yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, ctx.language)
+        sid = ctx.metrics.start_span(PipelineStepType.TRENDING)
+        yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.RUNNING, sid)
         start_time = time.time()
 
         try:
@@ -109,22 +109,16 @@ class TrendingProcessor(BaseChatProcessor):
                 settings_service=ctx.settings_service,
             )
 
+            # P1: Resolve Provider from Connector (NOT global setting!)
+            # The embedding provider must match the one used to generate the embedding
             embedding = ctx.question_embedding or ctx.captured_source_embedding
             if not embedding:
                 raise ValueError("Embedding lost consistency check.")
 
-            # P1: Resolve Provider from Connector (NOT global setting!)
-            # The embedding provider must match the one used to generate the embedding
-            provider = None
-            if hasattr(ctx.assistant, "linked_connectors") and ctx.assistant.linked_connectors:
-                for conn in ctx.assistant.linked_connectors:
-                    if hasattr(conn, "configuration") and conn.configuration:
-                        provider = conn.configuration.get("ai_provider")
-                        if provider:
-                            break
-
-            # Fallback to gemini if no connector provider found (shouldn't happen)
-            provider = (provider or "gemini").lower().strip()
+            # FIX: Resolve actual EMBEDDING provider from settings OR connector configuration
+            # Priority: Connector Config > Global Settings > Default
+            # This matches AgenticProcessor._compute_background_embedding logic
+            embedding_provider = await resolve_embedding_provider(ctx)
 
             # P0: Async Timeout Protection (DoS Prevention)
             await asyncio.wait_for(
@@ -132,24 +126,45 @@ class TrendingProcessor(BaseChatProcessor):
                     question=ctx.message,
                     assistant_id=ctx.assistant.id,
                     embedding=embedding,
-                    embedding_provider=provider,
+                    embedding_provider=embedding_provider,
                 ),
                 timeout=TIMEOUT_TRENDING_ANALYSIS,
             )
 
             dur = round(time.time() - start_time, 3)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=dur)
+            ctx.metrics.end_span(sid)
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=dur)
 
         except asyncio.TimeoutError:
             logger.error(f"Trending Analysis timed out after {TIMEOUT_TRENDING_ANALYSIS}s")
             # Graceful degrade
+
+            sid = locals().get("sid", "trend_fail")
+            if "sid" in locals() and ctx.metrics:
+                ctx.metrics.end_span(sid)
+
             yield EventFormatter.format(
-                PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=TIMEOUT_TRENDING_ANALYSIS
+                PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=TIMEOUT_TRENDING_ANALYSIS
             )
 
         except Exception as e:
             logger.error(f"Trending logic failed: {e}", exc_info=True)
-            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, ctx.language, duration=0)
+            self._record_metrics(ctx, 0.0)
+
+            sid = locals().get("sid", "trend_fail")
+            if "sid" in locals() and ctx.metrics:
+                ctx.metrics.end_span(sid)
+
+            yield EventFormatter.format(PipelineStepType.TRENDING, StepStatus.COMPLETED, sid, duration=0)
+
+    def _record_metrics(self, ctx: ChatContext, duration: float):
+        """Records telemetry for consistent pipeline display."""
+        if ctx.metrics:
+            ctx.metrics.record_completed_step(
+                step_type=PipelineStepType.TRENDING,
+                label="Analytics",
+                duration=duration,
+            )
 
     # --- Domain Logic: Analytics ---
 
@@ -162,18 +177,25 @@ class TrendingProcessor(BaseChatProcessor):
             repo = UsageRepository(ctx.db)
 
             # Defensive Data Extraction
-            stat_data = self._extract_usage_data(ctx)
+            stat_data = await self._extract_usage_data(ctx)
 
             # P1: Transaction Atomicity handled by Repository usually,
             # or manual commit here if Repo is just DAO.
             # Assuming UsageRepository.create returns the model but needs commit if scoped session.
             # We'll assume standard Repo adds to session.
 
-            # NOTE: UsageRepository might not accept Pydantic or Dict, let's verify signature.
-            # As I cannot see UsageRepository code, I will use the safest approach: Model instantiation + Repo add.
-            # BUT instructions say DB access logic in Repo.
-            # Use Repo if method exists, else fallback to standard Add.
-            # I will blindly assume a `create` or `add` method exists or I use generic `add`.
+            # Calculate Cost (New Logic)
+            pricing_service = PricingService(ctx.settings_service)
+            cost = pricing_service.calculate_cost(
+                provider=stat_data.get("provider"),
+                model_name=stat_data.get("model"),
+                input_tokens=stat_data.get("input_tokens", 0),
+                output_tokens=stat_data.get("output_tokens", 0),
+                is_cached=stat_data.get("is_cached", False),
+            )
+
+            # Enrich Data
+            stat_data["cost"] = cost
 
             usage_stat = UsageStat(**stat_data)
             ctx.db.add(usage_stat)
@@ -185,20 +207,72 @@ class TrendingProcessor(BaseChatProcessor):
             logger.error(f"Usage Persistence Failed: {e}", exc_info=True)
             await ctx.db.rollback()
 
-    def _extract_usage_data(self, ctx: ChatContext) -> dict:
+    async def _extract_usage_data(self, ctx: ChatContext) -> dict:
         """Pure function to extract and validate metric data."""
-        return {
+        provider = self._resolve_provider(ctx)
+
+        # Resolve the actual model name from settings (e.g. "gemini-2.0-flash")
+        # instead of the enum value (e.g. "gemini") so that pricing lookup works.
+        model_key = f"{provider}_chat_model"
+        actual_model = await ctx.settings_service.get_value(model_key)
+        if not actual_model:
+            actual_model = str(ctx.assistant.model)
+
+        # 1. Check for Cache Hit
+        cache_step = ctx.metrics.get_summary().get("step_breakdown", [])
+        cache_hit = any(s.get("step_type") == "cache_lookup" and s.get("metadata", {}).get("hit") for s in cache_step)
+
+        # 2. Extract Document IDs and Reranking Impact
+        # We look into the step payloads
+        retrieved_doc_ids = []
+        reranking_impact = 0.0
+
+        for step in cache_step:
+            if step.get("step_type") == "retrieval":
+                retrieved_doc_ids = step.get("metadata", {}).get("retrieved_document_ids", [])
+            elif step.get("step_type") == "reranking":
+                reranking_impact = step.get("metadata", {}).get("reranking_impact", 0.0)
+
+        # 3. Enrich breakdown with analytics metadata
+        step_breakdown = ctx.metrics.get(METRIC_STEP_BREAKDOWN) or {}
+        if retrieved_doc_ids:
+            step_breakdown["retrieved_document_ids"] = retrieved_doc_ids
+        if reranking_impact:
+            step_breakdown["reranking_impact"] = reranking_impact
+
+        data = {
             "assistant_id": ctx.assistant.id,
             "session_id": ctx.session_id,
             "user_id": self._parse_uuid(ctx.user_id),
-            "model": ctx.assistant.model,
+            "model": actual_model,
             "total_duration": self._get_total_duration(ctx),
             "ttft": ctx.metrics.get(METRIC_TTFT),
             "input_tokens": ctx.metrics.get(METRIC_INPUT_TOKENS, 0),
             "output_tokens": ctx.metrics.get(METRIC_OUTPUT_TOKENS, 0),
-            "step_duration_breakdown": ctx.metrics.get(METRIC_STEP_BREAKDOWN),
+            "step_duration_breakdown": step_breakdown,
             "step_token_breakdown": ctx.metrics.get(METRIC_TOKEN_BREAKDOWN),
+            "provider": provider,
+            "is_cached": cache_hit,
+            "message_id": None,
         }
+
+        # Link to message if possible
+        if ctx.assistant_message_id:
+            try:
+                data["message_id"] = UUID(str(ctx.assistant_message_id))
+            except Exception:
+                pass
+
+        return data
+
+    def _resolve_provider(self, ctx: ChatContext) -> str:
+        """Helper to resolve the AI provider used."""
+        # 1. Try to get from Assistant defaults
+        provider = ctx.assistant.model_provider
+
+        # 2. If it's a specific setup (e.g. connectors override), allow logic here
+        # For now, assistant.model_provider is the source of truth for the Chat LLM
+        return provider or "ollama"
 
     def _get_total_duration(self, ctx: ChatContext) -> float:
         """Calculates trustworthy total duration."""

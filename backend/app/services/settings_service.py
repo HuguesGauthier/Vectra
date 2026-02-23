@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional, Set
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,21 +36,34 @@ class SettingsService:
         "ai_temperature": "0.2",
         "ai_top_k": "5",
         "app_language": "fr",
-        "gen_ai_provider": "gemini",
-        "gemini_chat_model": "gemini-1.5-flash-latest",
-        "openai_chat_model": "gpt-4-turbo",
+        "mistral_chat_model": "mistral-large-latest",
+        "mistral_temperature": "0.7",
+        "mistral_top_k": "50",
+        "ollama_base_url": "",
+        "ollama_chat_model": "mistral",
+        "ollama_embedding_model": "bge-m3",
+        "ollama_temperature": "0.7",
+        "ollama_top_k": "40",
         "ui_dark_mode": "auto",
-        "embedding_provider": "gemini",
+        "embedding_provider": "ollama",
         "gemini_api_key": "",
         "gemini_embedding_model": "models/text-embedding-004",
         "gemini_transcription_model": "gemini-1.5-flash-latest",
         "gemini_extraction_model": "gemini-1.5-flash-latest",
+        "gemini_temperature": "0.7",
+        "gemini_top_k": "40",
         "openai_api_key": "",
         "openai_embedding_model": "text-embedding-3-small",
-        "local_embedding_url": "http://localhost:11434",
+        "openai_chat_model": "gpt-4-turbo",
+        "openai_temperature": "0.7",
+        "openai_top_k": "0",  # OpenAI doesn't use top_k, but keep for consistency
         "local_embedding_model": "nomic-embed-text",
+        "local_extraction_model": "mistral",
+        "local_extraction_url": "",
         "analytics_cost_per_1k_tokens": "0.0001",
         "analytics_minutes_saved_per_doc": "5.0",
+        "rerank_provider": "cohere",
+        "local_rerank_model": "BAAI/bge-reranker-base",
     }
 
     def __init__(self, db: Optional[AsyncSession] = None):
@@ -108,7 +121,7 @@ class SettingsService:
         value = self.__class__._cache.get(key)
 
         # 3. Fallback to Environment Variable
-        if value is None or value == "":
+        if value is None:
             value = self._get_env_fallback(key)
 
         # 4. Fallback to Hardcoded Default
@@ -123,8 +136,19 @@ class SettingsService:
         env_map = {
             "gemini_api_key": env_settings.GEMINI_API_KEY,
             "openai_api_key": env_settings.OPENAI_API_KEY,
+            "cohere_api_key": env_settings.COHERE_API_KEY,
+            "mistral_api_key": env_settings.MISTRAL_API_KEY,
             "embedding_provider": env_settings.EMBEDDING_PROVIDER,
             "gemini_transcription_model": env_settings.GEMINI_TRANSCRIPTION_MODEL,
+            "gemini_chat_model": env_settings.GEMINI_CHAT_MODEL,
+            "gemini_embedding_model": env_settings.GEMINI_EMBEDDING_MODEL,
+            "ollama_base_url": env_settings.OLLAMA_BASE_URL,
+            "ollama_embedding_model": env_settings.OLLAMA_EMBEDDING_MODEL,
+            "local_extraction_model": env_settings.LOCAL_EXTRACTION_MODEL,
+            "local_extraction_url": env_settings.LOCAL_EXTRACTION_URL,
+            "qdrant_api_key": env_settings.QDRANT_API_KEY,
+            "rerank_provider": env_settings.RERANKER_PROVIDER,
+            "local_rerank_model": env_settings.LOCAL_RERANK_MODEL,
         }
         return env_map.get(key)
 
@@ -132,7 +156,11 @@ class SettingsService:
         """
         Atomic update of a setting and its corresponding cache.
         """
+        if self.repository is None:
+            raise TechnicalError("Cannot update setting without database session.")
+
         log_val = "********" if is_secret else value
+        print(f"DEBUG: update_setting called for {key} with value='{value}'")
         logger.info(f"Updating setting: {key}={log_val}")
 
         try:
@@ -165,13 +193,77 @@ class SettingsService:
 
         except Exception as e:
             logger.error(f"Failed to update setting {key}: {e}", exc_info=True)
-            raise TechnicalError(f"Database error updating setting: {e}")
+            raise TechnicalError(f"Database error updating setting: {key}")
+
+    async def update_settings_batch(self, updates: List[Dict[str, Any]]) -> List[Setting]:
+        """
+        Batch update settings in a single transaction.
+        Updates internal cache after successful commit.
+        """
+        if self.db is None or self.repository is None:
+            raise TechnicalError("Database session required for batch update.")
+
+        updated_settings = []
+        try:
+            for upd_data in updates:
+                key = upd_data["key"]
+                value = upd_data.get("value")
+                print(f"DEBUG BATCH: key={key}, value={value}")
+                group = upd_data.get("group", "general")
+                is_secret = upd_data.get("is_secret", False)
+
+                # Fetch current
+                setting = await self.repository.get_by_key(key)
+
+                if not setting:
+                    # Create new (handle None as empty string)
+                    val_to_save = value if value is not None else ""
+                    setting = await self.repository.create(
+                        {"key": key, "value": val_to_save, "group": group, "is_secret": is_secret}
+                    )
+                else:
+                    # Protection against overwriting with masked placeholder
+                    if is_secret and value == "********":
+                        updated_settings.append(setting)
+                        continue
+
+                    # Update ORM object
+                    # FIX: Allow clearing setting if value is explicitly None (from frontend)
+                    if "value" in upd_data:
+                        setting.value = value if value is not None else ""
+
+                    if "group" in upd_data:
+                        setting.group = upd_data["group"]
+                    if "is_secret" in upd_data:
+                        setting.is_secret = upd_data["is_secret"]
+
+                    self.db.add(setting)
+
+                updated_settings.append(setting)
+
+            await self.db.commit()
+
+            # Refresh and Update Cache
+            async with self.__class__._cache_lock:
+                for s in updated_settings:
+                    await self.db.refresh(s)
+                    self.__class__._cache[s.key] = s.value
+
+            return updated_settings
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Batch update failed: {e}", exc_info=True)
+            raise TechnicalError(f"Failed to update settings batch: {e}")
 
     async def seed_defaults(self) -> None:
         """
         Seeds missing default settings using optimized batching.
         Fixes P1: N+1 Seeding pattern.
         """
+        if self.repository is None or self.db is None:
+            raise TechnicalError("Cannot seed settings without database session.")
+
         try:
             existing_keys = await self.repository.get_all_keys()
 
@@ -204,6 +296,8 @@ class SettingsService:
 
     async def get_all_settings(self) -> List[Setting]:
         """Proxy to repository for list display."""
+        if self.repository is None:
+            return []
         return await self.repository.get_all(limit=1000)
 
 

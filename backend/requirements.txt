@@ -41,13 +41,14 @@ llama-index-storage-chat-store-postgres==0.3.2
 # LlamaIndex LLMs
 llama-index-llms-google-genai==0.8.3
 llama-index-llms-mistralai
+llama-index-llms-anthropic
 llama-index-llms-ollama
 llama-index-llms-openai-like
 
 # LlamaIndex Embeddings
-llama-index-embeddings-gemini==0.4.1
-llama-index-embeddings-openai==0.5.1
-llama-index-embeddings-huggingface==0.6.1
+llama-index-embeddings-google-genai
+llama-index-embeddings-openai
+llama-index-embeddings-ollama
 
 # LlamaIndex Readers
 llama-index-readers-file==0.5.5
@@ -103,12 +104,3 @@ pytest-mock==3.15.1
 pytest-cov==7.0.0
 httpx==0.28.1
 
-# ============================================================================
-# Observability
-# ============================================================================
-arize-phoenix
-llama-index-callbacks-arize-phoenix
-openinference-instrumentation-llama-index
-opentelemetry-api
-opentelemetry-sdk
-opentelemetry-exporter-otlp

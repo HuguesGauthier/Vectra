@@ -11,14 +11,16 @@ from enum import StrEnum
 from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, computed_field
 from sqlmodel import SQLModel
 
 # --- Enums ---
 
 
 class AIModel(StrEnum):
-    GEMINI = "gemini"  # Legacy alias
+    GEMINI = "gemini"
+    GPT_4O = "gpt-4o"
+    GPT_4O_MINI = "gpt-4o-mini"
     OPENAI = "openai"
     MISTRAL = "mistral"
     OLLAMA = "ollama"
@@ -26,7 +28,7 @@ class AIModel(StrEnum):
 
 # --- Configuration Constants ---
 DEFAULT_INSTRUCTIONS = "You are a helpful assistant."
-DEFAULT_MODEL = AIModel.GEMINI
+DEFAULT_MODEL = AIModel.OLLAMA
 DEFAULT_AVATAR_COLOR = "primary"
 DEFAULT_AVATAR_TEXT_COLOR = "white"
 DEFAULT_TOP_K = 25
@@ -62,7 +64,7 @@ class AssistantBase(SQLModel):
     name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = Field(default=None, max_length=1000)
     avatar_bg_color: str = Field(default=DEFAULT_AVATAR_COLOR, max_length=50)
-    avatar_text_color: str = Field(default=DEFAULT_AVATAR_TEXT_COLOR, max_length=50)
+    avatar_text_color: Optional[str] = Field(default=None, max_length=50)
     avatar_image: Optional[str] = Field(default=None, max_length=255)
     avatar_vertical_position: int = Field(default=50, ge=0, le=100)
 
@@ -70,6 +72,7 @@ class AssistantBase(SQLModel):
     model: AIModel = Field(default=DEFAULT_MODEL)
 
     use_reranker: bool = Field(default=False)
+    rerank_provider: str = Field(default="cohere")
 
     top_k_retrieval: int = Field(default=DEFAULT_TOP_K, ge=MIN_TOP_K, le=MAX_TOP_K)
     top_n_rerank: int = Field(default=DEFAULT_TOP_N, ge=MIN_TOP_N, le=MAX_TOP_N)
@@ -89,6 +92,7 @@ class AssistantBase(SQLModel):
     configuration: AssistantConfig = Field(default_factory=AssistantConfig)
     is_enabled: bool = Field(default=True)
 
+    @computed_field
     @property
     def model_provider(self) -> str:
         """Derive provider from model enum."""
@@ -136,6 +140,7 @@ class AssistantUpdate(SQLModel):
     instructions: Optional[str] = Field(None, min_length=1)
     model: Optional[AIModel] = None
     use_reranker: Optional[bool] = None
+    rerank_provider: Optional[str] = None
     top_k_retrieval: Optional[int] = Field(None, ge=MIN_TOP_K, le=MAX_TOP_K)
     top_n_rerank: Optional[int] = Field(None, ge=MIN_TOP_N, le=MAX_TOP_N)
     retrieval_similarity_cutoff: Optional[float] = Field(None, ge=0.0, le=1.0)
@@ -168,12 +173,23 @@ class ConnectorRef(SQLModel):
 
     id: UUID
     name: str
+    last_vectorized_at: Optional[datetime] = None
 
 
 class AssistantResponse(AssistantBase):
     """Schema for Responses."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
     updated_at: datetime
     linked_connectors: List[ConnectorRef] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def is_vectorized(self) -> bool:
+        """Check if all connectors are vectorized."""
+        if not self.linked_connectors:
+            return True
+        return all(c.last_vectorized_at is not None for c in self.linked_connectors)

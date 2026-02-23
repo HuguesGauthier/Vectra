@@ -7,13 +7,10 @@ from uuid import UUID
 from fastapi import Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
 
-from app.core.connection_manager import manager
+from app.core.websocket import manager
 from app.core.database import get_db
-from app.core.exceptions import (ConfigurationError, EntityNotFound,
-                                 FileSystemError)
+from app.core.exceptions import ConfigurationError, EntityNotFound, FileSystemError
 from app.core.interfaces.base_connector import get_full_path_from_connector
 from app.core.time import SystemClock, TimeProvider
 from app.factories.connector_factory import ConnectorFactory
@@ -21,14 +18,12 @@ from app.models.enums import ConnectorStatus, DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.vector_repository import VectorRepository
-from app.services.connector_state_service import (ConnectorStateService,
-                                                  get_connector_state_service)
+from app.schemas.enums import ConnectorType
+from app.services.connector_state_service import ConnectorStateService, get_connector_state_service
 from app.services.ingestion.ingestion_orchestrator import IngestionOrchestrator
-from app.services.schema_discovery_service import (
-    SchemaDiscoveryService, get_schema_discovery_service)
+from app.services.schema_discovery_service import SchemaDiscoveryService, get_schema_discovery_service
 from app.services.settings_service import SettingsService, get_settings_service
-from app.services.sql_discovery_service import (SQLDiscoveryService,
-                                                get_sql_discovery_service)
+from app.services.sql_discovery_service import SQLDiscoveryService, get_sql_discovery_service
 from app.services.vector_service import VectorService, get_vector_service
 
 # ============================================================================
@@ -192,11 +187,7 @@ class IngestionService:
             orchestrator = await self._get_or_create_orchestrator()
 
             # SQL SPECIALIZED PATH (includes Vanna SQL)
-            from app.schemas.enums import ConnectorType
-
-            if connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL] or (
-                isinstance(connector.connector_type, str) and connector.connector_type in ["sql", "vanna_sql"]
-            ):
+            if self._is_sql_connector(connector):
                 await self.state_service.update_connector_status(connector.id, ConnectorStatus.VECTORIZING)
                 try:
                     await self.db.begin_nested()
@@ -208,6 +199,8 @@ class IngestionService:
 
                 # Finalize
                 await self.state_service.finalize_connector(connector.id)
+                # Ensure UI is updated for the document specifically
+                await self.state_service.update_document_status(doc.id, DocStatus.INDEXED, "Schema Vectorized")
                 elapsed_ms = round((asyncio.get_event_loop().time() - start_time) * 1000, 2)
                 logger.info(f"SUCCESS | SQL View {document_id} | {elapsed_ms}ms")
                 return
@@ -240,12 +233,13 @@ class IngestionService:
 
             # Ingest with transaction boundary
             connector_acl = connector.configuration.get("connector_acl", [])
+            doc_id = doc.id
 
             try:
                 await self.db.begin_nested()  # Savepoint
 
                 if doc.file_path.lower().endswith(".csv"):
-                    await orchestrator.ingest_csv_document(doc.id)
+                    await orchestrator.ingest_csv_document(doc_id)
                 else:
                     await orchestrator.ingest_files(
                         file_paths=[(full_path, doc.file_path)],
@@ -268,11 +262,13 @@ class IngestionService:
             except Exception as e:
                 await self.db.rollback()
                 # Cleanup orphaned vectors
-                await self.delete_document_vectors(doc.id)
+                await self.delete_document_vectors(doc_id)
                 raise
 
             # Finalize
             await self.state_service.finalize_connector(connector.id)
+            # FORCE EMIT of Indexed status after commit to clear UI progress bars
+            await self.state_service.update_document_status(doc_id, DocStatus.INDEXED, "Indexing Complete")
             elapsed_ms = round((asyncio.get_event_loop().time() - start_time) * 1000, 2)
             logger.info(f"SUCCESS | Document {document_id} | {elapsed_ms}ms")
 
@@ -328,12 +324,10 @@ class IngestionService:
             # P0 FIX: Detect File Bucket Connectors
             # For local_file connectors used as buckets (no file_path in config),
             # skip Factory and directly vectorize existing documents from DB
-            from app.schemas.enums import ConnectorType
-
             is_file_bucket = connector.connector_type == ConnectorType.LOCAL_FILE and not connector.configuration.get(
                 "file_path"
             )
-            is_sql = connector.connector_type in [ConnectorType.SQL, ConnectorType.VANNA_SQL]
+            is_sql = self._is_sql_connector(connector)
 
             if is_file_bucket or is_sql:
                 mode_name = "SQL MODE" if is_sql else "BUCKET MODE"
@@ -414,7 +408,7 @@ class IngestionService:
 
     async def _get_or_create_orchestrator(self) -> IngestionOrchestrator:
         if self._orchestrator is None:
-            client = self.vector_service.get_async_qdrant_client()
+            client = await self.vector_service.get_async_qdrant_client()
             vector_repo = VectorRepository(client)
             self._orchestrator = IngestionOrchestrator(
                 self.db,
@@ -445,6 +439,16 @@ class IngestionService:
                 await self.state_service.update_connector_status(connector_id, ConnectorStatus.IDLE)
         except Exception as e:
             logger.warning(f"CLEANUP_FAILED | {connector_id}: {e}")
+
+    def _is_sql_connector(self, connector) -> bool:
+        """Centralized check for SQL/Vanna SQL connector types."""
+        conn_type = str(connector.connector_type).lower().strip()
+        return conn_type in [
+            ConnectorType.SQL.value,
+            ConnectorType.VANNA_SQL.value,
+            "sql",
+            "vanna_sql",
+        ]
 
 
 # ============================================================================

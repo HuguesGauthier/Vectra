@@ -3,9 +3,8 @@ Token Schemas - Pydantic definitions for Authentication.
 """
 
 from typing import Literal, Optional
-from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class Token(BaseModel):
@@ -29,10 +28,6 @@ class TokenPayload(BaseModel):
     - type: 'access' or 'refresh'
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
     sub: Optional[str] = Field(None, description="Subject (User ID)")
     exp: Optional[int] = Field(None, description="Expiration Timestamp")
     type: str = Field(default="access", description="Token usage scope")
-
-    # Custom claims logic can serve here for validation if needed

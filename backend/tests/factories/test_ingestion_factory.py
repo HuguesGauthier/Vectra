@@ -87,13 +87,33 @@ class TestIngestionFactoryValidation:
         IngestionFactory.reset_dynamic_registry()
         yield
 
-    def test_get_processor_success(self):
-        """Valid extension should return correct processor."""
-        processor = IngestionFactory.get_processor("csv")
-        assert processor is not None
-        from app.factories.processors.csv_processor import CsvProcessor
+    def test_get_processor_success_categories(self):
+        """Verify key file categories return correct processor types."""
+        # PDF Category
+        from app.factories.processors.pdf_processor import PdfProcessor
 
-        assert isinstance(processor, CsvProcessor)
+        assert isinstance(IngestionFactory.get_processor("pdf"), PdfProcessor)
+
+        # Office Category
+        from app.factories.processors.office_processor import OfficeProcessor
+
+        assert isinstance(IngestionFactory.get_processor("docx"), OfficeProcessor)
+        assert isinstance(IngestionFactory.get_processor("xlsx"), OfficeProcessor)
+
+        # Image Category
+        from app.factories.processors.image_processor import ImageProcessor
+
+        assert isinstance(IngestionFactory.get_processor("png"), ImageProcessor)
+
+        # Audio Category
+        from app.factories.processors.audio_processor import AudioProcessor
+
+        assert isinstance(IngestionFactory.get_processor("mp3"), AudioProcessor)
+
+        # Text Category
+        from app.factories.processors.text_processor import TextProcessor
+
+        assert isinstance(IngestionFactory.get_processor("md"), TextProcessor)
 
     def test_get_processor_empty_extension_fails(self):
         """Empty extension should raise ValidationError."""
@@ -182,15 +202,16 @@ class TestIngestionFactoryValidation:
                 return []
 
             def get_supported_extensions(self) -> list[str]:
-                return ["xlsx"]
+                return ["custom_ext"]
 
         # Before registration
         extensions_before = IngestionFactory.get_supported_extensions()
         assert "csv" in extensions_before
         assert "pdf" in extensions_before
+        assert "custom_ext" not in extensions_before
 
         # After registration
-        IngestionFactory.register_processor("xlsx", CustomProcessor)
+        IngestionFactory.register_processor("custom_ext", CustomProcessor)
         extensions_after = IngestionFactory.get_supported_extensions()
-        assert "xlsx" in extensions_after
+        assert "custom_ext" in extensions_after
         assert "csv" in extensions_after

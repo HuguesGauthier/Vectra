@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 
 from app.core.exceptions import TechnicalError
-from app.models.topic_stat import TopicStatResponse
+from app.schemas.topic_stat import TopicStatResponse
 from app.services.trending_service import TrendingService, get_trending_service
 
 router = APIRouter()

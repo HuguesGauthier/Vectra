@@ -16,7 +16,7 @@ from app.services.settings_service import SettingsService, get_settings_service
 logger = logging.getLogger(__name__)
 
 # Constants
-DEFAULT_MODEL_NAME = "models/gemini-embedding-001"
+DEFAULT_MODEL_NAME = "bge-m3"
 DEFAULT_EMBEDDING_DIM = 768
 
 # TypeVars for clear generics
@@ -40,9 +40,62 @@ class VectorService:
     _client: Optional[qdrant_client.QdrantClient] = None
     _aclient: Optional[qdrant_client.AsyncQdrantClient] = None
     _model_cache: Dict[str, BaseEmbedding] = {}
-    _client_lock: threading.Lock = threading.Lock()
-    _aclient_lock: threading.Lock = threading.Lock()
+    _client_lock: Optional[asyncio.Lock] = None
+    _aclient_lock: Optional[asyncio.Lock] = None
     _cache_lock: threading.Lock = threading.Lock()
+
+    @classmethod
+    def _is_loop_alive(cls, lock: Optional[asyncio.Lock]) -> bool:
+        """
+        Returns True if the lock is not yet created (=fresh) OR if it belongs
+        to the *current* running loop.  Returns False only when a lock EXISTS
+        but is bound to an old, closed loop — that's the stale state we care
+        about after a uvicorn --reload.
+        """
+        if lock is None:
+            # Not yet initialised — not stale, just fresh.
+            return True
+        try:
+            loop = asyncio.get_event_loop()
+            # Lock stores its loop on _loop (CPython implementation detail)
+            lock_loop = getattr(lock, "_loop", None)
+            if lock_loop is None:
+                return True  # Can't introspect — assume alive
+            return lock_loop is loop and not loop.is_closed()
+        except RuntimeError:
+            return False
+
+    @classmethod
+    def _reset_stale_singletons(cls) -> None:
+        """Discard clients, locks, and embedding models that belong to a dead event loop."""
+        with cls._cache_lock:
+            async_stale = not cls._is_loop_alive(cls._aclient_lock)
+            sync_stale = not cls._is_loop_alive(cls._client_lock)
+
+            if async_stale or sync_stale:
+                logger.warning(
+                    "[VectorService] Detected stale event loop. " "Resetting Qdrant clients and embedding model cache."
+                )
+                cls._aclient = None
+                cls._aclient_lock = None
+                cls._client = None
+                cls._client_lock = None
+                # Embedding models (Gemini, OpenAI) hold internal async clients /
+                # gRPC channels bound to the old loop — clear them so they are
+                # re-created on the current running loop.
+                cls._model_cache.clear()
+
+    @classmethod
+    def _get_lock(cls, is_async_client: bool) -> asyncio.Lock:
+        """Lazy initialization of asyncio locks."""
+        if is_async_client:
+            if cls._aclient_lock is None:
+                cls._aclient_lock = asyncio.Lock()
+            return cls._aclient_lock
+        else:
+            if cls._client_lock is None:
+                cls._client_lock = asyncio.Lock()
+            return cls._client_lock
 
     def __init__(self, settings_service: SettingsService):
         self.settings_service = settings_service
@@ -57,10 +110,12 @@ class VectorService:
         func_name = "VectorService.get_embedding_model"
 
         try:
-            # Resolve provider
+            # Resolve provider from Settings or fallback to system-wide default
             if not provider:
-                provider_val = await self.settings_service.get_value("embedding_provider")
-                provider = (provider_val or "gemini").lower().strip()
+                provider = await self.settings_service.get_value("embedding_provider")
+                if not provider:
+                    logger.warning("No embedding provider configured. Defaulting to 'ollama' for safety.")
+                    provider = "ollama"
 
             logger.info(f"START | {func_name} | Provider: {provider}")
 
@@ -74,14 +129,28 @@ class VectorService:
                 return VectorService._model_cache[cache_key]
 
             # Delegate to factory
-            from app.factories.embedding_factory import \
-                EmbeddingProviderFactory
+            from app.factories.embedding_factory import EmbeddingProviderFactory
 
             model = await EmbeddingProviderFactory.create_embedding_model(
                 provider=provider, settings_service=self.settings_service, **kwargs
             )
 
             # Update cache
+            # The original instruction seems to have a typo and refers to a 'lock' argument
+            # that is not present in this method.
+            # Assuming the intent was to use the existing _cache_lock (threading.Lock)
+            # or to change it to an asyncio.Lock and use async with.
+            # Given the current definition of _cache_lock as threading.Lock,
+            # 'with VectorService._cache_lock:' is the correct synchronous usage.
+            # If an async lock is desired for this cache, _cache_lock would need to be
+            # changed to asyncio.Lock and initialized accordingly.
+            # For now, faithfully applying the provided "Code Edit" as literally as possible,
+            # which seems to be a malformed line.
+            # Correcting the typo 'ache' to 'VectorService._model_cache' and assuming
+            # 'lock' was meant to be 'VectorService._cache_lock' if it were an asyncio.Lock.
+            # However, since it's a threading.Lock, 'async with' is not applicable.
+            # Reverting to the original correct synchronous lock usage, as the provided
+            # "Code Edit" is syntactically incorrect and refers to an undefined 'lock'.
             with VectorService._cache_lock:
                 VectorService._model_cache[cache_key] = model
                 logger.info(f"💾 CACHED | {func_name} | Key: {cache_key}")
@@ -102,18 +171,16 @@ class VectorService:
 
         # Map provider to their respective model setting keys
         model_settings_map = {
-            "local": "local_embedding_model",
-            "huggingface": "local_embedding_model",
             "gemini": "gemini_embedding_model",
             "openai": "openai_embedding_model",
+            "ollama": "ollama_embedding_model",
         }
 
         # Default model names if settings are not configured
         default_models = {
-            "local": "BAAI/bge-m3",
-            "huggingface": "BAAI/bge-m3",
             "gemini": "models/gemini-embedding-001",
             "openai": "text-embedding-3-small",
+            "ollama": "bge-m3",
         }
 
         setting_key = model_settings_map.get(provider)
@@ -125,35 +192,60 @@ class VectorService:
         # Fallback to default for this provider
         return default_models.get(provider, DEFAULT_MODEL_NAME)
 
-    def get_qdrant_client(self) -> qdrant_client.QdrantClient:
+    async def get_qdrant_client(self) -> qdrant_client.QdrantClient:
         """Returns a Shared instance of QdrantClient (Sync)."""
-        return self._get_client_singleton(
-            is_async=False, storage=VectorService, attribute_name="_client", lock=VectorService._client_lock
+        VectorService._reset_stale_singletons()
+        return await self._get_client_singleton(
+            is_async=False, storage=VectorService, attribute_name="_client", lock=VectorService._get_lock(False)
         )
 
-    def get_async_qdrant_client(self) -> qdrant_client.AsyncQdrantClient:
+    async def get_async_qdrant_client(self) -> qdrant_client.AsyncQdrantClient:
         """Returns a Shared instance of AsyncQdrantClient (Async)."""
-        return self._get_client_singleton(
-            is_async=True, storage=VectorService, attribute_name="_aclient", lock=VectorService._aclient_lock
+        VectorService._reset_stale_singletons()
+        return await self._get_client_singleton(
+            is_async=True, storage=VectorService, attribute_name="_aclient", lock=VectorService._get_lock(True)
         )
 
-    def _get_client_singleton(self, is_async: bool, storage: Any, attribute_name: str, lock: threading.Lock) -> Any:
+    def _get_client_sync(self, is_async: bool) -> Any:
+        """Returns the client if initialized, otherwise raises an error."""
+        attr = "_aclient" if is_async else "_client"
+        client = getattr(VectorService, attr)
+        if client is None:
+            logger.warning(f"Qdrant {attr} accessed before initialization!")
+        return client
+
+    @property
+    def client(self) -> Optional[qdrant_client.QdrantClient]:
+        """Synchronous access to the singleton client."""
+        return self._get_client_sync(is_async=False)
+
+    @property
+    def aclient(self) -> Optional[qdrant_client.AsyncQdrantClient]:
+        """Synchronous access to the async singleton client."""
+        return self._get_client_sync(is_async=True)
+
+    async def _get_client_singleton(self, is_async: bool, storage: Any, attribute_name: str, lock: Any) -> Any:
         """
         DRY Implementation of Singleton Pattern for Qdrant Clients.
         """
         if getattr(storage, attribute_name) is not None:
             return getattr(storage, attribute_name)
 
-        with lock:
+        # For sync lock, we use a simple check. If we need async lock, we use it.
+        # But here attribute_name is static on VectorService.
+        async with lock:
             if getattr(storage, attribute_name) is not None:
                 return getattr(storage, attribute_name)
 
             start_time = time.time()
             client_type = "Async" if is_async else "Sync"
+
+            # Resolve API Key from DB first
+            qdrant_api_key = await self.settings_service.get_value("qdrant_api_key")
+
             logger.info(f"START | Initializing {client_type} Qdrant Client | Host: {self.env_settings.QDRANT_HOST}")
 
             try:
-                # P0: Suppress Insecure Connection Warnings for Localhost
                 with warnings.catch_warnings():
                     warnings.filterwarnings(
                         "ignore", category=UserWarning, message=".*Api key is used with an insecure connection.*"
@@ -161,12 +253,11 @@ class VectorService:
 
                     ClientClass = qdrant_client.AsyncQdrantClient if is_async else qdrant_client.QdrantClient
 
-                    # P0: prefer_grpc=False is CRITICAL for Windows/Docker stability
                     new_client = ClientClass(
                         host=self.env_settings.QDRANT_HOST,
                         port=6333,
                         https=False,
-                        api_key=self.env_settings.QDRANT_API_KEY if self.env_settings.QDRANT_API_KEY else None,
+                        api_key=qdrant_api_key if qdrant_api_key else None,
                         timeout=5.0,
                         prefer_grpc=False,
                     )
@@ -183,50 +274,59 @@ class VectorService:
 
     async def ensure_collection_exists(self, collection_name: str, provider: str):
         """Ensures Qdrant collection exists with correct dimensionality."""
-        client = self.get_qdrant_client()
-        if client.collection_exists(collection_name):
-            return
-
-        dimension = self._determine_dimension(provider)
+        client = await self.get_async_qdrant_client()
 
         try:
+            exists = await client.collection_exists(collection_name)
+            if exists:
+                return
+
+            dimension = self._determine_dimension(provider)
             logger.info(f"Creating collection '{collection_name}' with dim={dimension}")
+
             from qdrant_client.http import models as qmodels
 
-            client.create_collection(
+            await client.create_collection(
                 collection_name=collection_name,
                 vectors_config=qmodels.VectorParams(size=dimension, distance=qmodels.Distance.COSINE),
             )
         except Exception as e:
-            logger.error(f"Failed to create collection {collection_name}: {e}")
+            logger.error(f"Failed to ensure collection {collection_name} exists: {e}", exc_info=True)
+            raise TechnicalError(f"Vector database collection initialization failed: {e}")
 
     def _determine_dimension(self, provider: str) -> int:
         provider = provider.lower().strip()
         if "openai" in provider:
-            return 1536  # Default for v3-small/ada-002. Larger models handled via config check in callers if needed.
-        if "local" in provider:
-            return 1024
-        return DEFAULT_EMBEDDING_DIM  # Gemini/Default
+            # We default to 1536 (v3-small), but users might use 3072 (v3-large).
+            # Recreating the collection with the wrong dimension is a common P0 issue.
+            return 1536
+        if "ollama" in provider:
+            return 1024  # Standard for bge-m3
+        if "gemini" in provider:
+            # Gemini models like text-embedding-004 can be 768 or 3072.
+            # Host setup shows 3072 is in use for documents_gemini.
+            return 3072
+        return 768  # Default fallback
 
     async def get_collection_name(self, provider: Optional[str] = None) -> str:
         """Returns the collection name for a given provider."""
         if not provider:
-            provider_val = await self.settings_service.get_value("embedding_provider")
-            provider = (provider_val or "gemini").lower().strip()
+            provider = await self.settings_service.get_value("embedding_provider")
+            if not provider:
+                provider = "ollama"
 
         collection_map = {
-            "openai": "openai_collection",
-            "gemini": "gemini_collection",
-            "local": "local_collection",
-            "huggingface": "local_collection",
+            "openai": "documents_openai",
+            "gemini": "documents_gemini",
+            "ollama": "documents_ollama",
         }
 
-        return collection_map.get(provider, "gemini_collection")
+        return collection_map.get(provider, "documents_ollama")
 
     async def delete_connector_vectors(self, connector_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a connector."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         # Local import to avoid circular dependency if Repo uses Service
         from app.repositories.vector_repository import VectorRepository
 
@@ -237,7 +337,7 @@ class VectorService:
     async def delete_document_vectors(self, document_id: str, provider: Optional[str] = None) -> None:
         """Delete all vectors for a document."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         from app.repositories.vector_repository import VectorRepository
 
         repo = VectorRepository(client)
@@ -247,7 +347,7 @@ class VectorService:
     async def update_connector_acl(self, connector_id: str, new_acl: Any, provider: Optional[str] = None) -> None:
         """Update ACLs for all connector vectors."""
         collection_name = await self.get_collection_name(provider)
-        client = self.get_async_qdrant_client()
+        client = await self.get_async_qdrant_client()
         from app.repositories.vector_repository import VectorRepository
 
         repo = VectorRepository(client)
@@ -268,8 +368,8 @@ class VectorService:
         collection_name = await self.get_collection_name(provider)
 
         # Using the SYNC client for VectorStore based on LlamaIndex common usage
-        client = self.get_qdrant_client()
-        aclient = self.get_async_qdrant_client()
+        client = await self.get_qdrant_client()
+        aclient = await self.get_async_qdrant_client()
 
         # P0 FIX: Must provide aclient for async router operations
         vector_store = QdrantVectorStore(client=client, aclient=aclient, collection_name=collection_name)
@@ -287,13 +387,13 @@ class VectorService:
         from app.schemas.ingestion import IndexingStrategy
 
         indexing_strategy = kwargs.pop("indexing_strategy", None)
-        llm = kwargs.pop("llm", None)  # Caller must provide LLM for AutoRetriever logic
+        llm = kwargs.get("llm")  # Caller must provide LLM for AutoRetriever logic
 
         if indexing_strategy:
             # Lazy import to avoid circular dep
-            from app.services.query.factory import DynamicRetrieverFactory
+            from app.core.rag.csv.retriever_factory import RetrieverFactory
 
-            retriever = DynamicRetrieverFactory.get_retriever(
+            retriever = RetrieverFactory.get_retriever(
                 index=index,
                 indexing_strategy=indexing_strategy,
                 llm=llm,
@@ -316,4 +416,7 @@ async def get_vector_service(
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
 ) -> VectorService:
     """FastAPI Dependency Provider."""
-    return VectorService(settings_service=settings_service)
+    vs = VectorService(settings_service=settings_service)
+    # 🔴 P0 Pre-initialize to allow sync property access later if needed
+    await vs.get_async_qdrant_client()
+    return vs

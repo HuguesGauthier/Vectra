@@ -4,11 +4,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from jose import jwt
 
-from app.core.exceptions import TechnicalError, UnauthorizedAction
-from app.core.security import (ALGORITHM, SECRET_KEY, _get_user_from_token,
-                               create_access_token, get_current_user,
-                               get_password_hash, get_password_hash_async,
-                               verify_password, verify_password_async)
+from app.core.exceptions import TechnicalError, UnauthorizedAction, AuthenticationError
+from app.core.security import (
+    ALGORITHM,
+    SECRET_KEY,
+    _get_user_from_token,
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    get_password_hash_async,
+    verify_password,
+    verify_password_async,
+)
 from app.models.user import User
 
 
@@ -74,7 +81,7 @@ class TestSecurity:
     async def test_get_user_from_token_invalid_format(self):
         """Should raise UnauthorizedAction for bad token."""
         mock_db = AsyncMock()
-        with pytest.raises(UnauthorizedAction):
+        with pytest.raises(AuthenticationError):
             await _get_user_from_token("bad.token", mock_db)
 
     @pytest.mark.asyncio
@@ -87,7 +94,7 @@ class TestSecurity:
         mock_result.scalar_one_or_none.return_value = None
         mock_db.execute.return_value = mock_result
 
-        with pytest.raises(UnauthorizedAction) as exc:
+        with pytest.raises(AuthenticationError) as exc:
             await _get_user_from_token(token, mock_db)
         assert "User not found" in str(exc.value)
 
@@ -102,6 +109,78 @@ class TestSecurity:
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
 
-        with pytest.raises(UnauthorizedAction) as exc:
+        with pytest.raises(AuthenticationError) as exc:
             await _get_user_from_token(token, mock_db)
         assert "Inactive user" in str(exc.value)
+
+    @pytest.mark.asyncio
+    async def test_get_current_admin_success(self):
+        """Verify admin role check passes for admins."""
+        from app.core.security import get_current_admin
+
+        token = create_access_token("admin@example.com")
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_user = User(email="admin@example.com", is_active=True, role="admin")
+        mock_result.scalar_one_or_none.return_value = mock_user
+        mock_db.execute.return_value = mock_result
+
+        user = await get_current_admin(token, mock_db)
+        assert user.role == "admin"
+
+    @pytest.mark.asyncio
+    async def test_get_current_admin_fail_role(self):
+        """Verify admin role check fails for regular users."""
+        from app.core.security import get_current_admin
+        from app.core.exceptions import FunctionalError
+
+        token = create_access_token("user@example.com")
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_user = User(email="user@example.com", is_active=True, role="user")
+        mock_result.scalar_one_or_none.return_value = mock_user
+        mock_db.execute.return_value = mock_result
+
+        with pytest.raises(FunctionalError) as exc:
+            await get_current_admin(token, mock_db)
+        assert exc.value.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_optional_with_token(self):
+        """Verify optional auth returns user when token is present."""
+        from app.core.security import get_current_user_optional
+
+        token = create_access_token("user@example.com")
+
+        mock_db = AsyncMock()
+        mock_result = MagicMock()
+        mock_user = User(email="user@example.com", is_active=True, role="user")
+        mock_result.scalar_one_or_none.return_value = mock_user
+        mock_db.execute.return_value = mock_result
+
+        user = await get_current_user_optional(token, mock_db)
+        assert user is not None
+        assert user.email == "user@example.com"
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_optional_no_token(self):
+        """Verify optional auth returns None when token is missing."""
+        from app.core.security import get_current_user_optional
+
+        mock_db = AsyncMock()
+        user = await get_current_user_optional(None, mock_db)
+        assert user is None
+
+    def test_token_expiry(self):
+        """Verify token expiry raises JWTError."""
+        from jose import jwt, JWTError
+        from app.core.security import ALGORITHM, SECRET_KEY
+
+        data = "expired@example.com"
+        delta = timedelta(seconds=-1)  # Expired
+        token = create_access_token(subject=data, expires_delta=delta)
+
+        with pytest.raises(JWTError):
+            jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

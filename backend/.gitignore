@@ -1,8 +1,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-.venv/
-.venv312/
-.env
+venv/
 temp_uploads/
 assistant_avatars/

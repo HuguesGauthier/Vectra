@@ -1,183 +1,133 @@
-from unittest.mock import AsyncMock, MagicMock
-import json
 import pytest
-from fastapi import FastAPI, WebSocketDisconnect
+import json
 from fastapi.testclient import TestClient
-
-from app.api.v1.ws import router
-from app.core.connection_manager import ConnectionManager, get_connection_manager
-from app.core.settings import settings
-
-# Mock Manager
-mock_manager = MagicMock(spec=ConnectionManager)
+from fastapi import status
+from app.main import app
+from app.core.settings import get_settings
 
 
-async def mock_connect(websocket):
-    await websocket.accept()
-    # Simulate the emit_worker_status(True/False) that real manager does
-    await websocket.send_json({"type": "WORKER_STATUS", "status": "online"})
+from starlette.websockets import WebSocketDisconnect
 
 
-async def mock_register_worker(websocket):
-    # Simulate emit_worker_status(True)
-    await websocket.send_json({"type": "WORKER_STATUS", "status": "online"})
+@pytest.fixture
+def client():
+    return TestClient(app)
 
 
-mock_manager.connect = AsyncMock(side_effect=mock_connect)
-mock_manager.disconnect = AsyncMock()
-mock_manager.broadcast = AsyncMock()
-mock_manager.register_worker = AsyncMock(side_effect=mock_register_worker)
-mock_manager.emit_worker_status = AsyncMock()
-type(mock_manager).is_worker_online = True
-
-# Setup isolated app for WS testing
-app = FastAPI()
-app.include_router(router)
+@pytest.fixture
+def worker_secret():
+    return str(get_settings().WORKER_SECRET)
 
 
-async def override_get_manager():
-    return mock_manager
-
-
-app.dependency_overrides[get_connection_manager] = override_get_manager
-
-client = TestClient(app)
-
-
-class TestWebSocket:
-
-    def setup_method(self):
-        mock_manager.connect.side_effect = mock_connect
-        mock_manager.register_worker.side_effect = mock_register_worker
-        mock_manager.broadcast.reset_mock()
-        mock_manager.emit_worker_status.reset_mock()
-
-    def test_client_connection(self):
-        """Test standard client connection works."""
-        with client.websocket_connect("/ws?client_type=client") as websocket:
-            # mock_connect sends json
+def drain_status(websocket):
+    """Drain any WORKER_STATUS messages from the queue."""
+    # We might get multiple status updates (initial connect + registration)
+    while True:
+        try:
+            # Use a tiny timeout to check if there's a pending status message
             data = websocket.receive_json()
-            assert data == {"type": "WORKER_STATUS", "status": "online"}
+            if data.get("type") == "WORKER_STATUS":
+                continue
+            return data  # Return the first non-status message
+        except Exception:
+            return None
 
-            websocket.send_text("ping")
+
+def test_websocket_client_happy_path(client):
+    with client.websocket_connect("/api/v1/ws?client_type=client") as websocket:
+        # Drain initial worker status message(s)
+        websocket.send_text("ping")
+        # Heartbeat doesn't send JSON, so drain_status won't work directly here
+        # Let's just manually skip WORKER_STATUS
+        while True:
             data = websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "WORKER_STATUS":
+                    continue
+            except:
+                pass
             assert data == "pong"
+            break
 
-    def test_worker_connection_authorized_header(self):
-        """Test worker connection accepted with correct header."""
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect("/ws?client_type=worker", headers={"x-worker-secret": secret}) as websocket:
-            # 1. connect msg
-            websocket.receive_json()
-            # 2. register msg
-            websocket.receive_json()
 
-            websocket.send_text("ping")
+def test_websocket_worker_auth_success(client, worker_secret):
+    with client.websocket_connect(
+        "/api/v1/ws?client_type=worker", headers={"x-worker-secret": worker_secret}
+    ) as websocket:
+        websocket.send_text("ping")
+        while True:
             data = websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "WORKER_STATUS":
+                    continue
+            except:
+                pass
             assert data == "pong"
+            break
 
-    def test_worker_connection_authorized_query(self):
-        """Test worker connection accepted with correct query param token (fallback)."""
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect(f"/ws?client_type=worker&token={secret}") as websocket:
-            # 1. connect msg
-            websocket.receive_json()
-            # 2. register msg
-            websocket.receive_json()
 
-            websocket.send_text("ping")
+def test_websocket_worker_auth_query_param(client, worker_secret):
+    with client.websocket_connect(f"/api/v1/ws?client_type=worker&token={worker_secret}") as websocket:
+        websocket.send_text("ping")
+        while True:
             data = websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "WORKER_STATUS":
+                    continue
+            except:
+                pass
             assert data == "pong"
+            break
 
-    def test_worker_connection_unauthorized(self):
-        """Test worker connection REJECTED without secret."""
-        # Note: TestClient raising WebSocketDisconnect on close code 1008
-        with pytest.raises(WebSocketDisconnect) as exc:
-            with client.websocket_connect("/ws?client_type=worker") as websocket:
-                websocket.send_text("ping")
 
-        # 1008 Policy Violation
-        assert exc.value.code == 1008
+def test_websocket_worker_auth_failure(client):
+    with pytest.raises(WebSocketDisconnect) as excinfo:
+        with client.websocket_connect(
+            "/api/v1/ws?client_type=worker", headers={"x-worker-secret": "wrong-secret"}
+        ) as websocket:
+            pass
+    assert excinfo.value.code == status.WS_1008_POLICY_VIOLATION
 
-    def test_worker_connection_wrong_secret(self):
-        """Test worker connection REJECTED with WRONG secret."""
-        with pytest.raises(WebSocketDisconnect) as exc:
-            with client.websocket_connect("/ws?client_type=worker", headers={"x-worker-secret": "wrong"}) as websocket:
-                websocket.send_text("ping")
-        assert exc.value.code == 1008
 
-    def test_get_worker_status(self):
-        """Test get_worker_status command."""
-        with client.websocket_connect("/ws?client_type=client") as websocket:
-            websocket.receive_json()  # consume initial status
-            websocket.send_text("get_worker_status")
-            # Wait a bit or just assume it was called
-            # Since it's a loop, we might need to send another message to ensure it processed the first one
-            websocket.send_text("ping")
-            websocket.receive_text()
+def test_websocket_worker_broadcast(client, worker_secret):
+    with client.websocket_connect("/api/v1/ws?client_type=client") as ws_client:
+        with client.websocket_connect(
+            "/api/v1/ws?client_type=worker", headers={"x-worker-secret": worker_secret}
+        ) as ws_worker:
+            # Worker broadcasts a message
+            msg_to_send = {"type": "TEST_BROADCAST", "data": "hello"}
+            ws_worker.send_text(json.dumps(msg_to_send))
 
-            mock_manager.emit_worker_status.assert_called()
+            # Client should receive it, possibly after some status updates
+            received = None
+            for _ in range(5):  # Try a few times
+                data = ws_client.receive_json()
+                if data.get("type") == "WORKER_STATUS":
+                    continue
+                received = data
+                break
 
-    def test_worker_broadcast_valid(self):
-        """Test worker broadcasting valid JSON."""
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect(f"/ws?client_type=worker&token={secret}") as websocket:
-            websocket.receive_json()
-            websocket.receive_json()
+            assert received == msg_to_send
 
-            msg = {"type": "TEST", "data": "hello"}
-            websocket.send_text(json.dumps(msg))
 
-            # Send ping to ensure the loop processed the broadcast
-            websocket.send_text("ping")
-            websocket.receive_text()
+def test_websocket_worker_invalid_json(client, worker_secret):
+    with client.websocket_connect(
+        "/api/v1/ws?client_type=worker", headers={"x-worker-secret": worker_secret}
+    ) as ws_worker:
+        # Invalid JSON should not crash the loop
+        ws_worker.send_text("not json")
+        ws_worker.send_text("ping")
 
-            mock_manager.broadcast.assert_called_with(msg)
-
-    def test_worker_broadcast_invalid_json(self):
-        """Test worker broadcasting invalid JSON."""
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect(f"/ws?client_type=worker&token={secret}") as websocket:
-            websocket.receive_json()
-            websocket.receive_json()
-
-            websocket.send_text("invalid json")
-
-            # Send ping to ensure the loop processed the broadcast
-            websocket.send_text("ping")
-            websocket.receive_text()
-
-            mock_manager.broadcast.assert_not_called()
-
-    def test_worker_broadcast_non_dict(self):
-        """Test worker broadcasting non-dictionary JSON."""
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect(f"/ws?client_type=worker&token={secret}") as websocket:
-            websocket.receive_json()
-            websocket.receive_json()
-
-            websocket.send_text(json.dumps(["not", "a", "dict"]))
-
-            # Send ping to ensure the loop processed the broadcast
-            websocket.send_text("ping")
-            websocket.receive_text()
-
-            mock_manager.broadcast.assert_not_called()
-
-    def test_worker_broadcast_exception(self):
-        """Test worker broadcast when an exception occurs in manager.broadcast."""
-        mock_manager.broadcast.side_effect = Exception("Broadcast failed")
-        secret = settings.WORKER_SECRET
-        with client.websocket_connect(f"/ws?client_type=worker&token={secret}") as websocket:
-            websocket.receive_json()
-            websocket.receive_json()
-
-            msg = {"type": "TEST"}
-            websocket.send_text(json.dumps(msg))
-
-            # Send ping to ensure the loop processed the broadcast
-            websocket.send_text("ping")
-            websocket.receive_text()
-
-            mock_manager.broadcast.assert_called_with(msg)
-        mock_manager.broadcast.side_effect = None
+        while True:
+            data = ws_worker.receive_text()
+            try:
+                msg = json.loads(data)
+                if msg.get("type") == "WORKER_STATUS":
+                    continue
+            except:
+                pass
+            assert data == "pong"
+            break

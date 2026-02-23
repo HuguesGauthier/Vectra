@@ -1,3 +1,4 @@
+import contextlib
 import json
 import logging
 import sys
@@ -17,6 +18,19 @@ def get_correlation_id() -> str:
 def set_correlation_id(c_id: str) -> None:
     """Set the correlation ID for the current context."""
     correlation_id_ctx.set(c_id)
+
+
+@contextlib.contextmanager
+def log_context(correlation_id: str):
+    """
+    Context manager to set and reset correlation ID.
+    Prevents context leakage between requests/tasks.
+    """
+    token = correlation_id_ctx.set(correlation_id)
+    try:
+        yield
+    finally:
+        correlation_id_ctx.reset(token)
 
 
 def generate_request_id() -> str:
@@ -84,12 +98,32 @@ class JSONFormatter(logging.Formatter):
 class ConsoleFormatter(logging.Formatter):
     """
     Human-readable formatter for local development.
+    Avoids mutating the original record (P1 Fix).
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        c_id = getattr(record, "correlation_id", get_correlation_id())
-        record.correlation_id = c_id  # Ensure it's available for standard interpolation
-        return super().format(record)
+        # P1 FIX: Don't mutate 'record' directly as it affects other handlers
+        # We use standard interpolation by ensuring 'correlation_id' is in the format dict
+        record_dict = record.__dict__.copy()
+        if "correlation_id" not in record_dict:
+            record_dict["correlation_id"] = get_correlation_id()
+
+        # We must temporarily override 'record' attributes for super().format()
+        # or just do the formatting manually. Pragmatic: manual format or record copy.
+        # super().format relies on the record object, so we use a minimalist approach:
+        has_orig = hasattr(record, "correlation_id")
+        orig_val = getattr(record, "correlation_id", None)
+
+        if not has_orig:
+            record.correlation_id = record_dict["correlation_id"]
+
+        try:
+            return super().format(record)
+        finally:
+            if not has_orig:
+                delattr(record, "correlation_id")
+            else:
+                setattr(record, "correlation_id", orig_val)
 
 
 # --- 4. Configuration ---
@@ -136,14 +170,6 @@ def setup_logging(level: str = "INFO", json_format: bool = False) -> None:
             return "Removing unpickleable private attribute" not in record.getMessage()
 
     handler.addFilter(UnpickleableAttributeFilter())
-
-    # 5. Explicitly configure 'app' namespace
-    # FORCE the handler on the app logger too, just to be absolutely sure propagation isn't failing us
-    app_logger = logging.getLogger("app")
-    app_logger.setLevel(level)
-    app_logger.addHandler(handler)
-    app_logger.propagate = False  # Stop double logging since we added handler here
-    app_logger.disabled = False
 
     # Startup message
     print(f"DEBUG: Logging initialized at level {level} (stdout enforced)", file=sys.stdout)

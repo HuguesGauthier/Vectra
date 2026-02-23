@@ -2,14 +2,21 @@
 Advanced Analytics Schemas for KPI Dashboard.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class AnalyticsBaseModel(BaseModel):
+    """Base model for analytics with attributes support."""
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Performance KPIs
-class TTFTPercentiles(BaseModel):
+class TTFTPercentiles(AnalyticsBaseModel):
     """Time-to-First-Token percentiles."""
 
     p50: float = Field(description="Median TTFT in seconds")
@@ -18,7 +25,7 @@ class TTFTPercentiles(BaseModel):
     period_hours: int = Field(description="Time period analyzed")
 
 
-class StepBreakdown(BaseModel):
+class StepBreakdown(AnalyticsBaseModel):
     """Average duration breakdown by pipeline step."""
 
     step_name: str
@@ -27,7 +34,7 @@ class StepBreakdown(BaseModel):
     avg_tokens: Optional[Dict[str, float]] = None  # keys: input, output
 
 
-class CacheMetrics(BaseModel):
+class CacheMetrics(AnalyticsBaseModel):
     """Semantic cache performance."""
 
     hit_rate: float = Field(description="Cache hit rate percentage")
@@ -38,7 +45,7 @@ class CacheMetrics(BaseModel):
 
 
 # User Satisfaction KPIs
-class SessionDistribution(BaseModel):
+class SessionDistribution(AnalyticsBaseModel):
     """Distribution of questions per session."""
 
     session_type: str  # "Single Question", "Normal (2-5)", "Power User (5+)"
@@ -46,16 +53,17 @@ class SessionDistribution(BaseModel):
     percentage: float
 
 
-class TrendingTopic(BaseModel):
+class TrendingTopic(AnalyticsBaseModel):
     """Popular question/topic."""
 
+    topic: str
     canonical_text: str
     frequency: int
     variation_count: int
     last_asked: datetime
 
 
-class TopicDiversity(BaseModel):
+class TopicDiversity(AnalyticsBaseModel):
     """Topic diversity score (Herfindahl Index)."""
 
     diversity_score: float = Field(ge=0.0, le=1.0, description="0=no diversity, 1=perfect diversity")
@@ -64,10 +72,10 @@ class TopicDiversity(BaseModel):
 
 
 # Cost & ROI KPIs
-class AssistantCost(BaseModel):
+class AssistantCost(AnalyticsBaseModel):
     """Token cost per assistant."""
 
-    assistant_id: str
+    assistant_id: UUID
     assistant_name: str
     total_tokens: int
     input_tokens: int
@@ -75,30 +83,30 @@ class AssistantCost(BaseModel):
     estimated_cost_usd: float
 
 
-class DocumentUtilization(BaseModel):
+class DocumentUtilization(AnalyticsBaseModel):
     """Knowledge base document usage."""
 
     file_name: str
     connector_name: str
     retrieval_count: int
-    last_retrieved: Optional[datetime]
+    last_retrieved: Optional[datetime] = None
     status: str  # "hot", "warm", "cold"
 
 
 # User Stats
-class UserStat(BaseModel):
+class UserStat(AnalyticsBaseModel):
     """User usage statistics."""
 
-    user_id: str
+    user_id: UUID
     email: str
     full_name: str
     total_tokens: int
     interaction_count: int
-    last_active: Optional[datetime]
+    last_active: Optional[datetime] = None
 
 
 # Knowledge Base Health KPIs
-class DocumentFreshness(BaseModel):
+class DocumentFreshness(AnalyticsBaseModel):
     """Document age distribution."""
 
     freshness_category: str  # "Fresh (<30d)", "Aging (30-90d)", "Stale (>90d)"
@@ -106,28 +114,28 @@ class DocumentFreshness(BaseModel):
     percentage: float
 
 
-class RerankingImpact(BaseModel):
+class RerankingImpact(AnalyticsBaseModel):
     """Reranking effectiveness metrics."""
 
     avg_score_improvement: float
     reranking_enabled_count: int
-    avg_position_change: Optional[float]
+    avg_position_change: Optional[float] = None
 
 
-class ConnectorSyncRate(BaseModel):
+class ConnectorSyncRate(AnalyticsBaseModel):
     """Connector synchronization success metrics."""
 
-    connector_id: str
+    connector_id: UUID
     connector_name: str
     success_rate: float = Field(ge=0.0, le=100.0, description="Success rate percentage")
     total_syncs: int
     successful_syncs: int
     failed_syncs: int
-    avg_sync_duration: Optional[float]
+    avg_sync_duration: Optional[float] = None
 
 
 # Aggregate Response
-class AdvancedAnalyticsResponse(BaseModel):
+class AdvancedAnalyticsResponse(AnalyticsBaseModel):
     """Complete advanced analytics dashboard data."""
 
     # Performance
@@ -152,4 +160,4 @@ class AdvancedAnalyticsResponse(BaseModel):
     reranking_impact: Optional[RerankingImpact] = None
     connector_sync_rates: List[ConnectorSyncRate] = []
 
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

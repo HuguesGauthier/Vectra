@@ -35,11 +35,17 @@ class SystemService:
 
         self.db = db
 
-    def _is_safe_path(self, path: Path) -> bool:
+    def _is_safe_path(self, path: Path, additional_allowed_paths: Optional[List[Path]] = None) -> bool:
         """Checks if a path is within the allowed base directories."""
         try:
             resolved_path = path.resolve()
-            return any(resolved_path == base or base in resolved_path.parents for base in self.allowed_base_paths)
+
+            # Combine default and additional allowed paths
+            all_allowed = self.allowed_base_paths[:]
+            if additional_allowed_paths:
+                all_allowed.extend(additional_allowed_paths)
+
+            return any(resolved_path == base or base in resolved_path.parents for base in all_allowed)
         except (ValueError, RuntimeError):
             return False
 
@@ -79,8 +85,12 @@ class SystemService:
             # Reconstruct full path using helper
             full_path = get_full_path_from_connector(connector, doc.file_path)
 
+            # SECURITY: Extract the connector base path and allow it for this specific operation
+            base_path = connector.configuration.get("path")
+            additional_allowed = [Path(base_path).resolve()] if base_path else []
+
             # Open the file
-            return await self.open_file_externally(full_path)
+            return await self.open_file_externally(full_path, additional_allowed_paths=additional_allowed)
 
         except (EntityNotFound, TechnicalError):
             raise
@@ -90,7 +100,7 @@ class SystemService:
             logger.error(f"Failed to open file by document ID: {e}", exc_info=True)
             raise TechnicalError(f"System error while opening file: {e}")
 
-    async def open_file_externally(self, path: str) -> bool:
+    async def open_file_externally(self, path: str, additional_allowed_paths: Optional[List[Path]] = None) -> bool:
         """
         Opens a file using the host OS default application.
         Ensures non-blocking execution and security boundaries.
@@ -98,14 +108,13 @@ class SystemService:
         try:
             file_path = Path(path).resolve()
 
-            # 1. Path Safety Check (Relaxed for Desktop Usage)
-            if not self._is_safe_path(file_path):
-                logger.warning(f"Opening path outside safe sandbox: {file_path}")
-                # We permit this for now to allow opening files on external drives (G:\\ etc.)
-                # raise TechnicalError(
-                #     message="Unauthorized path access blocked for security reasons.",
-                #     error_code="UNAUTHORIZED_PATH_ACCESS"
-                # )
+            # 1. Path Safety Check
+            if not self._is_safe_path(file_path, additional_allowed_paths=additional_allowed_paths):
+                logger.error(f"Unauthorized path access blocked: {file_path}")
+                raise TechnicalError(
+                    message="Unauthorized path access blocked for security reasons.",
+                    error_code="UNAUTHORIZED_PATH_ACCESS",
+                )
 
             if not file_path.exists():
                 raise EntityNotFound(f"File not found: {path}")

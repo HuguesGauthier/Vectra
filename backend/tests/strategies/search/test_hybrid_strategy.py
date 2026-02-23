@@ -1,99 +1,140 @@
-"""
-Unit tests for HybridStrategy (Refactored).
-"""
-
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, patch, AsyncMock
+import sys
+import pytest
 from uuid import uuid4
 
-import pytest
-from qdrant_client.http.models import ScoredPoint
+# Mock dependencies globally for test collection
+sys.modules["pyodbc"] = MagicMock()
+sys.modules["vanna"] = MagicMock()
+sys.modules["vanna.base"] = MagicMock()
 
-from app.strategies.search.base import (SearchExecutionError, SearchFilters,
-                                        SearchResult)
 from app.strategies.search.hybrid_strategy import HybridStrategy
-
-
-@pytest.fixture
-def mock_deps():
-    return {
-        "vector_repo": AsyncMock(),
-        "document_repo": AsyncMock(),
-        "connector_repo": AsyncMock(),
-        "vector_service": AsyncMock(),
-    }
-
-
-@pytest.fixture
-def strategy(mock_deps):
-    return HybridStrategy(**mock_deps)
+from app.strategies.search.base import SearchFilters, SearchResult, SearchMetadata, SearchExecutionError
 
 
 @pytest.mark.asyncio
-async def test_search_nominal_flow(strategy, mock_deps):
-    """✅ SUCCESS: Nominal search flow with vectorization and Qdrant retrieval."""
+async def test_hybrid_search_happy_path():
+    """Happy Path: Standard hybrid search with valid results."""
     # Mocks
-    query = "test query"
-    cid = uuid4()
-    mock_deps["connector_repo"].get_by_id.return_value = MagicMock(configuration={"ai_provider": "openai"})
-    mock_deps["vector_service"].get_collection_name.return_value = "vectra_vectors"
+    mock_vector_repo = AsyncMock()
+    mock_doc_repo = AsyncMock()
+    mock_conn_repo = AsyncMock()
+    mock_vector_service = AsyncMock()
 
-    # Mock Embedding
-    mock_embed_model = AsyncMock()
-    mock_embed_model.aget_query_embedding.return_value = [0.1, 0.2, 0.3]
-    mock_deps["vector_service"].get_embedding_model.return_value = mock_embed_model
+    # Mocking single collection resolution
+    mock_vector_service.get_collection_name.return_value = "test_collection"
 
-    # Mock Qdrant result
-    mock_hit = MagicMock(spec=ScoredPoint)
-    mock_hit.id = str(uuid4())
-    mock_hit.score = 0.95
-    mock_hit.payload = {"connector_document_id": str(uuid4()), "_node_content": "test content", "file_name": "test.pdf"}
-    # FIXED: Use vector_repo.search instead of client.search
-    mock_deps["vector_repo"].search.return_value = [mock_hit]
+    # Mocking embedding
+    mock_model = AsyncMock()
+    mock_model.aget_query_embedding.return_value = [0.1] * 768
+    mock_vector_service.get_embedding_model.return_value = mock_model
 
-    # Execute
-    filters = SearchFilters(connector_id=cid)
-    results = await strategy.search(query, top_k=5, filters=filters)
+    # Mocking vector results
+    doc_id = uuid4()
+    mock_hit = MagicMock()
+    mock_hit.score = 0.9
+    mock_hit.payload = {"connector_document_id": str(doc_id), "content": "Relevant content"}
+    mock_vector_repo.search.return_value = [mock_hit]
 
-    # Assertions
+    # Mocking SQL doc check
+    mock_doc = MagicMock()
+    mock_doc.id = doc_id
+    mock_doc.status = "INDEXED"
+    mock_doc_repo.get_by_ids.return_value = [mock_doc]
+
+    strategy = HybridStrategy(
+        vector_repo=mock_vector_repo,
+        document_repo=mock_doc_repo,
+        connector_repo=mock_conn_repo,
+        vector_service=mock_vector_service,
+    )
+
+    results = await strategy.search(query="test query")
+
     assert len(results) == 1
-    assert results[0].content == "test content"
-    assert results[0].metadata.file_name == "test.pdf"
-
-    # Verify calls
-    mock_deps["vector_service"].get_embedding_model.assert_awaited()
-    mock_embed_model.aget_query_embedding.assert_awaited_with(query)
-    mock_deps["vector_repo"].search.assert_awaited()
+    assert results[0].document_id == doc_id
+    assert results[0].score == 0.9
+    mock_vector_repo.search.assert_called_once()
+    mock_doc_repo.get_by_ids.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_search_missing_connector(strategy, mock_deps):
-    """❌ FAILURE: Search fails gracefully on missing connector."""
-    cid = uuid4()
-    mock_deps["connector_repo"].get_by_id.return_value = None  # Not found
+async def test_hybrid_search_sql_status_filtering():
+    """Worst Case: Document exists in Vector DB but is NOT INDEXED in SQL."""
+    mock_vector_repo = AsyncMock()
+    mock_doc_repo = AsyncMock()
+    mock_conn_repo = AsyncMock()
+    mock_vector_service = AsyncMock()
 
-    filters = SearchFilters(connector_id=cid)
+    mock_vector_service.get_collection_name.return_value = "test_collection"
+    mock_model = AsyncMock()
+    mock_model.aget_query_embedding.return_value = [0.1] * 768
+    mock_vector_service.get_embedding_model.return_value = mock_model
 
-    with pytest.raises(SearchExecutionError) as exc:
-        await strategy.search("query", filters=filters)
-    assert "not found" in str(exc.value)
+    doc_id = uuid4()
+    mock_hit = MagicMock()
+    mock_hit.score = 0.9
+    mock_hit.payload = {"connector_document_id": str(doc_id)}
+    mock_vector_repo.search.return_value = [mock_hit]
+
+    # SQL doc is in PENDING state (maybe was re-indexed or deleted)
+    mock_doc = MagicMock()
+    mock_doc.id = doc_id
+    mock_doc.status = "PENDING"
+    mock_doc_repo.get_by_ids.return_value = [mock_doc]
+
+    strategy = HybridStrategy(mock_vector_repo, mock_doc_repo, mock_conn_repo, mock_vector_service)
+
+    results = await strategy.search(query="test", filters=SearchFilters())  # status filter empty but we enforce INDEXED
+
+    # Should be empty because status is not INDEXED
+    assert len(results) == 0
 
 
 @pytest.mark.asyncio
-async def test_search_qdrant_failure(strategy, mock_deps):
-    """❌ FAILURE: Strategy handles Qdrant failure gracefully (multi-collection behavior)."""
-    mock_deps["connector_repo"].get_by_id.return_value = MagicMock(configuration={"ai_provider": "openai"})
-    mock_deps["vector_service"].get_collection_name.return_value = "vectra_vectors"
+async def test_hybrid_search_partial_failure():
+    """Worst Case: One collection fails but others succeed."""
+    mock_vector_repo = AsyncMock()
+    mock_doc_repo = AsyncMock()
+    mock_conn_repo = AsyncMock()
+    mock_vector_service = AsyncMock()
 
-    mock_embed_model = AsyncMock()
-    mock_embed_model.aget_query_embedding.return_value = [0.1]
-    mock_deps["vector_service"].get_embedding_model.return_value = mock_embed_model
+    # Multiple collections
+    mock_vector_service.get_collection_name.side_effect = ["coll1", "coll2"]
 
-    # Qdrant fails
-    mock_deps["vector_repo"].search.side_effect = Exception("Qdrant Down")
+    mock_assistant = MagicMock()
+    conn1 = MagicMock()
+    conn1.configuration = {"ai_provider": "p1"}
+    conn2 = MagicMock()
+    conn2.configuration = {"ai_provider": "p2"}
+    mock_assistant.linked_connectors = [conn1, conn2]
 
-    filters = SearchFilters(connector_id=uuid4())
+    # Collection 1 succeeds, Collection 2 fails
+    mock_model = AsyncMock()
+    mock_model.aget_query_embedding.return_value = [0.1]
+    mock_vector_service.get_embedding_model.return_value = mock_model
 
-    # With multi-collection support, single collection failures are handled gracefully
-    # No exception is raised, but empty results are returned
-    results = await strategy.search("query", filters=filters)
-    assert len(results) == 0  # Graceful degradation
+    doc1_id = uuid4()
+    mock_hit = MagicMock()
+    mock_hit.score = 0.8
+    mock_hit.payload = {"connector_document_id": str(doc1_id)}
+
+    async def side_effect(collection_name, **kwargs):
+        if collection_name == "coll1":
+            return [mock_hit]
+        raise Exception("Vector DB error")
+
+    mock_vector_repo.search.side_effect = side_effect
+
+    # SQL check
+    mock_doc = MagicMock()
+    mock_doc.id = doc1_id
+    mock_doc.status = "INDEXED"
+    mock_doc_repo.get_by_ids.return_value = [mock_doc]
+
+    strategy = HybridStrategy(mock_vector_repo, mock_doc_repo, mock_conn_repo, mock_vector_service)
+
+    results = await strategy.search(query="test", filters=SearchFilters(assistant=mock_assistant))
+
+    assert len(results) == 1  # coll1 results only
+    assert results[0].document_id == doc1_id

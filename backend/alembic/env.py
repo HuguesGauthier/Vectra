@@ -7,12 +7,12 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Add the project root to the path so we can import the app
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from app.models import (assistant, connector, connector_document, error_log,
-                        notification, user)
+from app.models import assistant, connector, connector_document, error_log, notification, user
+
 # Import the base model and all other models so they are registered
-from app.models.base import Base
+from sqlmodel import SQLModel
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,12 +27,23 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = Base.metadata
+target_metadata = SQLModel.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+def get_url():
+    """
+    Get database URL from environment variable, fallback to config if not found.
+    Converts asyncpg driver to standard postgresql for Alembic compatibility.
+    """
+    url = os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    if url and url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:
@@ -47,8 +58,8 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url")
-    print(f"DEBUG: Connecting to {url}")
+    url = get_url()
+    print(f"DEBUG: Offline connecting to {url}")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -67,18 +78,21 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
+    url = get_url()
+    print(f"DEBUG: Online connection engine: {url}")
+
+    # Override the sqlalchemy.url in the config section used by engine_from_config
+    section = config.get_section(config.config_ini_section, {})
+    section["sqlalchemy.url"] = url
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        section,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    print(f"DEBUG: Online connection engine: {connectable.url}")
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

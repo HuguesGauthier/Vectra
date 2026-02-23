@@ -1,13 +1,14 @@
 import asyncio
 import json
 import logging
-import re
+import logging
 import time
 from typing import Any, AsyncGenerator, Dict, Optional
 
 from llama_index.core import PromptTemplate
 from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.callbacks import CallbackManager
+from llama_index.core.schema import QueryBundle
 
 from app.core.prompts import REWRITE_QUESTION_PROMPT
 from app.services.chat.callbacks import StreamingCallbackHandler
@@ -18,6 +19,7 @@ from app.services.chat.source_service import SourceService
 # Shared dependencies
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
+from app.core.utils.stream_parser import StreamBlockParser
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,7 @@ TIMEOUT_ROUTER_QUERY = 120.0  # Seconds (Long running SQL might take time)
 HISTORY_WINDOW_SIZE = 3
 
 # --- Defaults ---
-DEFAULT_PROVIDER = "gemini"
-DEFAULT_MODEL_GEMINI = "gemini-1.5-flash"
-DEFAULT_MODEL_OPENAI = "gpt-3.5-turbo"
+# (Removed hardcoded default provider)
 
 # --- Keys & Labels ---
 KEY_SQL_QUERY_RESULT = "sql_query_result"
@@ -58,46 +58,69 @@ class AgenticProcessor(BaseChatProcessor):
         Main execution flow for the Agentic Processor.
         """
         logger.info(f"--- [AgenticProcessor] New Request: '{ctx.message}' ---")
+
+        # 0. Resolve specific model name for UI (e.g., "gpt-4o" instead of just "openai")
+        try:
+            provider = ctx.assistant.model_provider
+            # Handle special cases if any, but standard pattern is {provider}_chat_model
+            config_key = f"{provider}_chat_model"
+            specific_model = await ctx.settings_service.get_value(config_key)
+            if specific_model:
+                ctx.metadata["specific_model_name"] = specific_model
+        except Exception as e:
+            logger.warning(f"Failed to resolve specific model name: {e}")
         if self._should_skip(ctx):
             logger.warning("[AgenticProcessor] Skipping: ctx.should_stop or no factory")
             return
 
         self._ensure_metrics(ctx)
 
-        # START SPAN: Agentic Workflow (Wraps Contextualization + Router)
-        # We start it here so "Context Preparation" appears nested in the UI.
-        agentic_span_id = ctx.metrics.start_span(PipelineStepType.ROUTER)
-        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.RUNNING, ctx.language)
+        try:
+            # START SPAN: Agentic Workflow (Wraps Contextualization + Router)
+            # We start it here so "Context Preparation" appears nested in the UI.
+            agentic_span_id = ctx.metrics.start_span(PipelineStepType.ROUTER)
+            yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.RUNNING, agentic_span_id)
 
-        # 1. Contextual Rewriting (Fail Safe with Timeout)
-        async for event in self._contextualize_query(ctx):
-            yield event
-
-        # 2. CSV Pipeline (Strategy Pattern Delegation)
-        csv_handled = False
-        async for event in self._handle_csv_mode_strategy(ctx, agentic_span_id):
-            if isinstance(event, bool):
-                csv_handled = event
-            else:
+            # 1. Contextual Rewriting (Fail Safe with Timeout)
+            async for event in self._contextualize_query(ctx, agentic_span_id):
                 yield event
 
-        # 2b. Visualization Shortcut (P0 Feature)
-        # If we have cached structured data AND the user just wants to visualize it, SKIP the expensive router.
-        viz_shortcut = False
-        if not csv_handled and ctx.metadata.get("cached_sql_results"):
-            # Check intent with fast LLM
-            if await self._detect_visualization_intent(ctx):
-                viz_shortcut = True
-                async for event in self._execute_cached_visualization_workflow(ctx, agentic_span_id):
+            # 2. CSV Pipeline (Strategy Pattern Delegation)
+            csv_handled = False
+            async for event in self._handle_csv_mode_strategy(ctx, agentic_span_id):
+                if isinstance(event, bool):
+                    csv_handled = event
+                else:
                     yield event
 
-        # 3. Router Execution (only if CSV/Viz didn't handle the request)
-        if not csv_handled and not viz_shortcut:
-            async for event in self._execute_router_workflow(ctx, agentic_span_id):
-                yield event
-        else:
-            # CSV handled the request, close the agentic span
-            ctx.metrics.end_span(agentic_span_id)
+            # 2b. Visualization Shortcut (P0 Feature)
+            # If we have cached structured data AND the user just wants to visualize it, SKIP the expensive router.
+            viz_shortcut = False
+            if not csv_handled and ctx.metadata.get("cached_sql_results"):
+                # Check intent with fast LLM
+                if await self._detect_visualization_intent(ctx):
+                    viz_shortcut = True
+                    async for event in self._execute_cached_visualization_workflow(ctx, agentic_span_id):
+                        yield event
+
+            # 3. Router Execution (only if CSV/Viz didn't handle the request)
+            if not csv_handled and not viz_shortcut:
+                async for event in self._execute_router_workflow(ctx, agentic_span_id):
+                    yield event
+
+        finally:
+            # Clean up ephemeral processing metadata to avoid serialization issues later
+            if "_emitted_step_ids" in ctx.metadata:
+                del ctx.metadata["_emitted_step_ids"]
+
+            # Close the agentic span if not done (e.g. on error).
+            # Use local flags; they are guaranteed to be bound since the try block
+            # initialises them before any yield that could raise.
+            _csv = locals().get("csv_handled", False)
+            _viz = locals().get("viz_shortcut", False)
+            if not _csv and not _viz:
+                # We try to end it; MetricsManager will ignore if already ended
+                ctx.metrics.end_span(agentic_span_id)
 
     # --- Pre-conditions ---
 
@@ -118,16 +141,20 @@ class AgenticProcessor(BaseChatProcessor):
         ctx.sql_results = ctx.metadata.get("cached_sql_results")
 
         # 2. Yield standard events to simulate progress (for UI consistency)
+        sid = ctx.metrics.start_span(PipelineStepType.ROUTER_PROCESSING, parent_id=parent_span_id)
+        ctx.metrics.end_span(sid, payload={"is_substep": True})
         yield EventFormatter.format(
             PipelineStepType.ROUTER_PROCESSING,
             StepStatus.COMPLETED,
-            ctx.language,
+            sid,
+            parent_id=parent_span_id,
             duration=0.01,
             payload={"is_substep": True},
         )
 
         # 3. Simulate Router Completion
-        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.COMPLETED, ctx.language, duration=0.05)
+        ctx.metrics.end_span(parent_span_id)
+        yield EventFormatter.format(PipelineStepType.ROUTER, StepStatus.COMPLETED, parent_span_id, duration=0.05)
 
         # 4. Trigger Visualization Service manually or let standard flow handle it?
         # Standard flow is: Agentic -> VisualizationProcessor
@@ -137,9 +164,15 @@ class AgenticProcessor(BaseChatProcessor):
         # P0 FIX: Ensure we have text so PersistenceProcessor saves this turn!
         # Without text, the turn is discarded, breaking the context chain for the NEXT question.
         if ctx.language == "fr":
-            ctx.full_response_text = "Voici la visualisation basée sur les données précédentes."
+            text = "Voici la visualisation basée sur les données précédentes."
         else:
-            ctx.full_response_text = "Here is the visualization based on the previous data."
+            text = "Here is the visualization based on the previous data."
+
+        ctx.full_response_text = text
+        # P0 FIX: Yield tokens so the UI creates a new message bubble instead of merging with the previous one
+        for word in text.split(" "):
+            yield self._format_token(word + " ")
+            await asyncio.sleep(0.02)  # Subtle delay for UX
 
         ctx.metrics.end_span(parent_span_id)
         ctx.should_stop = True  # Ensure we don't run the actual router
@@ -177,7 +210,7 @@ class AgenticProcessor(BaseChatProcessor):
 
     # --- 1. Contextual Rewriting ---
 
-    async def _contextualize_query(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
+    async def _contextualize_query(self, ctx: ChatContext, parent_id: str) -> AsyncGenerator[str, None]:
         """Rewrites the user query based on chat history to preserve context."""
         if not ctx.history:
             logger.debug("[AgenticProcessor:Rewrite] No history. Skipping.")
@@ -187,7 +220,6 @@ class AgenticProcessor(BaseChatProcessor):
 
         try:
             # P0 FEATURE: Context Rehydration (Smart Caching)
-            # Check if previous turn has reusable structured data (e.g. SQL results from 10s ago)
             if ctx.history and len(ctx.history) > 0:
                 last_msg = ctx.history[-1]
                 if last_msg.role == "assistant" and last_msg.metadata:
@@ -196,15 +228,17 @@ class AgenticProcessor(BaseChatProcessor):
                         ctx.metadata["cached_sql_results"] = structured_ctx
                         logger.info(f"💾 [Rehydration] Found reusable SQL context ({len(structured_ctx)} rows)")
 
+            sid = ctx.metrics.start_span(PipelineStepType.QUERY_REWRITE, parent_id=parent_id)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE, StepStatus.RUNNING, sid, parent_id=parent_id, payload={"is_substep": True}
             )
 
             start_time = time.time()
+            rewrite_tokens = None
 
-            # CIRCUIT BREAKER: Timeout protection
             try:
-                new_query = await asyncio.wait_for(self._perform_rewrite_call(ctx), timeout=TIMEOUT_LLM_REWRITE)
+                result = await asyncio.wait_for(self._perform_rewrite_call(ctx), timeout=TIMEOUT_LLM_REWRITE)
+                new_query, rewrite_tokens = result if isinstance(result, tuple) else (result, None)
 
                 if new_query and new_query != ctx.message:
                     logger.info(LOG_REWRITE, ctx.message, new_query)
@@ -214,35 +248,82 @@ class AgenticProcessor(BaseChatProcessor):
                 logger.warning(f"Rewrite Latency Exceeded ({TIMEOUT_LLM_REWRITE}s). Skipping rewrite.")
 
             duration = round(time.time() - start_time, 3)
+
+            # Build payload — include token counts if captured
+            payload: Dict = {"is_substep": True}
+            if rewrite_tokens:
+                payload["tokens"] = rewrite_tokens
+            try:
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                payload["model_name"] = model_val
+                payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
+
+            ctx.metrics.end_span(sid, payload=payload)
+            ctx.metadata["_manual_rewrite_done"] = True
+
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING,
+                PipelineStepType.QUERY_REWRITE,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid,
+                parent_id=parent_id,
                 duration=duration,
-                payload={"is_substep": True},
+                payload=payload,
             )
+            # NOTE: end_span already called above — do NOT call again here.
 
         except Exception as e:
             logger.warning(f"Failed to condense question: {e}")
-            # Yield failures to ensure UI cleanup
             yield EventFormatter.format(
-                PipelineStepType.ROUTER_PROCESSING, StepStatus.FAILED, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_REWRITE, StepStatus.FAILED, ctx.language, payload={"is_substep": True}
             )
 
-    async def _perform_rewrite_call(self, ctx: ChatContext) -> str:
-        """Calls the LLM to rewrite the question."""
+    async def _perform_rewrite_call(self, ctx: ChatContext) -> tuple:
+        """Calls the LLM to rewrite the question. Returns (rewritten_text, token_dict)."""
         relevant_history = ctx.history[-HISTORY_WINDOW_SIZE:]
         history_str = "\n".join([f"{msg.role}: {msg.content}" for msg in relevant_history])
 
         prompt = PromptTemplate(REWRITE_QUESTION_PROMPT)
 
-        # Use centralized Factory to get the correctly configured Chat Engine
-        # based on Assistant settings (provider, model version, API keys)
         from app.factories.chat_engine_factory import ChatEngineFactory
 
         llm = await ChatEngineFactory.create_from_assistant(ctx.assistant, ctx.settings_service)
-        response = await llm.apredict(prompt, chat_history=history_str, question=ctx.message)
-        return response.strip()
+        # Use astream_complete to capture token usage after generation
+        full_text = ""
+        input_tokens = 0
+        output_tokens = 0
+        try:
+            async for chunk in await llm.astream_complete(
+                prompt.format(chat_history=history_str, question=ctx.message)
+            ):
+                full_text = chunk.text  # astream_complete gives cumulative text
+                # Capture usage from last chunk
+                raw = getattr(chunk, "raw", None) or {}
+                meta = (
+                    (raw.get("usage_metadata") if isinstance(raw, dict) else getattr(raw, "usage_metadata", None))
+                    if raw
+                    else None
+                )
+                if meta:
+                    input_tokens = (
+                        meta.get("prompt_token_count")
+                        if isinstance(meta, dict)
+                        else getattr(meta, "prompt_token_count", 0)
+                    ) or 0
+                    output_tokens = (
+                        meta.get("candidates_token_count")
+                        if isinstance(meta, dict)
+                        else getattr(meta, "candidates_token_count", 0)
+                    ) or 0
+        except Exception:
+            # Fallback to simple apredict if streaming not supported
+            full_text = await llm.apredict(prompt, chat_history=history_str, question=ctx.message)
+
+        tokens = {"input": input_tokens, "output": output_tokens} if (input_tokens or output_tokens) else None
+        return full_text.strip(), tokens
 
     # --- 2. CSV Strategy ---
 
@@ -266,7 +347,7 @@ class AgenticProcessor(BaseChatProcessor):
 
                 # NOW we close the Router span and yield completion
                 ctx.metrics.end_span(agentic_span_id)
-                yield EventFormatter.format(PipelineStepType.ROUTER, "completed", ctx.language)
+                yield EventFormatter.format(PipelineStepType.ROUTER, "completed", agentic_span_id)
 
                 ctx.should_stop = True
                 yield True  # Handled
@@ -292,68 +373,81 @@ class AgenticProcessor(BaseChatProcessor):
         try:
             event_queue = asyncio.Queue()
             stream_handler = StreamingCallbackHandler(event_queue, ctx.language)
-            # Span started in process()
-            # span_id = ctx.metrics.start_span(PipelineStepType.ROUTER, label=LABEL_ROUTER_WORKFLOW)
 
             # A. Initialize Engine
             logger.info("[AgenticProcessor:Router] Initializing Query Engine...")
             # Use ROUTER_PROCESSING type to avoid confusion with global INITIALIZATION step
+            sid_init = ctx.metrics.start_span(PipelineStepType.ROUTER_PROCESSING, parent_id=parent_span_id)
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.RUNNING,
-                ctx.language,
-                label="Engine Initialization",
+                sid_init,
+                parent_id=parent_span_id,
                 payload={"is_substep": True},
             )
             start_init = time.time()
             engine = await self._initialize_engine(ctx, stream_handler)
             dur_init = round(time.time() - start_init, 3)
+            ctx.metrics.end_span(sid_init, payload={"is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.ROUTER_PROCESSING,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid_init,
+                parent_id=parent_span_id,
                 duration=dur_init,
-                label="Engine Initialization",
                 payload={"is_substep": True},
             )
+            # NOTE: _record_router_metric removed here — end_span above already records
+            # the completed step in ChatMetricsManager, preventing double entries.
 
             logger.info(f"[AgenticProcessor:Router] Engine ready in {dur_init}s. Launching query...")
-
-            self._record_router_metric(ctx, PipelineStepType.ROUTER_PROCESSING, None, dur_init, {"is_substep": True})
 
             # B. Launch Query & Background Tasks
             # CRITICAL FIX: RouterQueryEngine doesn't have astream_query()
             # We need to call the synchronous query() method, which returns a StreamingResponse
             # if the underlying SQL engine has streaming=True
-            logger.info("[AgenticProcessor] Calling query() for Router...")
+            # STREAMING FIX: Use aquery (native async) instead of wrapping sync query() in a thread.
+            # asyncio.to_thread() forces the entire response to be buffered before tokens arrive,
+            # which is why the response appeared "all at once". aquery() lets the event loop
+            # yield tokens as they are generated.
+            logger.info("[AgenticProcessor] Calling aquery() for Router (async streaming)...")
 
             # Emit step to show user we're executing the query
+            sid_query = ctx.metrics.start_span(PipelineStepType.QUERY_EXECUTION, parent_id=parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.QUERY_EXECUTION, StepStatus.RUNNING, ctx.language, payload={"is_substep": True}
+                PipelineStepType.QUERY_EXECUTION, StepStatus.RUNNING, sid_query, parent_id=parent_span_id, payload={"is_substep": True}
             )
             start_query = time.time()
 
-            # Run the blocking query() call in a thread to avoid blocking the event loop
-            router_task = asyncio.create_task(asyncio.to_thread(engine.query, ctx.message))
             embedding_task = asyncio.create_task(self._compute_background_embedding(ctx))
 
-            # C. Consume Events
-            async for event in self._consume_event_queue(event_queue, router_task):
-                yield self._process_router_event(event, ctx)
-
-            # Wait for result with Circuit Breaker
+            # Execute query natively async — no thread wrapping needed.
+            # We still apply the circuit-breaker timeout for safety.
             try:
-                response = await asyncio.wait_for(router_task, timeout=TIMEOUT_ROUTER_QUERY)
+                response = await asyncio.wait_for(
+                    engine.aquery(ctx.message),
+                    timeout=TIMEOUT_ROUTER_QUERY,
+                )
             except asyncio.TimeoutError:
-                router_task.cancel()  # Ensure we kill the hanging task
+                logger.warning(f"Router Query Timed Out ({TIMEOUT_ROUTER_QUERY}s).")
                 raise TimeoutError(f"Query timed out after {TIMEOUT_ROUTER_QUERY}s")
+
+            # C. Flush any callback events produced during aquery
+            while not event_queue.empty():
+                try:
+                    event = event_queue.get_nowait()
+                    yield self._process_router_event(ctx, event, parent_id=sid_query)
+                except asyncio.QueueEmpty:
+                    break
 
             # Mark query as completed
             dur_query = round(time.time() - start_query, 3)
+            ctx.metrics.end_span(sid_query, payload={"is_substep": True})
             yield EventFormatter.format(
                 PipelineStepType.QUERY_EXECUTION,
                 StepStatus.COMPLETED,
-                ctx.language,
+                sid_query,
+                parent_id=parent_span_id,
                 duration=dur_query,
                 payload={"is_substep": True},
             )
@@ -361,26 +455,64 @@ class AgenticProcessor(BaseChatProcessor):
             # D. Handle Results
             self._capture_sql_results(ctx, response)
 
+            # Update the stream handler with the parent_id for callback events
+            stream_handler.parent_id = parent_span_id
+
             async for source_event in self._process_response_sources(ctx, response):
                 yield source_event
 
-            # E. Stream Content
+            # E. Stream Content — wrapped in ROUTER_SYNTHESIS for accurate timing.
+            # The LLM callbacks fire at ~0ms with streaming (they get a handle, not the full response).
+            # The REAL generation time lives here, in the token stream consumption.
+            synthesis_start = time.time()
+            sid_synth = ctx.metrics.start_span(PipelineStepType.ROUTER_SYNTHESIS, parent_id=parent_span_id)
+            yield EventFormatter.format(
+                PipelineStepType.ROUTER_SYNTHESIS, StepStatus.RUNNING, sid_synth, parent_id=parent_span_id, payload={"is_substep": True}
+            )
+
             async for token_event in self._stream_response_content(ctx, response, stream_handler, event_queue):
                 yield token_event
+
+            synthesis_dur = round(time.time() - synthesis_start, 3)
+            # Get the final cumulative token counts from the handler
+            synth_input = getattr(stream_handler, "total_input_tokens", 0)
+            synth_output = getattr(stream_handler, "total_output_tokens", 0)
+            synth_payload: Dict = {"is_substep": True}
+            if synth_input or synth_output:
+                synth_payload["tokens"] = {"input": synth_input, "output": synth_output}
+            try:
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                synth_payload["model_name"] = model_val
+                synth_payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
+            yield EventFormatter.format(
+                PipelineStepType.ROUTER_SYNTHESIS,
+                StepStatus.COMPLETED,
+                sid_synth,
+                parent_id=parent_span_id,
+                duration=synthesis_dur,
+                payload=synth_payload,
+            )
+            ctx.metrics.end_span(sid_synth, payload=synth_payload)
 
             # F. Finalize
             step_metric = ctx.metrics.end_span(parent_span_id)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER, StepStatus.COMPLETED, ctx.language, duration=step_metric.duration
+                PipelineStepType.ROUTER, StepStatus.COMPLETED, parent_span_id, duration=step_metric.duration
             )
 
             await embedding_task
             ctx.should_stop = True
+            # Note: event_queue is not consumed after synthesis because aquery() is
+            # synchronous from the caller perspective once the response object is returned.
 
         except Exception as e:
             logger.error(f"Agentic Router Critical Failure: {e}", exc_info=True)
             yield EventFormatter.format(
-                PipelineStepType.ROUTER, StepStatus.FAILED, ctx.language, label=LABEL_ROUTER_ERROR % str(e)
+                PipelineStepType.ROUTER, StepStatus.FAILED, parent_span_id, label=LABEL_ROUTER_ERROR % str(e)
             )
 
     async def _initialize_engine(self, ctx: ChatContext, handler: StreamingCallbackHandler):
@@ -409,7 +541,11 @@ class AgenticProcessor(BaseChatProcessor):
             yield queue.get_nowait()
 
     async def _compute_background_embedding(self, ctx: ChatContext) -> None:
-        """Computes query embedding in background for analytics/cache."""
+        """Computes query embedding in background for analytics/cache (if not already present)."""
+        if ctx.question_embedding:
+            logger.debug("[AgenticProcessor] Skipping background embedding: already present.")
+            return
+
         try:
             # CRITICAL FIX: Use the embedding provider from the connector, not global default
             # The assistant's connectors determine which embedding provider to use
@@ -450,105 +586,50 @@ class AgenticProcessor(BaseChatProcessor):
         ctx.retrieved_sources = await SourceService.process_sources(response.source_nodes, ctx.db)
 
         # Emit final accurate source count. The frontend will merge this with previous timing info.
-        num_sources = len(ctx.retrieved_sources) if ctx.retrieved_sources else 0
-        yield EventFormatter.format(
-            PipelineStepType.ROUTER_RETRIEVAL,
-            StepStatus.COMPLETED,
-            ctx.language,
-            payload={"is_substep": True, "source_count": num_sources},
-        )
-
+        # USER_REQUEST: Removing this redundant generic event to avoid "plain" label in UI.
+        # Sub-steps already provide the necessary info.
         if ctx.retrieved_sources:
             yield self._format_json_event({"type": "sources", "data": ctx.retrieved_sources})
 
     async def _stream_response_content(
         self, ctx: ChatContext, response: Any, stream_handler: Any, event_queue: Optional[asyncio.Queue] = None
     ) -> AsyncGenerator[str, None]:
-        """Handles streaming the text tokens to the client with Intelligent Filtering."""
-        stream_span = ctx.metrics.start_span(PipelineStepType.STREAMING)
-        # Note: We NO LONGER yield a manual STREAMING start here.
-        # The callback handler will yield ROUTER_REASONING or ROUTER_SYNTHESIS
-        # which already maps to "Generating Answer" in the UI.
+        """Handles streaming the text tokens to the client using Robust Stream Parser."""
+        # Streaming is technically a background child of the synthesis process in the UI
+        stream_id = ctx.metrics.start_span(PipelineStepType.STREAMING)
 
         full_text = ""
         output_tokens = 0
-
-        # --- Stream Filtering Logic ---
-        # We buffer tokens to separate Data (JSON Table) from Response (Text)
-        # This satisfies the architectural requirement: "Payload with properties, data separated from text".
-        buffer = ""
-        is_suppressing = False
+        parser = StreamBlockParser()
 
         async def process_token_stream(token_gen):
-            nonlocal full_text, output_tokens, buffer, is_suppressing
+            nonlocal full_text, output_tokens
             async for token in token_gen:
                 token_str = str(token)
-                full_text += token_str  # ALWAYS capture full text for Visualization Processor
 
-                # Buffer logic
-                buffer += token_str
-
-                # Check for start tag
-                if not is_suppressing:
-                    if ":::" in buffer:
-                        # Potential start of table block
-                        if ":::table" in buffer:
-                            is_suppressing = True
-                            # Yield pre-table content if any (e.g. "Here is the data:\n")
-                            pre_table = buffer.split(":::table")[0]
-                            if pre_table:
-                                output_tokens += 1
-                                yield self._format_token(pre_table)
-                            buffer = ":::table"  # Keep only the tag in buffer to track structure
-                        else:
-                            # Wait for more tokens to confirm ":::table" or just ":"
-                            # Heuristic: if buffer too long without match, flush it
-                            if len(buffer) > 20:
-                                output_tokens += 1
-                                yield self._format_token(buffer)
-                                buffer = ""
-                    else:
-                        # flush safe buffer
+                # feed parser
+                for event in parser.feed(token_str):
+                    if event.type == "token":
+                        full_text += event.content
                         output_tokens += 1
-                        yield self._format_token(buffer)
-                        buffer = ""
+                        yield self._format_token(event.content)
+                    elif event.type == "block":
+                        # We found a table block!
+                        table_data = event.content
+                        if "content_blocks" not in ctx.metadata:
+                            ctx.metadata["content_blocks"] = []
+                        ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
+                        logger.info("[AgenticProcessor] Stream: extracted table block")
+                        yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
 
-                # Polling for events during streaming for better responsiveness
+                # Polling for events during streaming
                 if event_queue:
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
-                else:
-                    # In Suppression Mode
-                    # Look for closing tag ":::"
-                    # Note: We need to be careful not to match the opening tag again if buffer wasn't cleared
-                    if buffer.endswith(":::"):
-                        # Check if it's the closing tag.
-                        # Simple heuristic: If buffer length > 10 (content exists), and ends with :::
-                        # We assume block closed.
-                        if len(buffer) > 10:
-                            # Try to extract and save the table data
-                            try:
-                                # buffer is ":::table ... :::"
-                                # Remove tags
-                                content = buffer[8:-3].strip()  # len(":::table")=8, len(":::")=3
-                                if content:
-                                    table_data = json.loads(content)
-                                    if "content_blocks" not in ctx.metadata:
-                                        ctx.metadata["content_blocks"] = []
-                                    ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
-                                    logger.info("[AgenticProcessor] Stream: extracted table block")
-                                    yield json.dumps(
-                                        {"type": "content_block", "block_type": "table", "data": table_data}
-                                    ) + "\n"
-                            except Exception as e:
-                                logger.warning(f"[AgenticProcessor] Stream: Failed to parse table block: {e}")
-
-                            is_suppressing = False
-                            buffer = ""  # Discard the block completely from stream
 
         try:
             if isinstance(response, StreamingResponse):
@@ -565,143 +646,185 @@ class AgenticProcessor(BaseChatProcessor):
                     async for event in process_token_stream(sync_gen_wrapper()):
                         yield event
 
-                # Exhaust the event queue after stream ends to catch late completion events
+                # Exhaust the event queue after stream ends
                 if event_queue:
                     while not event_queue.empty():
                         try:
                             event = event_queue.get_nowait()
-                            yield self._process_router_event(event, ctx)
+                            yield self._process_router_event(ctx, event)
                         except asyncio.QueueEmpty:
                             break
             else:
-                full_text = str(response)
-                logger.debug(
-                    f"[stream_response_content] Non-streaming response. Full Text: {full_text[:200]}..."
-                )  # DEBUG
+                # Non-streaming fallback
+                full_text_raw = str(response)
+                # Feed the whole text to the parser
+                for event in parser.feed(full_text_raw):
+                    if event.type == "token":
+                        full_text += event.content
+                        output_tokens += 1
+                        yield self._format_token(event.content)
+                    elif event.type == "block":
+                        table_data = event.content
+                        if "content_blocks" not in ctx.metadata:
+                            ctx.metadata["content_blocks"] = []
+                        ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
+                        yield json.dumps({"type": "content_block", "block_type": "table", "data": table_data}) + "\n"
 
-                # For non-stream, we just strip the block regex-style (server-side)
-                # This handles the "Regex is noob" comment by doing it on backend.
-
-                # Extract table data before cleaning
-                table_matches = re.finditer(r":::table([\s\S]*?):::", full_text)
-                logger.info(f"[AgenticProcessor] DEBUG: Scanning full_text (len={len(full_text)}) for tables...")
-                if ":::table" in full_text:
-                    logger.info("[AgenticProcessor] DEBUG: Found ':::table' string in text!")
-                else:
-                    logger.warning("[AgenticProcessor] DEBUG: ':::table' NOT found in text.")
-
-                count = 0
-                for match in table_matches:
-                    count += 1
-                    try:
-                        json_str = match.group(1).strip()
-                        if json_str:
-                            # ... existing logic ...
-                            table_data = json.loads(json_str)
-                            if "content_blocks" not in ctx.metadata:
-                                ctx.metadata["content_blocks"] = []
-                            ctx.metadata["content_blocks"].append({"type": "table", "data": table_data})
-                            logger.info("[AgenticProcessor] Extracted table block from response")
-                            yield json.dumps(
-                                {"type": "content_block", "block_type": "table", "data": table_data}
-                            ) + "\n"
-                    except Exception as e:
-                        logger.warning(f"[AgenticProcessor] Failed to parse table block: {e}")
-
-                logger.info(f"[AgenticProcessor] DEBUG: Total table blocks extracted: {count}")
-
-                # Remove table blocks from the final text
-                clean_text = re.sub(r":::table[\s\S]*?:::(\s*:::)?", "", full_text).strip()
-
-                # Update the context with the CLEANED text so history doesn't contain raw JSON
-                ctx.full_response_text = clean_text
-                logger.debug(f"[stream_response_content] Cleaned Text: {clean_text[:200]}...")  # DEBUG
-
-                output_tokens = int(len(clean_text.split()) * 1.3)
-                yield self._format_token(clean_text)
+                # Drain the queue — the non-streaming path also fires on_llm_end
+                # callbacks (e.g. ROUTER_REASONING completed) that must be forwarded
+                # to the frontend so the step transitions from orange → green.
+                if event_queue:
+                    while not event_queue.empty():
+                        try:
+                            cb_event = event_queue.get_nowait()
+                            yield self._process_router_event(ctx, cb_event)
+                        except asyncio.QueueEmpty:
+                            break
 
         except Exception as e:
             logger.error(f"Stream Error: {e}")
-            # Fallback flush
-            if buffer and not is_suppressing:
-                yield self._format_token(buffer)
 
-        # Flush any remaining buffer if not suppressing
-        if buffer and not is_suppressing:
-            output_tokens += 1
-            yield self._format_token(buffer)
+        # Flush parser buffer
+        for event in parser.flush():
+            if event.type == "token":
+                full_text += event.content
+                output_tokens += 1
+                yield self._format_token(event.content)
 
-        # Ensure we don't persist raw table blocks (for both stream and non-stream)
-        clean_full_text = re.sub(r":::table[\s\S]*?:::(\s*:::)?", "", full_text).strip()
-        ctx.full_response_text = clean_full_text
+        ctx.full_response_text = full_text
 
-        # Extract token counts from stream_handler which accumulated them during LLM events
+        # Extract token counts
         llm_input_tokens = getattr(stream_handler, "total_input_tokens", 0)
         llm_output_tokens = getattr(stream_handler, "total_output_tokens", 0)
 
-        logger.info(f"🔍 [TOKEN_TRACE] Handler - Input: {llm_input_tokens}, Output: {llm_output_tokens}")
-        logger.info(f"🔍 [TOKEN_TRACE] Manual Output: {output_tokens}")
-
-        # Extract tokens from payload if not provided explicitly
-        if event_queue and hasattr(event_queue, "payload") and "tokens" in event_queue.payload:
-            t = event_queue.payload["tokens"]
-            # P0 FIX: Support both 'input'/'output' (callbacks) and 'input_tokens'/'output_tokens' (standard)
-            p_input = t.get("input") or t.get("input_tokens", 0)
-            p_output = t.get("output") or t.get("output_tokens", 0)
-
-            if llm_input_tokens == 0:
-                llm_input_tokens = p_input
-            if llm_output_tokens == 0:
-                llm_output_tokens = p_output
+        # Fallback for input tokens if 0 (common with some streams like OpenAI if not configured perfectly)
+        if llm_input_tokens == 0:
+            # Rough estimate: 1 token ~ 4 chars. This ensures cost is not 0.
+            llm_input_tokens = len(ctx.message) // 4
 
         # Pass to metrics system
         ctx.metrics.end_span(
-            stream_span,
+            stream_id,
             input_tokens=llm_input_tokens,
-            output_tokens=llm_output_tokens or output_tokens,  # Fallback to manual count
+            output_tokens=llm_output_tokens or output_tokens,
+            increment_total=True,
         )
-
-        # We also DON'T yield a manual completion event here to avoid duplicate "Finalizing Response"
-        # The parent task or the callback completion of REASONING handles the UI.
 
     # --- Metrics & Formatter Helpers ---
 
-    def _process_router_event(self, event_data: Dict, ctx: ChatContext) -> str:
-        step_type = event_data.get("step_type")
-        status = event_data.get("status")
-        payload = SourceService._sanitize_data(event_data.get("payload", {}))
-        duration = event_data.get("duration")
-        label = event_data.get("label")
+    def _process_router_event(self, ctx: ChatContext, event: Any, parent_id: Optional[str] = None) -> str:
+        """Helper to format router/agentic events for SSE."""
+        # Extract fields from the router/callback event
+        # (This handles both EventObject and dict-like objects)
+        if isinstance(event, dict):
+            step_type = event.get("step_type")
+            status = event.get("status", "running")
+            payload = SourceService._sanitize_data(event.get("payload", {}))
+            label = event.get("label")
+            duration = event.get("duration")
+        else:
+            step_type = event.step_type if hasattr(event, "step_type") else getattr(event, "event_type", "unknown")
+            status = event.status if hasattr(event, "status") else "running"
+            payload = event.payload if hasattr(event, "payload") else {}
+            label = getattr(event, "label", None)
+            duration = getattr(event, "duration", None)
+
+        if step_type == "unknown" or not step_type:
+            return ""
 
         if step_type == PipelineStepType.RETRIEVAL:
-            # P0 FIX: Use the 'is_sql' hint from callbacks for consistent start/end mapping.
-            # This prevents the "Zombie" line issue where start/end have different types.
             is_sql_meta = payload.get("is_sql", False)
-
-            # Fallback for very old traces is risky for Folder Connectors (small count != SQL)
-            # We strictly rely on the hint now.
-            # if not is_sql_meta and "source_count" in payload and 0 < payload["source_count"] <= 3:
-            #     is_sql_meta = True
-
             step_type = PipelineStepType.SQL_SCHEMA_RETRIEVAL if is_sql_meta else PipelineStepType.ROUTER_RETRIEVAL
 
-        # FIX: Ensure completed events ALWAYS have duration (even if 0.0) so they appear in UI
-        if status == StepStatus.COMPLETED:
-            if duration is None:
-                duration = 0.0
-            self._record_router_metric(ctx, step_type, label, duration, payload)
+        # Inject model info for display
+        if step_type in (
+            PipelineStepType.ROUTER_REASONING,
+            PipelineStepType.ROUTER_SYNTHESIS,
+            PipelineStepType.ROUTER_SELECTION,
+            PipelineStepType.QUERY_REWRITE,
+            PipelineStepType.SQL_GENERATION,
+        ):
+            try:
+                model_val = ctx.metadata.get("specific_model_name") or (
+                    ctx.assistant.model.value if hasattr(ctx.assistant.model, "value") else str(ctx.assistant.model)
+                )
+                payload["model_name"] = model_val
+                payload["model_provider"] = ctx.assistant.model_provider
+            except Exception:
+                pass
 
         if "is_substep" not in payload:
             payload["is_substep"] = True
 
-        # Hide intermediate counts (likely schema retrieval) to avoid confusing the user
-        # The final accurate count will be sent by _process_response_sources
         if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
             del payload["source_count"]
 
-        return EventFormatter.format(step_type, status, ctx.language, payload, duration, label)
+        # 1. Resolve IDs for this event
+        if isinstance(event, dict):
+            step_id = event.get("step_id")
+            incoming_parent_id = event.get("parent_id")
+        else:
+            step_id = getattr(event, "step_id", None)
+            incoming_parent_id = getattr(event, "parent_id", None)
 
-    def _record_router_metric(self, ctx: ChatContext, step_type, label, duration, payload):
+        # Point 1: Parent Normalization
+        # Force orphans to be children of the main router span if their parent is unknown/not emitted
+        emitted_ids = ctx.metadata.get("_emitted_step_ids", set())
+        if incoming_parent_id and incoming_parent_id != parent_id and incoming_parent_id not in emitted_ids:
+            logger.debug(f"Hiearchy: Normalizing orphaned parent {incoming_parent_id} -> {parent_id}")
+            final_parent_id = parent_id
+        else:
+            final_parent_id = incoming_parent_id or parent_id
+
+        if not step_id:
+            # Fallback to stable ID for events without explicit ID (like manual spans)
+            step_val = step_type.value if hasattr(step_type, "value") else str(step_type)
+            step_id = f"router_{step_val}_{parent_id or 'global'}"
+
+        # Track this ID as emitted for future children
+        if "_emitted_step_ids" not in ctx.metadata:
+            ctx.metadata["_emitted_step_ids"] = set()
+        ctx.metadata["_emitted_step_ids"].add(step_id)
+
+        # 2. Record completion metric if finished
+        if status == StepStatus.COMPLETED:
+            if duration is None:
+                duration = 0.0
+
+            # Double-Recording Prevention: If we handled this manually (e.g. QUERY_REWRITE),
+            # don't record the internal LlamaIndex callback event as a separate step.
+            if step_type == PipelineStepType.QUERY_REWRITE and ctx.metadata.get("_manual_rewrite_done"):
+                return ""
+
+            self._record_router_metric(ctx, step_type, label, duration, payload, parent_id=final_parent_id, step_id=step_id)
+
+        # 3. Clean up payload
+        if "is_substep" not in payload:
+            payload["is_substep"] = True # Still hint for simple renderers
+
+        if step_type == PipelineStepType.ROUTER_RETRIEVAL and "source_count" in payload:
+            del payload["source_count"]
+
+        return EventFormatter.format(
+            step_type, 
+            status, 
+            step_id, 
+            parent_id=final_parent_id, 
+            payload=payload, 
+            label=label, 
+            duration=duration
+        )
+
+    def _record_router_metric(
+        self, 
+        ctx: ChatContext, 
+        step_type: Any, 
+        label: Optional[str], 
+        duration: float, 
+        payload: Dict,
+        parent_id: Optional[str] = None,
+        step_id: Optional[str] = None
+    ):
         tokens = payload.get("tokens", {})
         ctx.metrics.record_completed_step(
             step_type=step_type,
@@ -710,6 +833,8 @@ class AgenticProcessor(BaseChatProcessor):
             input_tokens=int(tokens.get("input", 0)),
             output_tokens=int(tokens.get("output", 0)),
             payload=payload,
+            parent_id=parent_id,
+            step_id=step_id
         )
 
     def _format_token(self, content: str) -> str:

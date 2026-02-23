@@ -8,14 +8,17 @@ import type { Source } from 'src/stores/publicChatStore';
 // --- Types ---
 
 export interface ChatStep {
+  step_id: string; // From backend span_id
+  parent_id: string | undefined; // Explicit undefined for strict assignability
   step_type: string;
   status: 'running' | 'completed' | 'failed' | 'error';
   label: string;
-  duration?: number;
-  tokens?: { input: number; output: number };
-  sourceCount?: number;
-  isSubStep?: boolean;
-  metadata?: Record<string, unknown>;
+  duration?: number | undefined;
+  tokens?: { input: number; output: number } | undefined;
+  sourceCount?: number | undefined;
+  isSubStep?: boolean | undefined;
+  sub_steps?: ChatStep[] | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 export interface ContentBlock {
@@ -32,6 +35,7 @@ export interface ChatMessage {
   steps?: ChatStep[];
   statusMessage?: string;
   visualization?: unknown;
+  isComplete?: boolean;
 }
 
 // Discriminated Union for safer type handling
@@ -44,7 +48,9 @@ type StreamEvent =
       type: 'step';
       step_type: string;
       status: ChatStep['status'];
-      label?: string;
+      step_id: string; // REQUIRED in V4
+      parent_id?: string;
+      label?: string; // Optional dynamic override
       duration?: number;
       payload?: Record<string, unknown>;
     }
@@ -78,6 +84,18 @@ export function useChatStream() {
   console.log('useChatStream init. InstanceID:', instanceId);
 
   let abortController: AbortController | null = null;
+
+  // --- Direct callbacks for bypassing Vue reactivity batching ---
+  // These fire synchronously per SSE event, unlike Vue watchers which batch.
+  let _onTokenCallback: ((token: string) => void) | null = null;
+  let _onStepCallback: ((step: ChatStep) => void) | null = null;
+
+  const setOnToken = (cb: ((token: string) => void) | null) => {
+    _onTokenCallback = cb;
+  };
+  const setOnStep = (cb: ((step: ChatStep) => void) | null) => {
+    _onStepCallback = cb;
+  };
 
   // Cleanup on unmount
   onUnmounted(() => {
@@ -133,79 +151,77 @@ export function useChatStream() {
             }
           }
 
-          // Regenerate step labels from step_type (labels are not saved in DB)
+          // Rebuild step labels and hierarchy from stored data.
+          // The backend returns steps with sub_steps already nested (via get_summary).
+          // We only need to regenerate i18n labels and isSubStep flags here.
           if (msg.steps && msg.steps.length > 0) {
-            msg.steps = msg.steps.map((step) => {
-              // Generate label from step_type using i18n
-              const label = t(`pipelineSteps.${step.step_type}`) || step.step_type;
+            const enrichStep = (step: ChatStep, inherited_parent_id?: string): ChatStep => {
+              // Prefer explicit parent_id, then inherited from recursive call
+              const parent_id = step.parent_id || inherited_parent_id;
+              const isSubStep = !!parent_id;
 
-              // Map is_substep from metadata to isSubStep
-              // Check both metadata.is_substep and direct is_substep property
-              const isSubStep =
-                (step.metadata?.is_substep as boolean | undefined) ||
-                ((step as unknown as Record<string, unknown>).is_substep as boolean | undefined) ||
-                false;
+              // Let the backend override the default translated label if specified
+              let label = step.label || t(`pipelineSteps.${step.step_type}`) || step.step_type;
 
-              return {
-                ...step,
-                label,
-                isSubStep,
-              };
-            });
+              const modelName = step.metadata?.model_name as string | undefined;
+              const modelProvider = step.metadata?.model_provider as string | undefined;
 
-            // Generate 'completed' summary step if not present (only for assistant messages)
+              if (modelName) {
+                const providerMap: Record<string, string> = {
+                  openai: 'OpenAI',
+                  gemini: 'Google',
+                  mistral: 'Mistral',
+                  ollama: 'Ollama',
+                  anthropic: 'Anthropic',
+                  cohere: 'Cohere',
+                };
+                const displayProvider = modelProvider
+                  ? providerMap[modelProvider.toLowerCase()] ||
+                    modelProvider.charAt(0).toUpperCase() + modelProvider.slice(1)
+                  : '';
+                const displayModel = displayProvider
+                  ? `${displayProvider} - ${modelName}`
+                  : modelName;
+                label = `${label} (${displayModel})`;
+              }
+
+              // Recursively enrich sub_steps
+              const sub_steps = step.sub_steps?.map((ss) => enrichStep(ss, step.step_id));
+
+              return { ...step, parent_id, label, isSubStep, sub_steps };
+            };
+
+            msg.steps = msg.steps.map((step) => enrichStep(step));
+
+            // Generate 'completed' summary step if not present (only for bot messages)
             if (msg.sender === 'bot') {
               const hasCompletedStep = msg.steps.some((s) => s.step_type === 'completed');
 
               if (!hasCompletedStep && msg.steps.length > 0) {
-                // Calculate totals from all steps
-                const totalInput = msg.steps.reduce((acc, s) => acc + (s.tokens?.input || 0), 0);
-                const totalOutput = msg.steps.reduce((acc, s) => acc + (s.tokens?.output || 0), 0);
+                // Flatten all steps to compute totals
+                const flattenAll = (steps: ChatStep[]): ChatStep[] =>
+                  steps.flatMap((s) => [s, ...flattenAll(s.sub_steps || [])]);
+                const allSteps = flattenAll(msg.steps);
 
-                // CRITICAL FIX: Don't sum durations (steps overlap in parallel)
-                // Instead, find the actual elapsed time from start to last completion
-                // Use the end_time of the last completed step as total duration
-                let totalDuration = 0;
-                if (msg.steps.length > 0) {
-                  // Find the step with the latest end time
-                  const lastStep = msg.steps.reduce((latest, current) => {
-                    const currentStart = (current.metadata?.start_time as number | undefined) ?? 0;
-                    const latestStart = (latest.metadata?.start_time as number | undefined) ?? 0;
-                    const currentEnd = currentStart + (current.duration || 0);
-                    const latestEnd = latestStart + (latest.duration || 0);
-                    return currentEnd > latestEnd ? current : latest;
-                  });
+                const totalInput = allSteps.reduce((acc, s) => acc + (s.tokens?.input || 0), 0);
+                const totalOutput = allSteps.reduce((acc, s) => acc + (s.tokens?.output || 0), 0);
+                const totalDuration = Math.max(...allSteps.map((s) => s.duration || 0));
 
-                  // Calculate total elapsed time from first step start to last step end
-                  const starts = msg.steps
-                    .map((s) => (s.metadata?.start_time as number | undefined) ?? 0)
-                    .filter((t) => t > 0);
-                  const firstStepStart = starts.length > 0 ? Math.min(...starts) : 0;
-                  const lastStepStart = (lastStep.metadata?.start_time as number | undefined) ?? 0;
-                  const lastStepEnd = lastStepStart + (lastStep.duration || 0);
-
-                  if (firstStepStart > 0 && lastStepEnd > 0) {
-                    totalDuration = Math.round((lastStepEnd - firstStepStart) * 1000) / 1000;
-                  } else {
-                    // Fallback: use the longest single step duration if timestamps unavailable
-                    totalDuration = Math.max(...msg.steps.map((s) => s.duration || 0));
-                  }
-                }
-
-                // Add completed step at the beginning (create new array for reactivity)
                 const completedStep: ChatStep = {
+                  step_id: 'summary_completed',
+                  parent_id: undefined,
                   step_type: 'completed',
                   status: 'completed',
                   label: t('pipelineSteps.completed') || 'Completed',
                   duration: totalDuration,
                   tokens: { input: totalInput, output: totalOutput },
                 };
-
                 msg.steps = [completedStep, ...msg.steps];
               }
             }
           }
 
+          msg.isComplete = true; // All history messages are complete
           return msg;
         });
       }
@@ -258,6 +274,9 @@ export function useChatStream() {
 
     if (!botMsg.contentBlocks) botMsg.contentBlocks = [];
 
+    // Explicitly ensure it's marked as NOT complete while handling stream events
+    if (botMsg.isComplete !== false) botMsg.isComplete = false;
+
     switch (event.type) {
       case 'status':
         botMsg.statusMessage = event.message;
@@ -268,12 +287,12 @@ export function useChatStream() {
         const text = event.content || '';
         botMsg.text += text;
 
-        // Update or create text block
+        // Fire direct callback BEFORE Vue batches the update
+        if (_onTokenCallback) _onTokenCallback(text);
 
         // Update or create text block
         const lastBlock = botMsg.contentBlocks[botMsg.contentBlocks.length - 1];
         if (lastBlock?.type === 'text') {
-          // Cast to string safely or stringify if needed, but token content is string
           lastBlock.data = (lastBlock.data as string) + text;
         } else {
           botMsg.contentBlocks.push({ type: 'text', data: text });
@@ -290,8 +309,15 @@ export function useChatStream() {
         });
         break;
 
-      case 'step':
-        return handleStepEvent(botMsg, event);
+      case 'step': {
+        const stepResult = handleStepEvent(botMsg, event);
+        // Fire step callback with the resolved step
+        if (_onStepCallback && botMsg.steps && botMsg.steps.length > 0) {
+          const lastStep = botMsg.steps[botMsg.steps.length - 1];
+          if (lastStep) _onStepCallback(lastStep);
+        }
+        return stepResult;
+      }
 
       case 'sources':
         botMsg.sources = processSources(event.data || []);
@@ -315,92 +341,104 @@ export function useChatStream() {
     botMsg: ChatMessage,
     event: Extract<StreamEvent, { type: 'step' }>,
   ): boolean {
-    // Nested Step Update Logic
     if (!botMsg.steps) botMsg.steps = [];
 
-    // Dynamic Label Logic
-    let label = event.label || t(`pipelineSteps.${event.step_type}`);
+    // No step suppression: all steps are shown for full transparency.
+
+    // 1. Resolve Label (Frontend-only translation)
+    const baseLabel = t(`pipelineSteps.${event.step_type}`) || event.step_type;
+    let label = event.label || baseLabel;
+
     // Cache specific logic
     if (event.step_type === 'cache_lookup' && event.status === 'completed' && event.payload) {
       label = event.payload.hit ? t('pipelineSteps.cache_hit') : t('pipelineSteps.cache_miss');
     }
 
-    const payload = event.payload as
-      | { tokens?: { input: number; output: number }; is_substep?: boolean; source_count?: number }
-      | undefined;
+    // Append model info if available in payload
+    if (!event.label) {
+      const modelName = event.payload?.model_name;
+      const modelProvider = event.payload?.model_provider;
+
+      if (typeof modelName === 'string' && modelName) {
+        let displayModel = modelName;
+        if (typeof modelProvider === 'string' && modelProvider) {
+          const providerMap: Record<string, string> = {
+            openai: 'OpenAI',
+            gemini: 'Google',
+            mistral: 'Mistral',
+            ollama: 'Ollama',
+            anthropic: 'Anthropic',
+            cohere: 'Cohere',
+          };
+          const displayProvider = providerMap[modelProvider.toLowerCase()] || modelProvider;
+          displayModel = `${displayProvider} - ${modelName}`;
+        }
+        label = `${baseLabel} (${displayModel})`;
+      }
+    }
+
+    const payload = event.payload;
+    const isSubStep = !!event.parent_id || !!payload?.is_substep;
 
     const newStep: ChatStep = {
+      step_id: event.step_id,
+      parent_id: event.parent_id,
       step_type: event.step_type,
       status: event.status,
       label,
-      ...(event.duration !== undefined ? { duration: event.duration } : {}),
-      ...(payload?.tokens ? { tokens: payload.tokens } : {}),
-      ...(payload?.is_substep !== undefined ? { isSubStep: payload.is_substep } : {}),
-      ...(payload?.source_count !== undefined ? { sourceCount: payload.source_count } : {}),
-      ...(payload?.source_count !== undefined ? { sourceCount: payload.source_count } : {}),
+      duration: event.duration,
+      tokens: payload?.tokens as { input: number; output: number } | undefined,
+      isSubStep: isSubStep,
+      sourceCount: payload?.source_count as number | undefined,
+      metadata: payload,
     };
 
-    // Calculate totals for 'completed' step if missing
-    if (newStep.step_type === 'completed' && newStep.status === 'completed') {
-      if (!newStep.tokens) {
-        const totalInput = botMsg.steps.reduce((acc, s) => acc + (s.tokens?.input || 0), 0);
-        const totalOutput = botMsg.steps.reduce((acc, s) => acc + (s.tokens?.output || 0), 0);
-        if (totalInput > 0 || totalOutput > 0) {
-          newStep.tokens = { input: totalInput, output: totalOutput };
+    // 2. Nesting Logic (Recursive)
+    if (event.parent_id) {
+      const findParentRecursive = (steps: ChatStep[]): ChatStep | undefined => {
+        for (const s of steps) {
+          if (s.step_id === event.parent_id) return s;
+          if (s.sub_steps) {
+            const found = findParentRecursive(s.sub_steps);
+            if (found) return found;
+          }
         }
-      }
-      // Note: Duration is usually provided by the backend for the overall request.
-      // If missing, we could sum it up, but backend duration is more accurate (wall clock).
-    }
+        return undefined;
+      };
 
-    // Update existing running step or push new
-    let foundIndex = -1;
-    // Search nested: find the LAST running step of the same type
-    for (let i = botMsg.steps.length - 1; i >= 0; i--) {
-      const s = botMsg.steps[i];
-      if (s && s.step_type === newStep.step_type) {
-        // Option A: Step is currently running
-        if (s.status === 'running') {
-          foundIndex = i;
-          break;
-        }
-        // Option B: Sub-step update/refinement (even if completed)
-        if (
-          newStep.isSubStep &&
-          s.isSubStep &&
-          newStep.status === 'completed' &&
-          s.status === 'completed'
-        ) {
-          foundIndex = i;
-          break;
-        }
+      const parent = findParentRecursive(botMsg.steps);
+      if (parent) {
+        if (!parent.sub_steps) parent.sub_steps = [];
+        updateOrPushStep(parent.sub_steps, newStep);
+        return false;
       }
     }
 
-    if (foundIndex !== -1) {
-      // Merge logic: preserve existing data if new event is a partial update (e.g. metadata/count refinement)
-      const oldStep = botMsg.steps[foundIndex];
-      if (oldStep) {
-        if (newStep.duration === undefined && oldStep.duration !== undefined) {
-          newStep.duration = oldStep.duration;
-        }
-        if (newStep.tokens === undefined && oldStep.tokens !== undefined) {
-          newStep.tokens = oldStep.tokens;
-        }
-        if (newStep.sourceCount === undefined && oldStep.sourceCount !== undefined) {
-          newStep.sourceCount = oldStep.sourceCount;
-        }
-        // FIX: Preserve isSubStep if not present in new event (often missing in completion events)
-        if (newStep.isSubStep === undefined && oldStep.isSubStep !== undefined) {
-          newStep.isSubStep = oldStep.isSubStep;
-        }
-      }
-
-      botMsg.steps[foundIndex] = newStep;
-    } else {
-      botMsg.steps.push(newStep);
+    // 3. Top-level sync
+    if (botMsg.steps) {
+      updateOrPushStep(botMsg.steps, newStep);
     }
+
+    // 4. Update status message if applicable
+    if (newStep.status === 'running' || (newStep.status === 'completed' && !botMsg.text)) {
+      botMsg.statusMessage = newStep.label;
+    }
+
     return newStep.step_type === 'completed' && newStep.status === 'completed';
+  }
+
+  function updateOrPushStep(steps: ChatStep[], newStep: ChatStep) {
+    const idx = steps.findIndex((s) => s.step_id === newStep.step_id);
+    const existingStep = steps[idx];
+    if (existingStep) {
+      // Preserve sub_steps if we are updating a parent
+      if (existingStep.sub_steps && !newStep.sub_steps) {
+        newStep.sub_steps = existingStep.sub_steps;
+      }
+      steps[idx] = newStep;
+    } else {
+      steps.push(newStep);
+    }
   }
 
   function processSources(backendSources: BackendSource[]): Source[] {
@@ -461,6 +499,7 @@ export function useChatStream() {
       text: text,
       contentBlocks: [{ type: 'text', data: text }],
       sender: 'user',
+      isComplete: true,
     });
 
     // 3. Push Placeholder Bot Message
@@ -472,6 +511,7 @@ export function useChatStream() {
       sender: 'bot',
       statusMessage: t('initializing'),
       steps: [],
+      isComplete: false,
     };
     messages.value.push(botMsg);
 
@@ -517,6 +557,8 @@ export function useChatStream() {
       console.error(err);
     } finally {
       loading.value = false;
+      const msg = messages.value.find((m) => m.id === botMsgId);
+      if (msg) msg.isComplete = true;
       abortController = null;
     }
   }
@@ -548,5 +590,7 @@ export function useChatStream() {
     loadHistory,
     reset,
     instanceId,
+    setOnToken,
+    setOnStep,
   };
 }

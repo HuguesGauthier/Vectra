@@ -1,245 +1,111 @@
 <template>
   <q-page class="bg-primary q-pa-lg">
-    <!-- Title Header -->
-    <div class="row items-center justify-between q-pt-md q-pb-md q-pl-none q-mb-md">
-      <div>
-        <div class="text-h4 text-weight-bold">{{ $t('myAssistants') }}</div>
-        <div class="text-subtitle1 q-pt-xs">
-          {{ $t('myAssistantsDesc') }}
-        </div>
+
+    <!-- Search / Filter Bar -->
+    <div class="row q-mb-lg items-center q-gutter-x-md">
+      <q-input
+        v-model="filter"
+        filled
+        dense
+        class="search-input col-12 col-md-4"
+        :placeholder="$t('search')"
+        clearable
+        style="max-width: 375px"
+      >
+        <template #prepend>
+          <q-icon name="search" />
+        </template>
+      </q-input>
+
+      <!-- Add Button -->
+      <q-btn color="accent" icon="add" size="14px" round unelevated @click="openCreateDrawer">
+        <AppTooltip>{{ $t('createNew') }}</AppTooltip>
+      </q-btn>
+    </div>
+
+    <!-- Grid Layout -->
+    <div v-if="loading" class="row q-col-gutter-lg">
+      <div v-for="i in 6" :key="i" class="col-12 col-sm-6 col-md-4 col-lg-3">
+        <q-skeleton type="rect" height="350px" style="border-radius: 24px" />
       </div>
     </div>
 
-    <div class="column q-gutter-y-md">
-      <!-- Assistants Table -->
-      <div>
-        <AppTable
-          :rows="theAssistants.list"
-          :columns="columns"
-          :loading="loading"
-          v-model:filter="filter"
-          :no-data-title="$t('noAssistants')"
-          :no-data-message="$t('createYourFirstAssistant')"
-          no-data-icon="psychology"
-        >
-          <!-- Add Button Slot -->
-          <template #add-button>
-            <q-btn color="accent" icon="add" size="12px" round unelevated @click="openCreateDrawer">
-              <AppTooltip>{{ $t('createNew') }}</AppTooltip>
-            </q-btn>
-          </template>
-
-          <!-- No Data Action Slot -->
-          <template #no-data-action>
-            <q-btn
-              color="accent"
-              size="12px"
-              icon="add"
-              round
-              unelevated
-              @click="openCreateDrawer"
-            />
-          </template>
-
-          <!-- Body Slot for Custom Cells -->
-          <template #body="{ props }">
-            <q-tr :props="props">
-              <!-- Avatar Column -->
-              <q-td key="avatar" :props="props">
-                <q-avatar
-                  size="sm"
-                  :color="
-                    !props.row.avatar_image &&
-                    props.row.avatar_bg_color &&
-                    !props.row.avatar_bg_color.startsWith('#') &&
-                    !props.row.avatar_bg_color.startsWith('rgb')
-                      ? props.row.avatar_bg_color
-                      : undefined
-                  "
-                  :style="
-                    !props.row.avatar_image &&
-                    props.row.avatar_bg_color &&
-                    (props.row.avatar_bg_color.startsWith('#') ||
-                      props.row.avatar_bg_color.startsWith('rgb'))
-                      ? { backgroundColor: props.row.avatar_bg_color }
-                      : {}
-                  "
-                  :text-color="props.row.avatar_text_color || 'white'"
-                >
-                  <img
-                    v-if="props.row.avatar_image"
-                    :src="`${assistantService.getAvatarUrl(props.row.id)}?t=${theAssistants.avatarRefreshKey}`"
-                    style="object-fit: cover"
-                    :style="{
-                      objectPosition: `center ${props.row.avatar_vertical_position ?? 50}%`,
-                    }"
-                  />
-                  <q-icon v-else name="psychology" />
-                </q-avatar>
-              </q-td>
-
-              <!-- Name Column -->
-              <q-td key="name" :props="props">
-                <div
-                  class="text-weight-bold cursor-pointer hover-underline"
-                  @click="openEditDrawer(props.row)"
-                >
-                  {{ props.row.name }}
-                </div>
-              </q-td>
-
-              <!-- Description Column -->
-              <q-td key="description" :props="props" style="max-width: 300px">
-                <div class="ellipsis">{{ props.row.description }}</div>
-                <AppTooltip v-if="props.row.description && props.row.description.length > 50">
-                  {{ props.row.description }}
-                </AppTooltip>
-              </q-td>
-
-              <!-- Model Column -->
-              <q-td key="model" :props="props">
-                {{ getChatProviderLabel(props.row.model) }}
-              </q-td>
-
-              <!-- Data Sources Column -->
-              <q-td key="data_sources" :props="props">
-                <div class="row q-gutter-xs">
-                  <template v-if="getAssistantConnectors(props.row).length > 0">
-                    <q-chip
-                      v-for="source in getAssistantConnectors(props.row).slice(0, 2)"
-                      :key="source.id"
-                      size="xs"
-                      color="accent"
-                      text-color="grey-3"
-                      class="q-ma-none q-mt-xs q-mr-xs"
-                    >
-                      {{ source.name }}
-                    </q-chip>
-                    <q-chip
-                      v-if="getAssistantConnectors(props.row).length > 2"
-                      size="xs"
-                      color="accent"
-                      text-color="grey-3"
-                      class="q-ma-none q-mt-xs q-mr-xs"
-                    >
-                      +{{ getAssistantConnectors(props.row).length - 2 }}
-                    </q-chip>
-                  </template>
-                  <span v-else class="text-grey-7">—</span>
-                </div>
-              </q-td>
-
-              <!-- ACL Column -->
-              <q-td key="acl" :props="props">
-                <div class="row q-gutter-xs">
-                  <template v-if="(props.row.configuration?.tags?.length || 0) > 0">
-                    <q-chip
-                      v-for="tag in props.row.configuration?.tags"
-                      :key="tag"
-                      size="xs"
-                      color="accent"
-                      text-color="grey-3"
-                      class="q-ma-none q-mt-xs q-mr-xs"
-                    >
-                      {{ tag }}
-                    </q-chip>
-                  </template>
-                  <span v-else class="text-grey-7">—</span>
-                </div>
-              </q-td>
-
-              <!-- Actions Column -->
-              <q-td key="actions" :props="props">
-                <div class="row items-center q-gutter-x-sm">
-                  <q-btn round flat dense size="sm" icon="chat" @click="openPublicChat(props.row)">
-                    <AppTooltip>{{ $t('talk') }}</AppTooltip>
-                  </q-btn>
-                  <q-btn round flat dense size="sm" icon="share" @click="copyJoinLink(props.row)">
-                    <AppTooltip>{{ $t('share') }}</AppTooltip>
-                  </q-btn>
-                  <q-btn round flat dense size="sm" icon="edit" @click="openEditDrawer(props.row)">
-                    <AppTooltip>{{ $t('edit') }}</AppTooltip>
-                  </q-btn>
-                  <q-btn
-                    round
-                    flat
-                    dense
-                    size="sm"
-                    icon="delete_sweep"
-                    color="warning"
-                    @click="confirmPurgeCache(props.row)"
-                  >
-                    <AppTooltip>{{ $t('performance.purgeCache') }}</AppTooltip>
-                  </q-btn>
-                  <q-btn
-                    round
-                    flat
-                    dense
-                    size="sm"
-                    icon="delete"
-                    color="negative"
-                    @click="confirmDelete(props.row)"
-                  >
-                    <AppTooltip>{{ $t('delete') }}</AppTooltip>
-                  </q-btn>
-                </div>
-              </q-td>
-            </q-tr>
-          </template>
-        </AppTable>
+    <div v-else-if="filteredAssistants.length > 0" class="row q-col-gutter-lg">
+      <div
+        v-for="assistant in filteredAssistants"
+        :key="assistant.id"
+        class="col-12 col-sm-6 col-md-4 col-lg-3"
+      >
+        <AssistantManagementCard
+          :assistant="assistant"
+          :connectors="getAssistantConnectors(assistant)"
+          :refresh-key="theAssistants.avatarRefreshKey"
+          @edit="openEditDrawer(assistant)"
+          @delete="confirmDelete(assistant)"
+          @share="copyJoinLink(assistant)"
+          @chat="openPublicChat(assistant)"
+          @purge="confirmPurgeCache(assistant)"
+        />
       </div>
     </div>
 
-    <!-- Drawer -->
-    <AssistantDrawer
-      v-model="isDrawerOpen"
-      :assistant-to-edit="editingAssistant"
-      @save="handleSave"
-    />
+    <!-- Empty State -->
+    <div v-else class="column flex-center q-pa-xl empty-state">
+      <q-icon name="psychology" size="80px" color="grey-8" class="q-mb-md" />
+      <div class="text-h5 text-weight-bold text-grey-6">{{ $t('noAssistants') }}</div>
+      <div class="text-subtitle1 text-grey-8 q-mb-lg text-center">
+        {{ $t('createYourFirstAssistant') }}
+      </div>
+      <q-btn
+        color="accent"
+        :label="$t('createNew')"
+        icon="add"
+        padding="10px 24px"
+        rounded
+        unelevated
+        @click="openCreateDrawer"
+      />
+    </div>
 
-    <!-- Create Stepper -->
-    <AddAssistantStepper
+    <!-- Unified Stepper (Create & Edit) -->
+    <AssistantStepper
       v-model:isOpen="isStepperOpen"
-      :loading="loading"
-      @save="(data, file) => handleStepperSave(data, file)"
+      :assistant-to-edit="editingAssistant"
+      :loading="saving"
+      @save="handleStepperSave"
     />
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue';
+import { ref, onMounted, reactive, computed, defineAsyncComponent } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-import { type QTableColumn, Notify } from 'quasar';
+import { Notify } from 'quasar';
 import { useNotification } from 'src/composables/useNotification';
 import { assistantService, type Assistant } from 'src/services/assistantService';
 import { connectorService, type Connector } from 'src/services/connectorService';
-import AddAssistantStepper from 'components/assistants/AddAssistantStepper.vue';
-import AssistantDrawer from 'components/assistants/AssistantDrawer.vue';
-import AppTooltip from 'components/common/AppTooltip.vue';
-import AppTable from 'components/common/AppTable.vue';
+import AssistantManagementCard from 'src/components/assistants/AssistantManagementCard.vue';
+import AppTooltip from 'src/components/common/AppTooltip.vue';
 import { useDialog } from 'src/composables/useDialog';
-import { useAiProviders } from 'src/composables/useAiProviders';
+
+const AssistantStepper = defineAsyncComponent(
+  () => import('src/components/assistants/AssistantStepper.vue'),
+);
 
 // --- DEFINITIONS ---
 defineOptions({
   name: 'AssistantsPage',
 });
 
-// Force HMR update
-
 // --- STATE ---
 const { t } = useI18n();
 const router = useRouter();
 const { confirm } = useDialog();
 const { notifySuccess } = useNotification();
-const { getChatProviderLabel } = useAiProviders();
-// const store = useAssistantStore(); // This line was in the instruction but not in the original code, and no context for useAssistantStore. Keeping original structure.
 
 const theAssistants = reactive({
   list: [] as Assistant[],
-  selected: null as Assistant | null,
-  refreshTimer: null as ReturnType<typeof setInterval> | null,
   avatarRefreshKey: Date.now(),
 });
 
@@ -247,81 +113,41 @@ const connectors = ref<Connector[]>([]);
 const loading = ref(true);
 const filter = ref('');
 
-// Drawer & Stepper state
-const isDrawerOpen = ref(false); // For edits
-const isStepperOpen = ref(false); // For creation
+// Stepper state
+const isStepperOpen = ref(false); // For both Create & Edit
 const editingAssistant = ref<Assistant | null>(null);
+const saving = ref(false); // separate loading state for save operations
 
 // --- COMPUTED ---
 
 /**
- * Table columns definition
+ * Filtered list of assistants based on search string
  */
-const columns = computed<QTableColumn[]>(() => [
-  {
-    name: 'avatar',
-    required: true,
-    label: '',
-    align: 'center',
-    field: (row: Assistant) => row.avatar_bg_color,
-    sortable: false,
-  },
-  {
-    name: 'name',
-    required: true,
-    label: t('name'),
-    align: 'left',
-    field: (row: Assistant) => row.name,
-    sortable: true,
-    style: 'color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'description',
-    align: 'left',
-    label: t('description'),
-    field: (row: Assistant) => row.description,
-    sortable: true,
-    style: 'color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'model',
-    align: 'left',
-    label: t('chatEngine'),
-    field: (row: Assistant) => getChatProviderLabel(row.model),
-    sortable: true,
-    style: 'color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'data_sources',
-    align: 'left',
-    label: t('dataSources'),
-    field: (row: Assistant) => getAssistantConnectors(row).length,
-    sortable: true,
-    style: 'color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'acl',
-    align: 'left',
-    label: t('acl'),
-    field: (row: Assistant) => row.configuration?.tags,
-    sortable: false,
-    style: 'max-width: 200px;color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-  {
-    name: 'actions',
-    align: 'left',
-    label: '',
-    field: 'actions',
-    sortable: false,
-    style: 'width: 200px;color: var(--q-text-main)',
-    headerStyle: 'color: var(--q-text-main)',
-  },
-]);
+const filteredAssistants = computed(() => {
+  if (!filter.value) return theAssistants.list;
+  const search = filter.value.toLowerCase();
+  return theAssistants.list.filter((a) => {
+    // 1. Name & Description
+    if (a.name.toLowerCase().includes(search)) return true;
+    if (a.description?.toLowerCase().includes(search)) return true;
+
+    // 2. Model & Provider
+    if (a.model?.toLowerCase().includes(search)) return true;
+    if (a.model_provider?.toLowerCase().includes(search)) return true;
+    // Special display case for Ollama/Mistral
+    if (a.model_provider?.toLowerCase() === 'ollama' && 'mistral'.includes(search)) return true;
+
+    // 3. Tags (ACL)
+    const tags = a.configuration?.tags || [];
+    if (tags.some((t) => t.toLowerCase().includes(search))) return true;
+
+    // 4. Linked Connectors
+    const linked = getAssistantConnectors(a);
+    if (linked.some((c) => c.name.toLowerCase().includes(search))) return true;
+
+    return false;
+  });
+});
 
 // --- LIFECYCLE ---
 onMounted(async () => {
@@ -342,6 +168,12 @@ async function loadData() {
     ]);
     theAssistants.list = assistantsData;
     connectors.value = connectorsData;
+  } catch (e) {
+    console.error(e);
+    Notify.create({
+      type: 'negative',
+      message: t('errors.loading_failed') || 'Failed to load assistants',
+    });
   } finally {
     loading.value = false;
   }
@@ -382,48 +214,55 @@ function openCreateDrawer() {
  */
 function openEditDrawer(assistant: Assistant) {
   editingAssistant.value = assistant;
-  isDrawerOpen.value = true;
+  isStepperOpen.value = true;
 }
 
 /**
- * Handles the save event from the drawer (Edit Mode).
- */
-async function handleSave(data: Partial<Assistant>) {
-  if (editingAssistant.value) {
-    await assistantService.update(editingAssistant.value.id, data);
-    notifySuccess(t('assistantUpdated'));
-    isDrawerOpen.value = false;
-    theAssistants.avatarRefreshKey = Date.now(); // Force avatar refresh
-    await loadData();
-  }
-}
-
-/**
- * Handles the save event from the stepper (Create Mode).
- */
-/**
- * Handles the save event from the stepper (Create Mode).
+ * Handles the save event from the stepper (Create & Edit Mode).
  */
 async function handleStepperSave(data: Partial<Assistant>, avatarFile?: File | null) {
-  const newAssistant = await assistantService.create(data);
-
-  // Handle avatar upload if provided
-  if (avatarFile) {
-    try {
-      await assistantService.uploadAvatar(newAssistant.id, avatarFile);
-    } catch {
-      // Notify warning but don't fail the whole creation flow visually
-      notifySuccess(
-        t('assistantCreatedButAvatarFailed') || 'Assistant created but avatar upload failed',
-      );
-      // But we still refresh data so continue
+  saving.value = true;
+  try {
+    // If we have an ID, it's an update
+    if (data.id) {
+      await assistantService.update(data.id, data);
+      // If avatar file provided during edit
+      if (avatarFile) {
+        try {
+          await assistantService.uploadAvatar(data.id, avatarFile);
+        } catch {
+          notifySuccess(t('assistantUpdatedButAvatarFailed'));
+        }
+      }
+      notifySuccess(t('assistantUpdated'));
     }
-  }
+    // Otherwise it's a creation
+    else {
+      const newAssistant = await assistantService.create(data);
 
-  notifySuccess(t('assistantCreated'));
-  isStepperOpen.value = false;
-  theAssistants.avatarRefreshKey = Date.now(); // Force avatar refresh
-  await loadData();
+      // Handle avatar upload if provided
+      if (avatarFile) {
+        try {
+          await assistantService.uploadAvatar(newAssistant.id, avatarFile);
+        } catch {
+          notifySuccess(t('assistantCreatedButAvatarFailed'));
+        }
+      }
+      notifySuccess(t('assistantCreated'));
+    }
+
+    isStepperOpen.value = false;
+    theAssistants.avatarRefreshKey = Date.now();
+    await loadData();
+  } catch (error) {
+    console.error(error);
+    Notify.create({
+      type: 'negative',
+      message: t('errors.saving_failed') || 'Failed to save assistant',
+    });
+  } finally {
+    saving.value = false;
+  }
 }
 
 /**
@@ -450,7 +289,6 @@ function confirmDelete(assistant: Assistant) {
             position: 'bottom-right',
           });
         } finally {
-          // Always reload the list to reflect current state
           await loadData();
         }
       })();
@@ -509,7 +347,20 @@ function confirmPurgeCache(assistant: Assistant) {
 </script>
 
 <style scoped>
-.hover-underline:hover {
-  text-decoration: underline;
+
+.search-input :deep(.q-field__control) {
+  border-radius: 12px;
+  background: var(--q-primary) !important;
+  border: 1px solid var(--q-third);
+}
+
+.search-input :deep(.q-field__control:before),
+.search-input :deep(.q-field__control:after) {
+  display: none !important;
+}
+
+.empty-state {
+  margin-top: 100px;
+  opacity: 0.8;
 }
 </style>

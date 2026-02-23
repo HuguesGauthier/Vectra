@@ -7,8 +7,7 @@ from typing import Any, Dict, List, Optional, Set
 
 import pandas as pd
 
-from app.core.exceptions import (FileSystemError, FunctionalError,
-                                 TechnicalError)
+from app.core.exceptions import FileSystemError, FunctionalError, TechnicalError
 from app.models.connector_document import ConnectorDocument
 
 logger = logging.getLogger(__name__)
@@ -43,7 +42,7 @@ class IngestionUtils:
     @staticmethod
     def detect_mime_type(file_path: str) -> str:
         """
-        Robust MIME type detection.
+        Robust MIME type detection with specific prioritized fallbacks.
         """
         ext = os.path.splitext(file_path)[1].lower()
 
@@ -59,6 +58,13 @@ class IngestionUtils:
             pass
 
         return "application/octet-stream"
+
+    @staticmethod
+    async def update_doc_metadata_async(doc: ConnectorDocument, full_path: str) -> None:
+        """
+        Async version of update_doc_metadata to avoid blocking the event loop.
+        """
+        await asyncio.to_thread(IngestionUtils.update_doc_metadata, doc, full_path)
 
     @staticmethod
     def update_doc_metadata(doc: ConnectorDocument, full_path: str) -> None:
@@ -178,12 +184,12 @@ class IngestionUtils:
                 if pd.api.types.is_numeric_dtype(dtype):
                     field_type = "number"
 
-                sample_str = ""
                 try:
                     unique_samples = df_sample[col].dropna().unique()
                     sample_str = ", ".join([str(s) for s in unique_samples[:3]])
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not extract samples for column {col}: {e}")
+                    sample_str = "N/A"
 
                 schema_info.append(
                     {"name": col, "type": field_type, "description": f"Column {col} (e.g. {sample_str})"}

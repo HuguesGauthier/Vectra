@@ -1,11 +1,10 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.core import database
 from app.core.exceptions import TechnicalError
-
 
 @pytest.fixture(autouse=True)
 async def cleanup_database_module():
@@ -18,23 +17,30 @@ async def cleanup_database_module():
 class TestDatabaseLazyLoading:
     """Test singleton and lazy loading mechanics."""
 
-    def test_get_engine_creates_singleton(self):
+    @pytest.mark.asyncio
+    async def test_get_engine_creates_singleton(self):
         """get_engine should create and return a singleton engine."""
         with patch("app.core.database.create_async_engine") as mock_create:
-            mock_engine = AsyncMock(spec=AsyncEngine)
-            mock_create.return_value = mock_engine
+            with patch("app.core.database.get_settings") as mock_get_settings:
+                mock_settings = MagicMock()
+                mock_settings.DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+                mock_get_settings.return_value = mock_settings
 
-            # First call creates
-            engine1 = database.get_engine()
-            assert engine1 is mock_engine
-            mock_create.assert_called_once()
+                mock_engine = AsyncMock(spec=AsyncEngine)
+                mock_create.return_value = mock_engine
+
+                # First call creates
+                engine1 = database.get_engine()
+                assert engine1 is mock_engine
+                mock_create.assert_called_once()
 
             # Second call returns existing
             engine2 = database.get_engine()
             assert engine2 is engine1
             mock_create.assert_called_once()  # Still only called once
 
-    def test_get_session_factory_initializes_engine(self):
+    @pytest.mark.asyncio
+    async def test_get_session_factory_initializes_engine(self):
         """get_session_factory should trigger engine creation if needed."""
         with patch("app.core.database.get_engine") as mock_get_engine:
             mock_engine = AsyncMock(spec=AsyncEngine)
@@ -45,7 +51,8 @@ class TestDatabaseLazyLoading:
             assert factory is not None
             mock_get_engine.assert_called_once()
 
-    def test_lazy_loading_preserves_import_speed(self):
+    @pytest.mark.asyncio
+    async def test_lazy_loading_preserves_import_speed(self):
         """Importing database module should NOT create engine."""
         # This test is implicit since we are running it, but strictly speaking
         # we check the global variable is None at start of test due to fixture
@@ -56,7 +63,8 @@ class TestDatabaseLazyLoading:
 class TestDatabaseErrorHandling:
     """Test error scenarios."""
 
-    def test_engine_creation_failure_raises_technical_error(self):
+    @pytest.mark.asyncio
+    async def test_engine_creation_failure_raises_technical_error(self):
         """Failure to create engine should raise TechnicalError."""
         with patch("app.core.database.create_async_engine") as mock_create:
             mock_create.side_effect = Exception("Connection refused")
@@ -66,18 +74,20 @@ class TestDatabaseErrorHandling:
 
             assert "Database Configuration Error" in str(exc_info.value)
 
-    def test_engine_validation_checks_driver(self):
+    @pytest.mark.asyncio
+    async def test_engine_validation_checks_driver(self):
         """Should raise TechnicalError if asyncpg is missing for postgres."""
         with (
-            patch("app.core.database.settings") as mock_settings,
+            patch("app.core.database.get_settings") as mock_get_settings,
             patch("app.core.database.create_async_engine") as mock_create,
         ):
-
+            mock_settings = MagicMock()
             mock_settings.DATABASE_URL = "postgresql://user:pass@localhost/db"
             mock_settings.DB_POOL_SIZE = 5
             mock_settings.DB_MAX_OVERFLOW = 10
             mock_settings.DB_POOL_RECYCLE = 3600
-            mock_settings.DEBUG = False
+            mock_settings.DB_ECHO = False
+            mock_get_settings.return_value = mock_settings
 
             with pytest.raises(TechnicalError) as exc:
                 database.get_engine()

@@ -9,31 +9,26 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.core.database import get_db
+from app.core.settings import settings
 from app.models.assistant import Assistant
-from app.repositories.chat_history_repository import (
-    ChatPostgresRepository, get_chat_postgres_repository)
+from app.repositories.chat_history_repository import ChatPostgresRepository, get_chat_postgres_repository
 from app.schemas.chat import Message
 from app.services.cache_service import SemanticCacheService, get_cache_service
 from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.agentic_processor import AgenticProcessor
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
-from app.services.chat.processors.history_processor import \
-    HistoryLoaderProcessor
-from app.services.chat.processors.persistence_processor import (
-    AssistantPersistenceProcessor, UserPersistenceProcessor)
+from app.services.chat.processors.history_processor import HistoryLoaderProcessor
+from app.services.chat.processors.persistence_processor import AssistantPersistenceProcessor, UserPersistenceProcessor
 from app.services.chat.processors.rag_processor import RAGGenerationProcessor
-from app.services.chat.processors.semantic_cache_processor import \
-    SemanticCacheProcessor
+from app.services.chat.processors.semantic_cache_processor import SemanticCacheProcessor
 from app.services.chat.processors.trending_processor import TrendingProcessor
-from app.services.chat.processors.visualization_processor import \
-    VisualizationProcessor
+from app.services.chat.processors.visualization_processor import VisualizationProcessor
+
 # Pipeline Imports
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
 from app.services.chat.utils import EventFormatter
-from app.services.chat_history_service import (ChatHistoryService,
-                                               get_chat_history_service)
-from app.services.query_engine_factory import (UnifiedQueryEngineFactory,
-                                               get_query_engine_factory)
+from app.services.chat_history_service import ChatHistoryService, get_chat_history_service
+from app.factories.query_engine_factory import UnifiedQueryEngineFactory, get_query_engine_factory
 from app.services.settings_service import SettingsService, get_settings_service
 from app.services.vector_service import VectorService, get_vector_service
 
@@ -96,22 +91,19 @@ class ChatService:
 
     async def reset_conversation(self, session_id: str) -> None:
         """
-        Reset conversation by clearing both Redis (hot storage) and Postgres (audit log).
+        Reset conversation by clearing Redis (hot storage).
+        Audit history in Postgres is preserved for analytics/logging.
 
         Args:
             session_id (str): The unique identifier of the chat session.
-
-        Raises:
-            ValueError: If session_id is empty.
         """
         self._validate_session_id(session_id)
 
         logger.info(LOG_RESET_START, session_id)
 
+        # Sequential destruction: we try to clear everything even if one fails
+        # but here we only have hot storage for now.
         await self._clear_hot_storage(session_id)
-        # P0 FIX: User requested to KEEP audit history in DB even on reset.
-        # Only Redis (context) is cleared. Old messages remain in Postgres for 1 year (Purge Policy).
-        # await self._clear_cold_storage(session_id)
 
         logger.info(LOG_RESET_COMPLETE, session_id)
 
@@ -144,12 +136,11 @@ class ChatService:
         ctx_metrics = self._initialize_metrics_manager()
 
         # 0. Initialize Pipeline Event
-        yield await self._emit_initialization_event(ctx_metrics, language)
+        init_span = ctx_metrics.start_span(PipelineStepType.INITIALIZATION)
+        yield await self._emit_initialization_event(init_span)
 
         try:
             # 1. Prepare Data & Context
-            init_span = ctx_metrics.start_span(PipelineStepType.INITIALIZATION)
-
             prepared_assistant = await self._load_and_detach_assistant(assistant.id)
 
             ctx = self._create_context(
@@ -167,7 +158,7 @@ class ChatService:
             # End Initialization Metrics
             init_metric = ctx.metrics.end_span(init_span)
             yield EventFormatter.format(
-                PipelineStepType.INITIALIZATION, StepStatus.COMPLETED, language, duration=init_metric.duration
+                PipelineStepType.INITIALIZATION, StepStatus.COMPLETED, init_span, duration=init_metric.duration
             )
 
             # 2. Execute Pipeline
@@ -176,9 +167,23 @@ class ChatService:
 
             # 3. Final Completion Event
             total_duration = round(time.time() - start_time, 3)
+            # Create a unique final step ID
+            completion_span_id = f"completed_{ctx_metrics._step_counter}"
+
             yield EventFormatter.format(
-                PipelineStepType.COMPLETED, StepStatus.COMPLETED, language, duration=total_duration
+                PipelineStepType.COMPLETED, StepStatus.COMPLETED, completion_span_id, duration=total_duration
             )
+
+            # Record completion metric so it appears in the sequence
+            ctx_metrics.record_completed_step(
+                step_type=PipelineStepType.COMPLETED,
+                label=None,  # Frontend handles translation
+                duration=total_duration,
+                step_id=completion_span_id,
+            )
+
+            # 4. Finalize Metadata (Capture all steps including completion)
+            await self._finalize_message_metadata(ctx)
 
         except Exception as e:
             # Catch-all for top-level safety to prevent stream disconnection
@@ -224,9 +229,9 @@ class ChatService:
         """Initializes the metrics manager for the request."""
         return ChatMetricsManager()
 
-    async def _emit_initialization_event(self, metrics: ChatMetricsManager, language: str) -> str:
+    async def _emit_initialization_event(self, step_id: str) -> str:
         """Emits the first event of the stream."""
-        return EventFormatter.format(PipelineStepType.INITIALIZATION, StepStatus.RUNNING, language)
+        return EventFormatter.format(PipelineStepType.INITIALIZATION, StepStatus.RUNNING, step_id)
 
     async def _load_and_detach_assistant(self, assistant_id: str) -> Assistant:
         """
@@ -292,18 +297,70 @@ class ChatService:
         """Iterates through processors and yields their output."""
         for processor in processors:
             name = processor.__class__.__name__
-            logger.info(LOG_PIPELINE_START, name)
+            logger.debug(LOG_PIPELINE_START, name)
 
             async for chunk in processor.process(ctx):
                 if chunk:
                     yield chunk
 
-            logger.info(LOG_PIPELINE_END, name)
+            logger.debug(LOG_PIPELINE_END, name)
 
     def _handle_pipeline_error(self, session_id: str, error: Exception) -> str:
         """Logs the critical error and returns a friendly JSON error message."""
         logger.error(ERR_CRITICAL_PIPELINE, session_id, error, exc_info=True)
         return json.dumps({"type": "error", "message": "An unexpected error occurred. Please try again."}) + "\n"
+
+    async def _finalize_message_metadata(self, ctx: ChatContext) -> None:
+        """
+        Updates the persisted message with final metadata (steps, times).
+        This ensures even post-persistence steps (like cache update) are recorded.
+        """
+        if not ctx.assistant_message_id:
+            return
+
+        # 1. Re-collect Steps (Now including Cache Update / Completed)
+        # Initialization is now INCLUDED to match frontend expectations
+        EXCLUDED_STEPS = {"streaming"}
+        steps = []
+        if ctx.metrics:
+            summary = ctx.metrics.get_summary()
+            for s in summary.get("step_breakdown", []):
+                if s.get("step_type") in EXCLUDED_STEPS:
+                    continue
+                s["status"] = "completed"
+                # Keep label and sequence
+                steps.append(s)
+
+        # 2. Re-construct Metadata
+        metadata = {
+            "visualization": ctx.visualization,
+            "sources": ctx.retrieved_sources,
+            "steps": steps,
+            "contentBlocks": ctx.metadata.get("content_blocks", []),
+        }
+
+        # Handle SQL Results
+        if ctx.sql_results:
+            limit_rows = 100
+            metadata["sql_results"] = ctx.sql_results[:limit_rows]
+            metadata["structured_context_type"] = "sql"
+            if len(ctx.sql_results) > limit_rows:
+                metadata["sql_results_truncated"] = True
+
+        # 3. Sanitize
+        try:
+            json.dumps(metadata)
+        except (TypeError, OverflowError):
+            try:
+                metadata = json.loads(json.dumps(metadata, default=str))
+            except Exception:
+                metadata = {}
+
+        # 4. Update
+        try:
+            await self.chat_repository.update_message_metadata(ctx.assistant_message_id, metadata)
+        except Exception as e:
+            logger.warning(f"Final metadata update failed for session {ctx.session_id}: {e}")
 
 
 async def get_chat_service(
@@ -324,5 +381,5 @@ async def get_chat_service(
         query_engine_factory=query_engine_factory,
         chat_repository=chat_repository,
         cache_service=cache_service,
-        trending_service_enabled=True,  # Consider configuring this via settings
+        trending_service_enabled=settings.ENABLE_TRENDING,
     )

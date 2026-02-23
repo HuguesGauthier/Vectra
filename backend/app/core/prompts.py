@@ -32,7 +32,6 @@ RAG_ANSWER_PROMPT = (
     '     "data": [{"col_key": "Value"}]\n'
     "   }\n"
     "   :::\n"
-    "   :::\n"
     "Question: {query_str}"
 )
 
@@ -54,7 +53,6 @@ AGENTIC_RESPONSE_PROMPT = (
     '     "columns": [{"name": "col_key", "label": "Column Label", "field": "col_key", "sortable": true, "align": "left"}],\n'
     '     "data": [{"col_key": "Value"}]\n'
     "   }\n"
-    "   :::\n"
     "   :::\n"
     "\n"
     "Question: {query_str}\n"
@@ -79,7 +77,6 @@ AGENTIC_RESPONSE_PROMPT_FR = (
     '     "columns": [{"name": "col_key", "label": "Libellé Colonne", "field": "col_key", "sortable": true, "align": "left"}],\n'
     '     "data": [{"col_key": "Valeur"}]\n'
     "   }\n"
-    "   :::\n"
     "   :::\n"
     "\n"
     "Question: {query_str}\n"

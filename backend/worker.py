@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from croniter import croniter
+
 # Enforce .env loading for consistent secrets
 from dotenv import load_dotenv
 from sqlalchemy.future import select
@@ -29,12 +30,13 @@ else:
 # No manual overrides for OMP/MKL needed for cloud-only mode
 # os.environ["OMP_NUM_THREADS"] = ...
 
-from app.core.connection_manager import manager  # noqa: E402
+from app.core.websocket import manager  # noqa: E402
 from app.core.logging import setup_logging
 from app.core.settings import settings
 from app.core.time import SystemClock
 from app.services.connector_state_service import ConnectorStateService
 from app.services.ingestion_service import IngestionService
+from app.core.utils.storage import validate_data_mount
 
 # Configure logging (use centralized setup)
 setup_logging(settings.LOG_LEVEL)
@@ -51,7 +53,7 @@ import websockets
 
 async def maintain_socket_connection():
     """Maintains a persistent WebSocket connection to the API."""
-    uri = "ws://localhost:8000/api/v1/ws?client_type=worker"
+    uri = settings.BACKEND_WS_URL
     while True:
         try:
             logger.info(f"Connecting to API at {uri}...")
@@ -221,10 +223,11 @@ async def check_triggers():
                             logger.info(f"Triggering scheduled scan for {connector.name}")
 
                     if should_run:
+                        connector_id = connector.id
                         connector.status = ConnectorStatus.SYNCING
                         db.add(connector)
                         await db.commit()
-                        asyncio.create_task(process_connector_wrapper(connector.id))
+                        asyncio.create_task(process_connector_wrapper(connector_id))
 
                 except Exception as e:
                     logger.error(f"Error checking schedule for {connector.name}: {e}")
@@ -241,7 +244,8 @@ async def check_triggers():
             pending_docs = result_docs.scalars().all()
 
             for doc in pending_docs:
-                logger.info(f"Worker picked up pending document {doc.id} (Fallback polling)")
+                doc_id = doc.id
+                logger.info(f"Worker picked up pending document {doc_id} (Fallback polling)")
                 doc.status = DocStatus.PROCESSING
                 db.add(doc)
                 await db.commit()
@@ -250,12 +254,12 @@ async def check_triggers():
                 # We use a temporary simple emit here, but the service will handle the rest
                 try:
                     await manager.emit_document_update(
-                        str(doc.id), DocStatus.PROCESSING, "Processing started on worker."
+                        str(doc_id), DocStatus.PROCESSING, "Processing started on worker."
                     )
                 except Exception as e:
                     logger.warning(f"Failed to emit status update: {e}")
 
-                asyncio.create_task(process_single_document_wrapper(doc.id))
+                asyncio.create_task(process_single_document_wrapper(doc_id))
 
     except Exception as e:
         logger.error(f"Error in Trigger Checker: {e}")
@@ -300,48 +304,20 @@ if __name__ == "__main__":
 
             settings_service = SettingsService(db)
             await settings_service.load_cache()
+
+            # Validate Data Mount (Docker)
+            validate_data_mount()
+
+            # Explicit hardware log for user transparency
+            worker_count = settings.computed_local_workers
+            logger.info("=" * 50)
+            logger.info(f"🚀 VECTRA WORKER STARTING | Hardware-Aware Mode")
+            logger.info(f"⚡ Parallelism: {worker_count} local worker(s) configured")
+            logger.info("=" * 50)
+
             logger.info("Settings cache loaded in worker.")
-            logger.info(f"DEBUG: Worker started with Secret: '{settings.WORKER_SECRET}'")
 
-            # Initialize Phoenix for Worker Traceability (Deep Tracing)
-            if settings.ENABLE_PHOENIX_TRACING:
-                try:
-                    import phoenix as px
-                    from openinference.instrumentation.llama_index import \
-                        LlamaIndexInstrumentor
-                    from opentelemetry import trace as trace_api
-                    from opentelemetry.exporter.otlp.proto.http.trace_exporter import \
-                        OTLPSpanExporter
-                    from opentelemetry.sdk.trace import TracerProvider
-                    from opentelemetry.sdk.trace.export import \
-                        SimpleSpanProcessor
 
-                    # Configure OpenTelemetry to export to Phoenix Docker Container
-                    endpoint = "http://localhost:6006/v1/traces"
-
-                    # DEBUG: Enable OTel internal logging
-                    import sys
-
-                    from opentelemetry.sdk.resources import Resource
-
-                    tracer_provider = TracerProvider(resource=Resource.create({"service.name": "vectra-worker"}))
-                    span_exporter = OTLPSpanExporter(endpoint=endpoint)
-
-                    # Use BatchSpanProcessor for production, but Simple for debug
-                    tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-                    trace_api.set_tracer_provider(tracer_provider)
-
-                    # Initialize Automatic Instrumentation
-                    LlamaIndexInstrumentor().instrument()
-
-                    logger.info(f"🦜 Worker OpenInference Instrumentation active (to {endpoint})")
-
-                except ImportError as e:
-                    logger.warning(f"⚠️ Phoenix enabled but dependencies missing in worker: {e}")
-                except Exception as e:
-                    logger.error(f"⚠️ Failed to launch Phoenix in worker: {e}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to init Phoenix in worker: {e}")
 
     loop.run_until_complete(startup())
 

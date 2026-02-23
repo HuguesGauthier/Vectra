@@ -48,30 +48,37 @@ from app.services.settings_service import SettingsService, get_settings_service
 
 logger = logging.getLogger(__name__)
 
-# --- Constants ---
-DEFAULT_COST_PER_1K_TOKENS: str = "0.0001"
-DEFAULT_MIN_SAVED_PER_DOC: str = "5.0"
+# --- Type Aliases & Constants ---
+T = TypeVar("T")
+TimeProvider = Callable[[], datetime]
+
+# Default values for settings-based metrics
+DEFAULT_COST_PER_1K_TOKENS: float = 0.0001
+DEFAULT_MIN_SAVED_PER_DOC: float = 5.0
 DEFAULT_TRENDING_LIMIT: int = 10
 DEFAULT_USER_STATS_DAYS: int = 30
-COST_PER_INPUT_TOKEN: float = 0.00001
-COST_PER_OUTPUT_TOKEN: float = 0.00003
 
-T = TypeVar("T")
+# Fallback costs (USD) per 1k tokens
+FALLBACK_INPUT_TOKEN_COST: float = 0.00001
+FALLBACK_OUTPUT_TOKEN_COST: float = 0.00003
+
+# Resiliency constants
+ANALYTICS_TASK_TIMEOUT: int = 30  # seconds
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnalyticsTask:
     """Configuration for an advanced analytics task.
 
     Attributes:
         key: The key identifying the task in the results dictionary.
-        coro: The coroutine function to execute.
+        coro_func: The coroutine function to execute.
         args: Positional arguments to pass to the coroutine.
-        default: Default value to return if the task fails.
+        default: Default value to return if the task fails or times out.
     """
 
     key: str
-    coro: Callable[..., Coroutine[Any, Any, Any]]
+    coro_func: Callable[..., Coroutine[Any, Any, Any]]
     args: Tuple[Any, ...] = ()
     default: Any = None
 
@@ -79,40 +86,46 @@ class AnalyticsTask:
 class AnalyticsService:
     """Unified Analytics Service.
 
-    Responsibilities (SRP):
-    1. Metric Aggregation (Parallelized).
-    2. Data Transformation (DB Rows -> Pydantic Schemas).
-    3. Configuration Management (Settings integration).
+    Responsibilities:
+        1. Metric Aggregation (Parallelized).
+        2. Data Transformation (DB Rows -> Pydantic Models).
+        3. Configuration Management.
 
     Attributes:
         session_factory: Factory for creating AsyncSession instances.
         settings_service: Service for retrieving application settings.
+        time_provider: Function that returns current time (for testability).
     """
 
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
         settings_service: SettingsService,
+        time_provider: TimeProvider = lambda: datetime.now(timezone.utc),
     ) -> None:
         """Initialize AnalyticsService.
 
         Args:
             session_factory: Factory to create new AsyncSession instances for parallel tasks.
             settings_service: The settings service instance.
+            time_provider: Function providing the current datetime.
         """
         self.session_factory = session_factory
         self.settings_service = settings_service
+        self.time_provider = time_provider
 
     # --- Public API ---
 
     async def get_business_metrics(self) -> AnalyticsResponse:
         """Aggregates simple business metrics with error handling.
 
+        Calculates total documents, vectors, tokens, estimated cost, and hours saved.
+
         Returns:
-            AnalyticsResponse: The aggregated business metrics containing document,
-                vector, and token counts, along with estimated costs and time saved.
+            AnalyticsResponse: The aggregated business metrics.
         """
         try:
+            # Start fetching settings and docs concurrently
             settings_task = self._fetch_business_settings()
 
             async with self.session_factory() as session:
@@ -124,8 +137,11 @@ class AnalyticsService:
             return self._calculate_business_metrics(stats, cost_per_1k, min_saved)
 
         except Exception as e:
-            logger.error("Failed to calculate business metrics: %s", e, exc_info=True)
-            return AnalyticsResponse()
+            logger.error("DEGRADED_STATE | Failed to calculate business metrics: %s", str(e), exc_info=True)
+            # Return empty response in degraded mode
+            return AnalyticsResponse(
+                total_docs=0, total_vectors=0, total_tokens=0, estimated_cost=0.0, time_saved_hours=0.0
+            )
 
     async def get_all_advanced_analytics(
         self,
@@ -136,20 +152,22 @@ class AnalyticsService:
         trending_limit: int = DEFAULT_TRENDING_LIMIT,
         assistant_id: Optional[UUID] = None,
     ) -> AdvancedAnalyticsResponse:
-        """Generate a complete advanced analytics report by running all metric queries concurrently.
+        """Generate a complete advanced analytics report.
+
+        Runs multiple specialized metric queries concurrently with a timeout.
 
         Args:
-            ttft_hours: Hours to look back for TTFT calculations.
-            step_days: Days to look back for step breakdown and other metrics.
-            cache_hours: Hours to look back for cache metrics.
-            cost_hours: Hours to look back for assistant costs.
-            trending_limit: Limit for the number of trending topics.
-            assistant_id: Optional assistant ID to filter metrics.
+            ttft_hours: Look-back window for TTFT percentiles.
+            step_days: Look-back window for step breakdown.
+            cache_hours: Look-back window for cache metrics.
+            cost_hours: Look-back window for assistant costs.
+            trending_limit: Max number of topics to return.
+            assistant_id: Optional UUID to filter metrics to a specific assistant.
 
         Returns:
-            AdvancedAnalyticsResponse: The complete advanced analytics report.
+            AdvancedAnalyticsResponse: The complete report.
         """
-        tasks = self._get_advanced_analytics_tasks(
+        tasks = self._prepare_analytics_tasks(
             ttft_hours, step_days, cache_hours, cost_hours, trending_limit, assistant_id
         )
         results = await self._run_tasks_concurrently(tasks)
@@ -161,187 +179,182 @@ class AnalyticsService:
         """Fetch Time To First Token (TTFT) percentiles.
 
         Args:
-            hours: The number of hours to look back.
+            hours: Look-back window in hours.
 
         Returns:
-            Optional[TTFTPercentiles]: The TTFT percentiles, or None if no data is available.
+            Optional[TTFTPercentiles]: Percentile data or None if unavailable.
         """
+        cutoff = self._get_cutoff_time(hours=hours)
+        data = await self._execute_repo_task(lambda repo: repo.get_ttft_percentiles(cutoff))
 
-        async def _fetch(repo: AnalyticsRepository) -> Optional[Dict[str, Any]]:
-            return await repo.get_ttft_percentiles(self._get_cutoff_time(hours=hours))
+        if not data:
+            return None
 
-        data = await self._execute_repo_task(_fetch)
-        return TTFTPercentiles(**data, period_hours=hours) if data else None
+        return TTFTPercentiles(
+            p50=data.get("p50", 0.0),
+            p95=data.get("p95", 0.0),
+            p99=data.get("p99", 0.0),
+            period_hours=hours,
+        )
 
     async def get_step_breakdown(self, days: int) -> List[StepBreakdown]:
-        """Fetch average duration and token counts for each step in the pipeline.
+        """Fetch pipeline step performance metrics.
 
         Args:
-            days: The number of days to look back.
+            days: Look-back window in days.
 
         Returns:
-            List[StepBreakdown]: A list of StepBreakdown objects.
+            List[StepBreakdown]: Per-step performance results.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_step_breakdown(self._get_cutoff_time(days=days))
-        )
+        cutoff = self._get_cutoff_time(days=days)
+        rows = await self._execute_repo_task(lambda repo: repo.get_step_breakdown(cutoff))
         return [self._map_step_row(row) for row in rows]
 
     async def get_cache_metrics(self, hours: int) -> Optional[CacheMetrics]:
-        """Fetch cache hit rate and total requests.
+        """Fetch semantic cache effectiveness.
 
         Args:
-            hours: The number of hours to look back.
+            hours: Look-back window in hours.
 
         Returns:
-            Optional[CacheMetrics]: The cache metrics, or None if no data is available.
+            Optional[CacheMetrics]: Cache stats or None if no requests recorded.
         """
-        row = await self._execute_repo_task(
-            lambda repo: repo.get_cache_stats(self._get_cutoff_time(hours=hours))
-        )
+        cutoff = self._get_cutoff_time(hours=hours)
+        row = await self._execute_repo_task(lambda repo: repo.get_cache_stats(cutoff))
+
         if not row or not getattr(row, "total_requests", 0):
             return None
+
         return self._calculate_cache_metrics(row, hours)
 
-    async def get_trending_topics(
-        self, assistant_id: Optional[UUID], limit: int
-    ) -> List[TrendingTopic]:
-        """Fetch the most frequently asked topics.
+    async def get_trending_topics(self, assistant_id: Optional[UUID], limit: int) -> List[TrendingTopic]:
+        """Fetch high-frequency question topics.
 
         Args:
-            assistant_id: The ID of the assistant to filter by.
-            limit: The maximum number of topics to return.
+            assistant_id: UUID filter.
+            limit: Max results.
 
         Returns:
-            List[TrendingTopic]: A list of TrendingTopic objects.
+            List[TrendingTopic]: List of trending topics.
         """
-        topics = await self._execute_repo_task(
-            lambda repo: repo.get_trending_topics(limit, assistant_id)
-        )
+        topics = await self._execute_repo_task(lambda repo: repo.get_trending_topics(limit, assistant_id))
         return [self._map_trending_topic(t) for t in topics]
 
-    async def get_topic_diversity(
-        self, assistant_id: Optional[UUID]
-    ) -> Optional[TopicDiversity]:
-        """Calculate a diversity score for topics.
+    async def get_topic_diversity(self, assistant_id: Optional[UUID]) -> Optional[TopicDiversity]:
+        """Calculate topic diversity score.
 
         Args:
-            assistant_id: The ID of the assistant to filter by.
+            assistant_id: UUID filter.
 
         Returns:
-            Optional[TopicDiversity]: The topic diversity metrics, or None if no data is available.
+            Optional[TopicDiversity]: Diversity metrics or None if no topics found.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_topic_frequencies(assistant_id)
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_topic_frequencies(assistant_id))
         if not rows:
             return None
         return self._calculate_diversity_metrics(rows)
 
     async def get_assistant_costs(self, hours: int) -> List[AssistantCost]:
-        """Fetch token usage and estimated costs per assistant.
+        """Fetch estimated token costs per assistant.
 
         Args:
-            hours: The number of hours to look back.
+            hours: Look-back window in hours.
 
         Returns:
-            List[AssistantCost]: A list of AssistantCost objects.
+            List[AssistantCost]: Cost breakdown per assistant.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_assistant_usage_sums(self._get_cutoff_time(hours=hours))
-        )
+        cutoff = self._get_cutoff_time(hours=hours)
+        rows = await self._execute_repo_task(lambda repo: repo.get_assistant_usage_sums(cutoff))
         return [self._map_cost_row(row) for row in rows]
 
     async def get_document_freshness(self) -> List[DocumentFreshness]:
-        """Fetch statistics on the age of documents in the system.
+        """Calculate document set age distribution.
 
         Returns:
-            List[DocumentFreshness]: A list of DocumentFreshness objects.
+            List[DocumentFreshness]: Freshness buckets (Fresh, Aging, Stale).
         """
-        now = datetime.now(timezone.utc)
-        thirty_days_ago = now - timedelta(days=30)
-        ninety_days_ago = now - timedelta(days=90)
+        now = self.time_provider()
+        thresh_30 = now - timedelta(days=30)
+        thresh_90 = now - timedelta(days=90)
 
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_document_freshness_stats(thirty_days_ago, ninety_days_ago)
-        )
+        rows = await self._execute_repo_task(lambda repo: repo.get_document_freshness_stats(thresh_30, thresh_90))
         return self._calculate_freshness_percentages(rows)
 
     async def get_session_distribution(self, days: int) -> List[SessionDistribution]:
-        """Categorize user sessions by the number of questions asked.
+        """Fetch distribution of user session intensity.
 
         Args:
-            days: The number of days to look back.
+            days: Look-back window in days.
 
         Returns:
-            List[SessionDistribution]: A list of SessionDistribution objects.
+            List[SessionDistribution]: Distribution across buckets.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_session_counts(self._get_cutoff_time(days=days))
-        )
+        cutoff = self._get_cutoff_time(days=days)
+        rows = await self._execute_repo_task(lambda repo: repo.get_session_counts(cutoff))
         return self._calculate_session_distribution(rows)
 
     async def get_document_utilization(self, days: int) -> List[DocumentUtilization]:
-        """Fetch how frequently documents are being retrieved.
+        """Fetch knowledge base utilization metrics.
 
         Args:
-            days: The number of days to look back.
+            days: Look-back window in days.
 
         Returns:
-            List[DocumentUtilization]: A list of DocumentUtilization objects.
+            List[DocumentUtilization]: Usage stats for active documents.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_document_retrieval_stats(self._get_cutoff_time(days=days))
-        )
+        cutoff = self._get_cutoff_time(days=days)
+        rows = await self._execute_repo_task(lambda repo: repo.get_document_retrieval_stats(cutoff))
         return [self._map_utilization_row(row) for row in rows]
 
     async def get_reranking_impact(self, hours: int) -> Optional[RerankingImpact]:
-        """Fetch statistics on the effectiveness of the reranking step.
+        """Calculate effectiveness of the reranking pipeline stage.
 
         Args:
-            hours: The number of hours to look back.
+            hours: Look-back window in hours.
 
         Returns:
-            Optional[RerankingImpact]: The reranking impact metrics, or None if no data is available.
+            Optional[RerankingImpact]: Impact score or None if no reranking activity.
         """
-        row = await self._execute_repo_task(
-            lambda repo: repo.get_reranking_stats(self._get_cutoff_time(hours=hours))
-        )
+        cutoff = self._get_cutoff_time(hours=hours)
+        row = await self._execute_repo_task(lambda repo: repo.get_reranking_stats(cutoff))
+
         if row and getattr(row, "reranking_count", 0) > 0:
-            return self._map_reranking_impact(row)
+            return RerankingImpact(
+                avg_score_improvement=round(float(getattr(row, "avg_improvement", 0.0) or 0.0), 3),
+                reranking_enabled_count=int(getattr(row, "reranking_count", 0)),
+                avg_position_change=None,
+            )
         return None
 
     async def get_connector_sync_rates(self, days: int) -> List[ConnectorSyncRate]:
         """Fetch success/failure rates for connector sync jobs.
 
         Args:
-            days: The number of days to look back.
+            days: Look-back window in days.
 
         Returns:
-            List[ConnectorSyncRate]: A list of ConnectorSyncRate objects.
+            List[ConnectorSyncRate]: Reliability metrics per connector.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_connector_sync_stats(self._get_cutoff_time(days=days))
-        )
+        cutoff = self._get_cutoff_time(days=days)
+        rows = await self._execute_repo_task(lambda repo: repo.get_connector_sync_stats(cutoff))
         return [self._map_sync_rate_row(row) for row in rows]
 
     async def get_user_stats(self, days: int) -> List[UserStat]:
         """Fetch usage statistics per user.
 
         Args:
-            days: The number of days to look back.
+            days: Look-back window in days.
 
         Returns:
-            List[UserStat]: A list of UserStat objects.
+            List[UserStat]: Engagement metrics per user.
         """
-        rows = await self._execute_repo_task(
-            lambda repo: repo.get_user_usage_stats(self._get_cutoff_time(days=days))
-        )
+        cutoff = self._get_cutoff_time(days=days)
+        rows = await self._execute_repo_task(lambda repo: repo.get_user_usage_stats(cutoff))
         return [self._map_user_stat_row(row) for row in rows]
 
-    # --- Private Helper Methods ---
+    # --- Private Execution Helpers ---
 
-    def _get_advanced_analytics_tasks(
+    def _prepare_analytics_tasks(
         self,
         ttft_hours: int,
         step_days: int,
@@ -350,141 +363,80 @@ class AnalyticsService:
         trending_limit: int,
         assistant_id: Optional[UUID],
     ) -> List[AnalyticsTask]:
-        """Create a list of all advanced analytics tasks.
-
-        Args:
-            ttft_hours: Hours to look back for TTFT calculations.
-            step_days: Days to look back for step breakdown.
-            cache_hours: Hours to look back for cache metrics.
-            cost_hours: Hours to look back for assistant costs.
-            trending_limit: Limit for trending topics.
-            assistant_id: ID of the assistant to filter by.
-
-        Returns:
-            List[AnalyticsTask]: A list of AnalyticsTask objects.
-        """
+        """Construct the list of tasks for bulk execution."""
         return [
             AnalyticsTask("ttft_percentiles", self.get_ttft_percentiles, (ttft_hours,)),
             AnalyticsTask("step_breakdown", self.get_step_breakdown, (step_days,), []),
             AnalyticsTask("cache_metrics", self.get_cache_metrics, (cache_hours,)),
-            AnalyticsTask(
-                "trending_topics", self.get_trending_topics, (assistant_id, trending_limit), []
-            ),
+            AnalyticsTask("trending_topics", self.get_trending_topics, (assistant_id, trending_limit), []),
             AnalyticsTask("topic_diversity", self.get_topic_diversity, (assistant_id,)),
             AnalyticsTask("assistant_costs", self.get_assistant_costs, (cost_hours,), []),
             AnalyticsTask("document_freshness", self.get_document_freshness, (), []),
             AnalyticsTask("session_distribution", self.get_session_distribution, (step_days,), []),
-            AnalyticsTask(
-                "document_utilization",
-                self.get_document_utilization,
-                (DEFAULT_USER_STATS_DAYS,),
-                [],
-            ),
+            AnalyticsTask("document_utilization", self.get_document_utilization, (DEFAULT_USER_STATS_DAYS,), []),
             AnalyticsTask("reranking_impact", self.get_reranking_impact, (cache_hours,)),
-            AnalyticsTask(
-                "connector_sync_rates", self.get_connector_sync_rates, (step_days,), []
-            ),
+            AnalyticsTask("connector_sync_rates", self.get_connector_sync_rates, (step_days,), []),
             AnalyticsTask("user_stats", self.get_user_stats, (DEFAULT_USER_STATS_DAYS,), []),
         ]
 
-    async def _execute_repo_task(
-        self, task: Callable[[AnalyticsRepository], Coroutine[Any, Any, T]]
-    ) -> T:
-        """Execute a task with an AnalyticsRepository.
-
-        Args:
-            task: The task coroutine function to execute.
-
-        Returns:
-            T: The result of the task.
-        """
+    async def _execute_repo_task(self, task_func: Callable[[AnalyticsRepository], Coroutine[Any, Any, T]]) -> T:
+        """Execute a repo-bound operation in a standalone session."""
         async with self.session_factory() as session:
             repo = AnalyticsRepository(session)
-            return await task(repo)
+            return await task_func(repo)
 
     async def _run_tasks_concurrently(self, tasks: List[AnalyticsTask]) -> Dict[str, Any]:
-        """Run a list of analytics tasks concurrently.
+        """Run tasks concurrently with global timeout and error bridging."""
+        coroutines = [task.coro_func(*task.args) for task in tasks]
 
-        Args:
-            tasks: The list of tasks to run.
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(*coroutines, return_exceptions=True),
+                timeout=ANALYTICS_TASK_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            logger.error("Advanced analytics report generation timed out")
+            return {task.key: task.default for task in tasks}
 
-        Returns:
-            Dict[str, Any]: A dictionary of results where keys match task keys.
-        """
-        coroutines = [task.coro(*task.args) for task in tasks]
-        results = await asyncio.gather(*coroutines, return_exceptions=True)
-        return {
-            tasks[i].key: self._safe_result(results[i], tasks[i].default)
-            for i in range(len(tasks))
-        }
+        return {tasks[i].key: self._safe_unpack(results[i], tasks[i].default) for i in range(len(tasks))}
 
-    @staticmethod
-    def _get_cutoff_time(days: int = 0, hours: int = 0) -> datetime:
-        """Calculate a cutoff datetime based on a relative timedelta.
-
-        Args:
-            days: The number of days to subtract.
-            hours: The number of hours to subtract.
-
-        Returns:
-            datetime: The calculated cutoff datetime in UTC.
-        """
-        return datetime.now(timezone.utc) - timedelta(days=days, hours=hours)
+    def _get_cutoff_time(self, days: int = 0, hours: int = 0) -> datetime:
+        """Calculate cutoff datetime using the injected time provider."""
+        return self.time_provider() - timedelta(days=days, hours=hours)
 
     @staticmethod
-    def _safe_result(result: Any, default: T) -> T:
-        """Return the default value if the result is an exception.
-
-        Args:
-            result: The result of a task execution.
-            default: The default value to return on failure.
-
-        Returns:
-            T: The result or the default value.
-        """
+    def _safe_unpack(result: Any, default: T) -> T:
+        """Handle exceptions from parallelized coroutines."""
         if isinstance(result, Exception):
-            logger.error("A task failed during parallel execution: %s", result, exc_info=result)
+            logger.error("Concurrent analytics task failed: %s", str(result), exc_info=result)
             return default
         return result
 
     async def _fetch_business_settings(self) -> Tuple[float, float]:
-        """Fetch analytics settings concurrently.
+        """Fetch configuration values concurrently with fallback logic."""
+        keys = ["analytics_cost_per_1k_tokens", "analytics_minutes_saved_per_doc"]
+        defaults = [str(DEFAULT_COST_PER_1K_TOKENS), str(DEFAULT_MIN_SAVED_PER_DOC)]
 
-        Returns:
-            Tuple[float, float]: (cost_per_1k_tokens, minutes_saved_per_doc).
-        """
-        cost_task = self.settings_service.get_value(
-            "analytics_cost_per_1k_tokens", default=DEFAULT_COST_PER_1K_TOKENS
-        )
-        min_saved_task = self.settings_service.get_value(
-            "analytics_minutes_saved_per_doc", default=DEFAULT_MIN_SAVED_PER_DOC
-        )
-        cost_str, min_saved_str = await asyncio.gather(cost_task, min_saved_task)
+        tasks = [self.settings_service.get_value(k, default=d) for k, d in zip(keys, defaults)]
+        results = await asyncio.gather(*tasks)
+
         try:
-            return float(cost_str), float(min_saved_str)
-        except (ValueError, TypeError):
-            return float(DEFAULT_COST_PER_1K_TOKENS), float(DEFAULT_MIN_SAVED_PER_DOC)
+            return float(results[0]), float(results[1])
+        except (ValueError, TypeError, IndexError):
+            logger.warning("Invalid business settings detected, using internal defaults")
+            return DEFAULT_COST_PER_1K_TOKENS, DEFAULT_MIN_SAVED_PER_DOC
+
+    # --- Data Calculators & Mappers ---
 
     @staticmethod
-    def _calculate_business_metrics(
-        stats: Dict[str, Any], cost_per_1k: float, min_saved: float
-    ) -> AnalyticsResponse:
-        """Calculate and build the AnalyticsResponse.
-
-        Args:
-            stats: Raw aggregate statistics.
-            cost_per_1k: Cost per 1000 tokens.
-            min_saved: Minutes saved per document.
-
-        Returns:
-            AnalyticsResponse: Calculated business metrics.
-        """
-        total_tokens = stats.get("total_tokens", 0)
-        total_docs = stats.get("total_docs", 0)
+    def _calculate_business_metrics(stats: Dict[str, Any], cost_per_1k: float, min_saved: float) -> AnalyticsResponse:
+        """Execute business-level KPI math."""
+        total_tokens = int(stats.get("total_tokens", 0))
+        total_docs = int(stats.get("total_docs", 0))
 
         return AnalyticsResponse(
             total_docs=total_docs,
-            total_vectors=stats.get("total_vectors", 0),
+            total_vectors=int(stats.get("total_vectors", 0)),
             total_tokens=total_tokens,
             estimated_cost=round((total_tokens / 1000.0) * cost_per_1k, 4),
             time_saved_hours=round((total_docs * min_saved) / 60.0, 1),
@@ -492,69 +444,48 @@ class AnalyticsService:
 
     @staticmethod
     def _map_step_row(row: Any) -> StepBreakdown:
-        """Map a database row to a StepBreakdown Pydantic model.
-
-        Args:
-            row: Database row from step breakdown query.
-
-        Returns:
-            StepBreakdown: Mapped step breakdown metrics.
-        """
+        """Map generic db row to StepBreakdown model."""
         item = StepBreakdown(
             step_name=getattr(row, "step_name", "unknown"),
-            avg_duration=float(getattr(row, "avg_duration", 0)),
+            avg_duration=float(getattr(row, "avg_duration", 0.0)),
             step_count=int(getattr(row, "step_count", 0)),
         )
+
         avg_input = getattr(row, "avg_input_tokens", None)
         avg_output = getattr(row, "avg_output_tokens", None)
+
         if avg_input is not None or avg_output is not None:
             item.avg_tokens = {
-                "input": float(avg_input or 0),
-                "output": float(avg_output or 0),
+                "input": float(avg_input or 0.0),
+                "output": float(avg_output or 0.0),
             }
         return item
 
     @staticmethod
     def _calculate_diversity_metrics(rows: List[Any]) -> Optional[TopicDiversity]:
-        """Calculate Herfindahl index based diversity score.
-
-        Args:
-            rows: List of topic frequency rows.
-
-        Returns:
-            Optional[TopicDiversity]: Calculated diversity metrics.
-        """
+        """Calculate Herfindahl-based diversity score from frequencies."""
         freqs = [r[0] for r in rows if r and len(r) > 0]
         total_topics = sum(freqs)
+
         if total_topics == 0:
             return None
 
-        # Herfindahl index: measures topic concentration.
         herfindahl_index = sum((f / total_topics) ** 2 for f in freqs)
         dominant_topic_share = (max(freqs) / total_topics) * 100
 
+        diversity_score = round(1.0 - herfindahl_index, 3)
         return TopicDiversity(
-            diversity_score=round(1 - herfindahl_index, 3),
+            diversity_score=diversity_score,
             total_topics=len(freqs),
             dominant_topic_share=round(dominant_topic_share, 2),
         )
 
     @staticmethod
     def _calculate_cache_metrics(row: Any, hours: int) -> CacheMetrics:
-        """Calculate cache metrics from a database row.
-
-        Args:
-            row: Database row with cache stats.
-            hours: Time period in hours.
-
-        Returns:
-            CacheMetrics: Calculated cache effectiveness metrics.
-        """
-        total_requests = getattr(row, "total_requests", 0)
-        cache_hits = getattr(row, "cache_hits", 0)
-        hit_rate = (
-            round((cache_hits / total_requests) * 100, 2) if total_requests > 0 else 0.0
-        )
+        """Extract cache KPIs from raw aggregates."""
+        total_requests = int(getattr(row, "total_requests", 0))
+        cache_hits = int(getattr(row, "cache_hits", 0))
+        hit_rate = round((cache_hits / total_requests) * 100, 2) if total_requests > 0 else 0.0
 
         return CacheMetrics(
             hit_rate=hit_rate,
@@ -566,87 +497,73 @@ class AnalyticsService:
 
     @staticmethod
     def _map_trending_topic(t: Any) -> TrendingTopic:
-        """Map a database row to a TrendingTopic Pydantic model.
-
-        Args:
-            t: Database row with trending topic data.
-
-        Returns:
-            TrendingTopic: Mapped trending topic info.
-        """
+        """Convert repository topic record to Pydantic model."""
+        text = getattr(t, "canonical_text", "unknown")
         return TrendingTopic(
-            canonical_text=getattr(t, "canonical_text", ""),
-            frequency=getattr(t, "frequency", 0),
+            topic=text,
+            canonical_text=text,
+            frequency=int(getattr(t, "frequency", 0)),
             variation_count=len(getattr(t, "raw_variations", [])),
             last_asked=getattr(t, "updated_at", None) or getattr(t, "created_at", None),
         )
 
     @staticmethod
     def _map_cost_row(row: Any) -> AssistantCost:
-        """Map a database row to an AssistantCost Pydantic model.
-
-        Args:
-            row: Database row with assistant usage data.
-
-        Returns:
-            AssistantCost: Mapped assistant cost metrics.
-        """
+        """Perform pricing estimation/mapping for assistant usage."""
         input_tokens = int(getattr(row, "input_tokens", 0) or 0)
         output_tokens = int(getattr(row, "output_tokens", 0) or 0)
-        estimated_cost = (input_tokens * COST_PER_INPUT_TOKEN) + (
-            output_tokens * COST_PER_OUTPUT_TOKEN
-        )
+
+        # Priority 1: Use persisted cost from DB if available (reliable per-request calculation)
+        if hasattr(row, "cost") and row.cost is not None:
+            estimated_cost = float(row.cost)
+        else:
+            # Priority 2: Fallback to token-based calculation (estimate)
+            estimated_cost = ((input_tokens / 1000.0) * FALLBACK_INPUT_TOKEN_COST) + (
+                (output_tokens / 1000.0) * FALLBACK_OUTPUT_TOKEN_COST
+            )
 
         return AssistantCost(
-            assistant_id=str(getattr(row, "id", "")),
+            assistant_id=str(getattr(row, "id", "unknown")),
             assistant_name=getattr(row, "name", "Unknown"),
             total_tokens=int(getattr(row, "total_tokens", 0) or 0),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            estimated_cost_usd=round(estimated_cost, 4),
+            estimated_cost_usd=round(estimated_cost, 6),
         )
 
     @staticmethod
     def _calculate_freshness_percentages(rows: List[Any]) -> List[DocumentFreshness]:
-        """Calculate the percentage of documents in each freshness category.
-
-        Args:
-            rows: List of document freshness rows.
-
-        Returns:
-            List[DocumentFreshness]: Freshness breakdown for documents.
-        """
-        total_docs = sum(getattr(row, "doc_count", 0) for row in rows)
+        """Convert freshness counts to percentage breakdown."""
+        total_docs = sum(int(getattr(row, "doc_count", 0)) for row in rows)
         if total_docs == 0:
             return []
 
         return [
             DocumentFreshness(
-                freshness_category=getattr(row, "freshness_category", "unknown"),
-                doc_count=getattr(row, "doc_count", 0),
-                percentage=round((getattr(row, "doc_count", 0) / total_docs) * 100, 2),
+                freshness_category=str(getattr(row, "freshness_category", "unknown")),
+                doc_count=int(getattr(row, "doc_count", 0)),
+                percentage=round((int(getattr(row, "doc_count", 0)) / total_docs) * 100, 2),
             )
             for row in rows
         ]
 
     @staticmethod
     def _calculate_session_distribution(rows: List[Any]) -> List[SessionDistribution]:
-        """Calculate the distribution of user sessions.
-
-        Args:
-            rows: List of session question count rows.
-
-        Returns:
-            List[SessionDistribution]: Breakdown of session intensity.
-        """
+        """Convert raw sessions to intensity buckets."""
         buckets = {"Single Question": 0, "Normal (2-5)": 0, "Power User (5+)": 0}
-        total_sessions = 0
-        for row in rows:
-            AnalyticsService._categorize_session_count(buckets, getattr(row, "q_count", 0))
-            total_sessions += 1
+        total_sessions = len(rows)
 
         if total_sessions == 0:
             return []
+
+        for row in rows:
+            q_count = int(getattr(row, "q_count", 0))
+            if q_count == 1:
+                buckets["Single Question"] += 1
+            elif 2 <= q_count <= 5:
+                buckets["Normal (2-5)"] += 1
+            else:
+                buckets["Power User (5+)"] += 1
 
         return [
             SessionDistribution(
@@ -658,110 +575,45 @@ class AnalyticsService:
         ]
 
     @staticmethod
-    def _categorize_session_count(buckets: Dict[str, int], count: int) -> None:
-        """Increment the appropriate session category bucket.
-
-        Args:
-            buckets: Dictionary of category counters.
-            count: Question count in the session.
-        """
-        if count == 1:
-            buckets["Single Question"] += 1
-        elif 2 <= count <= 5:
-            buckets["Normal (2-5)"] += 1
-        else:
-            buckets["Power User (5+)"] += 1
-
-    @staticmethod
     def _map_utilization_row(row: Any) -> DocumentUtilization:
-        """Map a database row to a DocumentUtilization Pydantic model.
-
-        Args:
-            row: Database row with document retrieval stats.
-
-        Returns:
-            DocumentUtilization: Mapped document usage metrics.
-        """
-        retrieval_count = getattr(row, "retrieval_count", 0)
-        if retrieval_count > 10:
-            status = "hot"
-        elif retrieval_count > 0:
-            status = "warm"
-        else:
-            status = "cold"
+        """Categorize document usage (hot/warm/cold)."""
+        count = int(getattr(row, "retrieval_count", 0))
+        status = "hot" if count > 10 else ("warm" if count > 0 else "cold")
 
         return DocumentUtilization(
-            file_name=str(getattr(row, "doc_id", "unknown")),
-            connector_name="Unknown",  # Placeholder
-            retrieval_count=retrieval_count,
+            file_name=str(getattr(row, "file_name", "unknown")),
+            connector_name=str(getattr(row, "connector_name", "Internal")),
+            retrieval_count=count,
             last_retrieved=getattr(row, "last_retrieved", None),
             status=status,
         )
 
     @staticmethod
-    def _map_reranking_impact(row: Any) -> RerankingImpact:
-        """Map a database row to a RerankingImpact Pydantic model.
-
-        Args:
-            row: Database row with reranking effectiveness data.
-
-        Returns:
-            RerankingImpact: Mapped reranking impact metrics.
-        """
-        return RerankingImpact(
-            avg_score_improvement=round(getattr(row, "avg_improvement", 0) or 0, 3),
-            reranking_enabled_count=getattr(row, "reranking_count", 0),
-            avg_position_change=None,  # Placeholder for future implementation
-        )
-
-    @staticmethod
     def _map_sync_rate_row(row: Any) -> ConnectorSyncRate:
-        """Map a database row to a ConnectorSyncRate Pydantic model.
-
-        Args:
-            row: Database row with connector sync stats.
-
-        Returns:
-            ConnectorSyncRate: Mapped connector reliability metrics.
-        """
-        total_syncs = getattr(row, "total_syncs", 0) or 0
-        successful_syncs = getattr(row, "successful_syncs", 0) or 0
-        success_rate = (
-            round((successful_syncs / total_syncs) * 100, 2) if total_syncs > 0 else 0.0
-        )
+        """Map sync logs to reliability metrics."""
+        total = int(getattr(row, "total_syncs", 0) or 0)
+        success = int(getattr(row, "successful_syncs", 0) or 0)
 
         return ConnectorSyncRate(
-            connector_id=str(getattr(row, "id", "")),
+            connector_id=str(getattr(row, "id", "unknown")),
             connector_name=getattr(row, "name", "Unknown"),
-            success_rate=success_rate,
-            total_syncs=total_syncs,
-            successful_syncs=successful_syncs,
-            failed_syncs=getattr(row, "failed_syncs", 0) or 0,
-            avg_sync_duration=(
-                round(row.avg_duration, 2) if getattr(row, "avg_duration", None) else None
-            ),
+            success_rate=round((success / total) * 100, 2) if total > 0 else 0.0,
+            total_syncs=total,
+            successful_syncs=success,
+            failed_syncs=int(getattr(row, "failed_syncs", 0) or 0),
+            avg_sync_duration=round(float(row.avg_duration), 2) if getattr(row, "avg_duration", None) else None,
         )
 
     @staticmethod
     def _map_user_stat_row(row: Any) -> UserStat:
-        """Map a database row to a UserStat Pydantic model.
-
-        Args:
-            row: Database row with user activity stats.
-
-        Returns:
-            UserStat: Mapped user engagement metrics.
-        """
-        email = getattr(row, "email", "unknown")
-        first_name = getattr(row, "first_name", None)
-        last_name = getattr(row, "last_name", None)
-
-        full_name = email
-        if first_name or last_name:
-            full_name = f"{first_name or ''} {last_name or ''}".strip()
+        """Merge user metadata and usage stats."""
+        email = str(getattr(row, "email", "unknown"))
+        fname = getattr(row, "first_name", None)
+        lname = getattr(row, "last_name", None)
+        full_name = f"{fname or ''} {lname or ''}".strip() or email
 
         return UserStat(
-            user_id=str(getattr(row, "user_id", "")),
+            user_id=str(getattr(row, "user_id", "unknown")),
             email=email,
             full_name=full_name,
             total_tokens=int(getattr(row, "total_tokens", 0) or 0),
@@ -770,22 +622,12 @@ class AnalyticsService:
         )
 
 
-# --- Dependency Injection ---
+# --- Dependency Provider ---
 
 
 def get_analytics_service(
-    session_factory: Annotated[
-        async_sessionmaker[AsyncSession], Depends(get_session_factory)
-    ],
+    session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings_service: Annotated[SettingsService, Depends(get_settings_service)],
 ) -> AnalyticsService:
-    """FastAPI dependency provider for the AnalyticsService.
-
-    Args:
-        session_factory: The SQLAlchemy session factory.
-        settings_service: The application settings service.
-
-    Returns:
-        AnalyticsService: A configured instance of the analytics service.
-    """
+    """Dependency injection provider for FastAPI."""
     return AnalyticsService(session_factory=session_factory, settings_service=settings_service)

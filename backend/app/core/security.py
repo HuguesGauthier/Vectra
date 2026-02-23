@@ -27,8 +27,7 @@ if not hasattr(bcrypt, "__about__"):
 
 
 from app.core.database import get_db
-from app.core.exceptions import (FunctionalError, TechnicalError,
-                                 UnauthorizedAction)
+from app.core.exceptions import AuthenticationError, FunctionalError, TechnicalError, UnauthorizedAction
 from app.core.settings import settings
 from app.models.user import User
 
@@ -104,22 +103,18 @@ async def _get_user_from_token(token: str, db: AsyncSession) -> User:
     Sharing session ensures transaction consistency.
     """
     try:
-        # DEBUG: Trace Token Validation
-        secret_preview = SECRET_KEY[:5] if SECRET_KEY else "None"
-        token_preview = token[:10]
-        logger.info(f"🔑 AUTH DEBUG | Secret: {secret_preview}... | Token: {token_preview}...")
-
+        # P1: Avoid logging partial tokens/secrets even at INFO level
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             email: Optional[str] = payload.get("sub")
-            logger.info(f"🔑 AUTH DEBUG | Decoded Subject (Email): {email}")
+            logger.debug(f"🔑 AUTH | Decoded Subject: {email}")
 
             if email is None:
                 logger.warning("❌ AUTH FAIL | Subject missing in token")
-                raise UnauthorizedAction("Invalid token: Subject missing")
+                raise AuthenticationError("Invalid token: Subject missing")
         except JWTError as e:
             logger.warning(f"❌ AUTH FAIL | JWT Decode Error: {e}")
-            raise UnauthorizedAction(f"Could not validate credentials: {e}")
+            raise AuthenticationError(f"Could not validate credentials: {e}")
 
         try:
             # Query DB using injected session
@@ -131,17 +126,17 @@ async def _get_user_from_token(token: str, db: AsyncSession) -> User:
 
         if user is None:
             logger.warning(f"❌ AUTH FAIL | User not found in DB: {email}")
-            raise UnauthorizedAction("User not found")
+            raise AuthenticationError("User not found")
 
         if not user.is_active:
             logger.warning(f"❌ AUTH FAIL | Inactive user: {email}")
-            raise UnauthorizedAction("Inactive user")
+            raise AuthenticationError("Inactive user")
 
-        logger.info(f"✅ AUTH SUCCESS | User: {user.email}")
+        logger.debug(f"✅ AUTH SUCCESS | User: {user.email}")
         return user
 
-    except (UnauthorizedAction, TechnicalError):
-        logger.warning(f"❌ AUTH FAIL | Known/Busines Error")
+    except (AuthenticationError, UnauthorizedAction, TechnicalError):
+        logger.warning("❌ AUTH FAIL | Known/Business Error")
         raise
     except Exception as e:
         logger.error(f"❌ AUTH FAIL | Unexpected: {e}", exc_info=True)

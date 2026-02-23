@@ -7,18 +7,21 @@ from uuid import uuid4
 
 import pytest
 from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+import importlib
+import app.services.document_service
+
+importlib.reload(app.services.document_service)
+from app.services.document_service import DocumentService
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import (DuplicateError, EntityNotFound,
-                                 FunctionalError, InternalDataCorruption,
-                                 TechnicalError)
+from app.core.exceptions import DuplicateError, EntityNotFound, FunctionalError, InternalDataCorruption, TechnicalError
 from app.models.connector import Connector
 from app.models.connector_document import ConnectorDocument
 from app.models.enums import DocStatus
 from app.repositories.connector_repository import ConnectorRepository
 from app.repositories.document_repository import DocumentRepository
-from app.schemas.documents import (ConnectorDocumentCreate,
-                                   ConnectorDocumentUpdate)
+from app.schemas.documents import ConnectorDocumentCreate, ConnectorDocumentUpdate
 from app.services.document_service import DocumentService
 from app.services.settings_service import SettingsService
 from app.services.vector_service import VectorService
@@ -67,12 +70,17 @@ def mock_vector_service(mock_settings_service):
 
 @pytest.fixture
 def document_service(mock_doc_repo, mock_conn_repo, mock_vector_service, mock_settings_service):
-    return DocumentService(
+    document_service = DocumentService(
         document_repo=mock_doc_repo,
         connector_repo=mock_conn_repo,
         vector_service=mock_vector_service,
         settings_service=mock_settings_service,
     )
+    # Mock methods that are spawned as background tasks to avoid unawaited coroutine warnings
+    document_service._safe_delete_vectors = MagicMock(return_value=None)
+    document_service._safe_update_acl = MagicMock(return_value=None)
+    document_service._safe_delete_file = MagicMock(return_value=None)
+    return document_service
 
 
 @pytest.fixture
@@ -104,7 +112,7 @@ def mock_blocking_io(func, *args, **kwargs):
 async def test_upload_file_async_nominal(document_service):
     """Test async streaming upload."""
     mock_file = MagicMock(spec=UploadFile)
-    mock_file.filename = "test.txt"
+    mock_file.filename = "test.csv"
     mock_file.read = AsyncMock(side_effect=[b"chunk1", b"chunk2", b""])  # Stream content
 
     # Mock aiofiles
@@ -119,12 +127,15 @@ async def test_upload_file_async_nominal(document_service):
     with (
         patch("aiofiles.open", return_value=mock_aio_open) as m_open,
         patch.object(document_service, "_run_blocking_io") as mock_run,
+        patch(
+            "app.services.document_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock
+        ) as mock_validate,
     ):
-
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
         path = await document_service.upload_file(mock_file)
 
         assert "temp_uploads" in path
-        assert "test.txt" in path
+        assert "test.csv" in path
         assert mock_file.read.call_count == 3
         mock_f.write.assert_awaited()
         mock_run.assert_awaited()  # makedirs
@@ -138,7 +149,7 @@ async def test_delete_document_background_tasks(document_service, mock_doc_repo,
     c = Connector(
         id=cid, name="Test", connector_type="local_file", configuration={"ai_provider": "gemini"}, total_docs_count=5
     )
-    doc = ConnectorDocument(id=doc_id, connector_id=c.id, file_path="/tmp/f.txt")
+    doc = ConnectorDocument(id=doc_id, connector_id=c.id, file_path="/tmp/f.csv")
 
     mock_doc_repo.get_by_id = AsyncMock(return_value=doc)
     mock_conn_repo.get_by_id = AsyncMock(return_value=c)
@@ -150,10 +161,10 @@ async def test_delete_document_background_tasks(document_service, mock_doc_repo,
 
         # Should verify we tried to spawn tasks (Vector delete + File delete)
         assert mock_task.call_count >= 1
-        mock_doc_repo.delete.assert_called_once_with(doc_id)
+        mock_doc_repo.delete.assert_awaited_once_with(doc_id)
 
         # Count update check
-        mock_conn_repo.update.assert_called_once()
+        mock_conn_repo.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -163,15 +174,18 @@ async def test_create_document_nominal(document_service, mock_conn_repo, mock_do
     c = Connector(id=cid, name="Test", connector_type="local_file", schedule_type="manual", total_docs_count=0)
     mock_conn_repo.get_by_id = AsyncMock(return_value=c)
 
-    doc_data = ConnectorDocumentCreate(file_name="test.txt", file_path="/p/t.txt")
+    doc_data = ConnectorDocumentCreate(file_name="test.csv", file_path="/p/t.csv")
     doc_dict = doc_data.model_dump()
     if "configuration" not in doc_dict or doc_dict["configuration"] is None:
         doc_dict["configuration"] = {}
     mock_doc_repo.create = AsyncMock(return_value=ConnectorDocument(id=uuid4(), connector_id=cid, **doc_dict))
-
-    await document_service.create_document(cid, doc_data)
-    mock_doc_repo.create.assert_called_once()
-    mock_conn_repo.update.assert_called_once()
+    with patch(
+        "app.services.document_service.IngestionUtils.validate_csv_file", new_callable=AsyncMock
+    ) as mock_validate:
+        mock_validate.return_value = [{"name": "id", "type": "string"}]
+        await document_service.create_document(cid, doc_data)
+        mock_doc_repo.create.assert_awaited_once()
+        mock_conn_repo.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -181,15 +195,15 @@ async def test_update_document_acl_background(document_service, mock_doc_repo, m
     doc_before = ConnectorDocument(
         id=doc_id,
         connector_id=uuid4(),
-        file_path="/test/path.txt",
-        file_name="path.txt",
+        file_path="/test/path.csv",
+        file_name="path.csv",
         configuration={"connector_document_acl": ["old"]},
     )
     doc_after = ConnectorDocument(
         id=doc_id,
         connector_id=doc_before.connector_id,
-        file_path="/test/path.txt",
-        file_name="path.txt",
+        file_path="/test/path.csv",
+        file_name="path.csv",
         configuration={"connector_document_acl": ["new"]},
     )
     mock_doc_repo.get_by_id = AsyncMock(return_value=doc_before)
@@ -199,6 +213,7 @@ async def test_update_document_acl_background(document_service, mock_doc_repo, m
 
     with patch("asyncio.create_task") as mock_task:
         await document_service.update_document(doc_id, update)
+        # mock_task is sync (asyncio.create_task is a function producing a task)
         mock_task.assert_called()
 
 
@@ -213,5 +228,27 @@ async def test_sync_document_nominal(document_service, mock_doc_repo, mock_ws_ma
     assert (
         doc.status == DocStatus.IDLE
     )  # Status change should be reflected in update call not necessarily on object if not refreshed
-    mock_doc_repo.update.assert_called_once()
+    mock_doc_repo.update.assert_awaited_once()
     mock_ws_manager.emit_trigger_document_sync.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_delete_temp_file_security(document_service):
+    """P0 Security: Verify path traversal protection."""
+    traversal_path = "temp_uploads/../../etc/passwd"
+
+    with pytest.raises(FunctionalError) as exc:
+        await document_service.delete_temp_file(traversal_path)
+
+    assert exc.value.error_code == "FORBIDDEN"
+
+
+@pytest.mark.asyncio
+async def test_delete_temp_file_nominal(document_service):
+    """Happy Path: Verify standard deletion."""
+    safe_path = "temp_uploads/my_file.csv"
+
+    with patch.object(document_service, "_safe_delete_file", new_callable=AsyncMock) as mock_delete:
+        result = await document_service.delete_temp_file(safe_path)
+        assert result is True
+        mock_delete.assert_awaited_once_with(safe_path)

@@ -6,8 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import (CheckConstraint, Column, DateTime, ForeignKey, String,
-                        Text, func)
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -33,7 +32,7 @@ class ChatHistory(SQLModel, table=True):
     content: str = Field(sa_column=Column(Text, nullable=False))
 
     assistant_id: UUID = Field(
-        sa_column=Column(ForeignKey("assistants.id", ondelete="CASCADE"), nullable=True, index=True),
+        sa_column=Column(ForeignKey("assistants.id", ondelete="SET NULL"), nullable=True, index=True),
         description="Assistant context for this message",
     )
 

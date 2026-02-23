@@ -1,78 +1,5 @@
 import json
-from typing import Any, Dict, Optional
-
-from llama_index.llms.google_genai import GoogleGenAI
-from llama_index.llms.mistralai import MistralAI
-from llama_index.llms.ollama import Ollama
-from llama_index.llms.openai import OpenAI
-
-from app.core.exceptions import ConfigurationError
-
-PROVIDER_GEMINI = "gemini"
-PROVIDER_OPENAI = "openai"
-PROVIDER_MISTRAL = "mistral"
-PROVIDER_OLLAMA = "ollama"
-DEFAULT_TEMP = 0.7
-
-
-class LLMFactory:
-    """Factory to create LLM instances."""
-
-    @staticmethod
-    def create_llm(
-        provider: str, model_name: str, api_key: str, temperature: float = DEFAULT_TEMP, output_class: Any = None
-    ) -> Any:
-        provider_clean = provider.lower().strip()
-
-        # P0 FIX: key is not required for local
-        if not api_key and provider_clean not in ["local", "ollama"]:
-            raise ConfigurationError(f"API Key missing for provider {provider}")
-
-        llm = None
-
-        if provider_clean == PROVIDER_GEMINI:
-            full_model_name = f"models/{model_name}" if not model_name.startswith("models/") else model_name
-            llm = GoogleGenAI(model=full_model_name, api_key=api_key, temperature=temperature)
-        elif provider_clean == PROVIDER_OPENAI:
-            # FIX: Enable stream_options to receive token usage in streaming mode
-            llm = OpenAI(
-                model=model_name,
-                api_key=api_key,
-                temperature=temperature,
-                additional_kwargs={"stream_options": {"include_usage": True}},
-            )
-        elif provider_clean == PROVIDER_MISTRAL:
-            llm = MistralAI(model=model_name, api_key=api_key, temperature=temperature)
-        elif provider_clean == PROVIDER_OLLAMA:
-            # For Ollama, api_key is typically not needed but we handle base_url via factory args if possible,
-            # or rely on default/settings. Ideally, base_url should be passed or we assume "api_key" param holds URL if needed?
-            # Actually, create_llm signature has api_key. We can misuse it or add kwargs.
-            # But simpler: Settings usually hold the base_url, or we can treat 'api_key' as base_url for Ollama if user configures it there.
-            # However, for now, let's assume standard local URL or valid one passed in settings.
-            # We will use the api_key parameter to pass the Base URL for Ollama to keep signature simple.
-            base_url = api_key if api_key and "http" in api_key else "http://localhost:11434"
-            llm = Ollama(model=model_name, base_url=base_url, temperature=temperature, request_timeout=360.0)
-        elif provider_clean == "local":
-            # Support for Local LLMs (LM Studio, Ollama, etc.) via OpenAILike
-            from llama_index.llms.openai_like import OpenAILike
-
-            # Default to LM Studio port if not specified in env/settings, but usually handled by env.
-            # We assume settings_service provides the base URL if needed, or we use default.
-            # For now, simplistic implementation assuming standard local setup.
-            llm = OpenAILike(
-                model=model_name or "local-model",
-                api_key=api_key or "not-needed",
-                api_base="http://localhost:1234/v1",  # Standard LM Studio port
-                temperature=temperature,
-                is_chat_model=True,
-            )
-        else:
-            raise ConfigurationError(f"Unsupported LLM provider: {provider}")
-
-        if output_class:
-            return llm.as_structured_llm(output_class)
-
-        return llm
+from typing import Any, Optional
 
 
 class EventFormatter:
@@ -82,7 +9,8 @@ class EventFormatter:
     def format(
         step_type: Any,
         status: Any,
-        language: str,
+        step_id: str,
+        parent_id: Optional[str] = None,
         payload: Optional[Any] = None,
         duration: Optional[float] = None,
         label: Optional[str] = None,
@@ -91,18 +19,60 @@ class EventFormatter:
         step_val = step_type.value if hasattr(step_type, "value") else str(step_type)
         status_val = status.value if hasattr(status, "value") else str(status)
 
-        # USER_REQUEST: Frontend handles I18n. Backend sends keys only.
-        # We generally do NOT resolve labels here anymore.
-        # But we respect explicit dynamic labels from callers (e.g. "Processing file X")
-        final_label = label
-
-        # If explicitly passed distinct "label" override, use it (dynamic info).
-        # Otherwise send None so frontend uses generic I18n key.
-
-        data = {"type": "step", "step_type": step_val, "status": status_val, "label": final_label}
+        # Backend sends Step ID and Parent ID for robust nesting. 
+        # Labels are handled by the Frontend (i18n) unless a dynamic override is provided.
+        data = {
+            "type": "step", 
+            "step_type": step_val, 
+            "status": status_val, 
+            "step_id": step_id,
+            "parent_id": parent_id
+        }
+        
+        if label:
+            data["label"] = label
+            
         if payload is not None:
             data["payload"] = payload
+
         if duration is not None:
             data["duration"] = duration
 
         return json.dumps(data, default=str) + "\n"
+
+
+async def resolve_embedding_provider(ctx: Any) -> str:
+    """
+    Resolves the embedding provider with fallback logic.
+    Priority: Context Cache > Connector > Global Settings > Default ("ollama")
+
+    Args:
+        ctx: ChatContext (typed as Any to avoid circular imports if necessary, but try importing first)
+    """
+    # 1. From Context Cache
+    if getattr(ctx, "embedding_provider", None):
+        return ctx.embedding_provider
+
+    # 2. From Connectors
+    if hasattr(ctx.assistant, "linked_connectors") and ctx.assistant.linked_connectors:
+        for conn in ctx.assistant.linked_connectors:
+            # Access configuration safely
+            config = getattr(conn, "configuration", {}) or {}
+            # Handle both object and dict access if needed (ORM quirk safe)
+            if not isinstance(config, dict):
+                config = {}
+
+            provider = config.get("ai_provider") or config.get("embedding_provider")
+            if provider:
+                ctx.embedding_provider = provider
+                return provider
+
+    # 3. Global Settings
+    provider = await ctx.settings_service.get_value("embedding_provider")
+    if provider:
+        ctx.embedding_provider = provider
+        return provider
+
+    # 4. Default
+    ctx.embedding_provider = "ollama"
+    return "ollama"

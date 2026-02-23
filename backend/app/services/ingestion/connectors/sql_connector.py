@@ -24,10 +24,15 @@ class SqlConnector(BaseConnector[SqlIngestionConfig]):
         """
         Validates SQL connection configuration.
 
-        Currently just validates that required fields are present.
-        Future enhancement: Actually test SQL connection.
+        Checks that all required fields are present.
         """
-        return bool(config.host and config.port and config.database and config.user and config.password)
+        required_fields = ["host", "port", "database", "user", "password"]
+        missing = [f for f in required_fields if not getattr(config, f, None)]
+
+        if missing:
+            raise ValueError(f"Missing required SQL configuration fields: {', '.join(missing)}")
+
+        return True
 
     async def load_data(self, config: SqlIngestionConfig) -> List[Document]:
         """

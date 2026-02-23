@@ -12,7 +12,6 @@ from sqlmodel import SQLModel
 from app.schemas.enums import NotificationType
 
 # Constants
-MAX_TYPE_LENGTH = 50
 MAX_MESSAGE_LENGTH = 1000
 ALLOWED_NOTIFICATION_TYPES = [t.value for t in NotificationType]
 
@@ -22,7 +21,7 @@ class NotificationBase(SQLModel):
     Base properties for Notification.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, use_enum_values=True)
 
     # We use the Enum for validation, but store as string in DB usually
     # (or Enum column, but SQLModel+Enum can be tricky with migrations sometimes,

@@ -1,10 +1,14 @@
 import logging
 from typing import Any, AsyncGenerator, List, Optional
 
-from app.core.rag.processors import (BaseProcessor, QueryRewriterProcessor,
-                                     RerankingProcessor, RetrievalProcessor,
-                                     SynthesisProcessor,
-                                     VectorizationProcessor)
+from app.core.rag.processors import (
+    BaseProcessor,
+    QueryRewriterProcessor,
+    RerankingProcessor,
+    RetrievalProcessor,
+    SynthesisProcessor,
+    VectorizationProcessor,
+)
 from app.core.rag.types import PipelineContext, PipelineEvent
 
 logger = logging.getLogger(__name__)
@@ -24,12 +28,15 @@ class RAGPipeline:
         assistant: Any = None,
         chat_history: List[Any] = None,
         language: str = "en",
+        settings_service: Any = None,
         # New optional args for flexible orchestration
         context: Optional[PipelineContext] = None,
         processors: Optional[List[BaseProcessor]] = None,
     ):
         if context:
             self.ctx = context
+            if settings_service:
+                self.ctx.settings_service = settings_service
         else:
             self.ctx = PipelineContext(
                 user_message="",
@@ -39,6 +46,7 @@ class RAGPipeline:
                 llm=llm,
                 embed_model=embed_model,
                 search_strategy=search_strategy,
+                settings_service=settings_service,
             )
 
         # Define Pipeline Strategy
@@ -57,12 +65,16 @@ class RAGPipeline:
         """
         Execute the pipeline with the given message.
         """
-        self.ctx.user_message = user_message
+        clean_message = user_message.strip() if user_message else ""
+        self.ctx.user_message = clean_message
+
+        logger.info(f"🚀 Starting RAG Pipeline for message: '{clean_message[:50]}...'")
 
         try:
             for processor in self.processors:
                 async for event in processor.process(self.ctx):
                     yield event
+            logger.info("✅ RAG Pipeline execution completed successfully")
         except Exception as e:
             logger.error(f"❌ RAG Pipeline Failed: {e}", exc_info=True)
             yield PipelineEvent(type="error", status="failed", payload=str(e))

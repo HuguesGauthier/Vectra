@@ -25,16 +25,16 @@ from alembic import command
 from alembic.config import Config
 from app.api.v1.router import router as api_router
 from app.api.v1.ws import router as ws_router
-from app.core.connection_manager import manager
+from app.core.websocket import get_websocket, manager
 from app.core.database import SessionLocal
 from app.core.exceptions import VectraException
 from app.core.init_db import init_db
-from app.core.logging import (generate_request_id, set_correlation_id,
-                              setup_logging)
+from app.core.logging import generate_request_id, set_correlation_id, setup_logging
 from app.core.settings import settings
 from app.models.error_log import ErrorLog
 from app.services.settings_service import SettingsService
 from app.workers.scheduler_service import scheduler_service
+from app.core.utils.storage import validate_data_mount, get_storage_status
 
 # Configure logging
 setup_logging(settings.LOG_LEVEL)
@@ -70,9 +70,11 @@ async def lifespan(app: FastAPI):
         logger.info("🚀 Starting Vectra API...")
 
         # 1. Database Migrations (Non-blocking)
+        # P1: Fail fast if migrations fail
         await asyncio.to_thread(run_migrations)
 
         # 2. Database Initialization (Seed Admin)
+        # P1: Fail fast if init fails
         await init_db()
 
         # 3. Load Settings Cache
@@ -80,68 +82,39 @@ async def lifespan(app: FastAPI):
             settings_service = SettingsService(db)
             await settings_service.load_cache()
 
-        # 4. Observability: Initialize Arize Phoenix (if enabled)
-        if settings.ENABLE_PHOENIX_TRACING:
-            try:
-                from openinference.instrumentation.llama_index import \
-                    LlamaIndexInstrumentor
-                from opentelemetry import trace as trace_api
-                from opentelemetry.exporter.otlp.proto.http.trace_exporter import \
-                    OTLPSpanExporter
-                from opentelemetry.sdk.trace import TracerProvider
-                from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        # 3b. Validate Data Mount (Docker)
+        validate_data_mount()
 
-                logger.info("🕊️ Launching Arize Phoenix (via OpenInference)...")
 
-                # Configure OpenTelemetry to export to Phoenix Docker Container
-                # Note: Phoenix runs on port 6006. OTLP usually defaults to 4317/4318
-                # but Phoenix accepts HTTP at /v1/traces
-                endpoint = "http://localhost:6006/v1/traces"
 
-                tracer_provider = TracerProvider()
-                span_exporter = OTLPSpanExporter(endpoint=endpoint)
-                tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
-                trace_api.set_tracer_provider(tracer_provider)
-
-                # Initialize Automatic Instrumentation
-                LlamaIndexInstrumentor().instrument()
-
-                logger.info(f"🦜 OpenInference Instrumentation active. Exporting to {endpoint}")
-
-            except ImportError:
-                logger.warning(
-                    "⚠️ Phoenix enabled but dependencies missing. "
-                    "Run `pip install openinference-instrumentation-llama-index "
-                    "opentelemetry-exporter-otlp`."
-                )
-            except Exception as e:
-                logger.error(f"⚠️ Failed to launch Phoenix: {e}")
-
-        # 5. Start Scheduler Service (Instance-based)
+        # 5. Start Scheduler Service
         scheduler_service.start()
 
-        # 6. Start Dashboard Stats Broadcast
-        from app.api.v1.endpoints.dashboard import \
-            start_broadcast_task as start_dashboard_broadcast
+        # 6. Start Broadcast Tasks
+        from app.api.v1.endpoints.dashboard import start_broadcast_task as start_dashboard_broadcast
+        from app.api.v1.endpoints.analytics import start_broadcast_task as start_analytics_broadcast
 
         await start_dashboard_broadcast(interval_seconds=5)
-
-        # 7. Start Advanced Analytics Broadcast
-        from app.api.v1.endpoints.analytics import \
-            start_broadcast_task as start_analytics_broadcast
-
         await start_analytics_broadcast(interval_seconds=10)
 
         logger.info("✅ Startup sequence complete.")
 
     except Exception as e:
-        logger.error(f"CRITICAL: Error during startup sequence: {e}", exc_info=True)
-        # We assume supervision (Docker/K8s) will handle restart if healthcheck fails
+        logger.critical(f"🛑 CRITICAL STARTUP FAILURE: {e}", exc_info=True)
+        # P1: Fail Fast - prevent app from starting in broken state
+        raise SystemExit(1) from e
 
     yield
 
     # [SHUTDOWN]
     logger.info("🛑 Shutting down application...")
+
+    # P1: Explicitly stop background broadcast tasks
+    from app.api.v1.endpoints.dashboard import stop_broadcast_task as stop_dashboard_broadcast
+    from app.api.v1.endpoints.analytics import stop_broadcast_task as stop_analytics_broadcast
+
+    await asyncio.gather(stop_dashboard_broadcast(), stop_analytics_broadcast(), return_exceptions=True)
+
     scheduler_service.shutdown()
     logger.info("Goodbye.")
 
@@ -262,20 +235,23 @@ async def global_exception_handler(
 
     # Log to DB (Best Effort) - Production Only
     if settings.ENV == "production" and status_code >= 500:
-        try:
-            async with SessionLocal() as db:
-                error_log = ErrorLog(
-                    id=error_id,
-                    status_code=status_code,
-                    method=request.method,
-                    path=str(request.url.path),
-                    error_message=str(exc),
-                    stack_trace=traceback.format_exc(),
-                )
-                db.add(error_log)
-                await db.commit()
-        except Exception as db_exc:
-            logger.critical(f"CRITICAL: Failed to write ErrorLog to DB: {db_exc}")
+        # P1: Avoid recursion if DB logging itself fails
+        if not getattr(request.state, "exception_logged_to_db", False):
+            try:
+                request.state.exception_logged_to_db = True
+                async with SessionLocal() as db:
+                    error_log = ErrorLog(
+                        id=error_id,
+                        status_code=status_code,
+                        method=request.method,
+                        path=str(request.url.path),
+                        error_message=str(exc),
+                        stack_trace=traceback.format_exc(),
+                    )
+                    db.add(error_log)
+                    await db.commit()
+            except Exception as db_exc:
+                logger.critical(f"CRITICAL: Failed to write ErrorLog to DB: {db_exc}")
 
     # Construct Response
     content: Dict[str, Any] = {
@@ -315,10 +291,11 @@ async def root() -> Dict[str, str]:
 @app.get("/health")
 async def health_check() -> Dict[str, str]:
     """
-    Checks the health of the API and the background worker.
+    Checks the health of the API, the background worker, and the storage mount.
 
     Returns:
-        A dictionary with API and worker status.
+        A dictionary with API, worker, and storage status.
     """
     worker_status = "online" if manager.is_worker_online else "offline"
-    return {"api": "online", "worker": worker_status}
+    storage_status = "online" if get_storage_status() else "offline"
+    return {"api": "online", "worker": worker_status, "storage": storage_status}

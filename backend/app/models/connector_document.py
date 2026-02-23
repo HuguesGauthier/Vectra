@@ -26,6 +26,8 @@ class ConnectorDocument(ConnectorDocumentBase, table=True):
     created_at: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), server_default=func.now())
     )
-    updated_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True), onupdate=func.now()))
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    )
 
     __table_args__ = (UniqueConstraint("connector_id", "file_path", name="uq_connector_file_path"),)

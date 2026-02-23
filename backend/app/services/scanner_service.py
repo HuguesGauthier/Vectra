@@ -12,7 +12,7 @@ from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.core.connection_manager import manager
+from app.core.websocket import manager
 from app.core.database import get_db
 from app.core.exceptions import FunctionalError, TechnicalError
 from app.models.connector import Connector
@@ -23,16 +23,13 @@ from app.repositories.document_repository import DocumentRepository
 from app.services.ingestion.utils import IngestionUtils
 from app.services.vector_service import VectorService, get_vector_service
 
-# from app.services.settings_service import SettingsService # (Implicit via VectorService)
-
 logger = logging.getLogger(__name__)
 
 
 class ScannerService:
     """
-    Architect Refactor of ScannerService.
-    Hardens architecture via modern DI (P1), fixes P0 blocking IO,
-    and improves testability.
+    Service responsible for scanning file systems and syncing document records in the database.
+    Handles non-blocking I/O for file system operations and manages batch updates to the database.
     """
 
     SUPPORTED_EXTENSIONS = {
@@ -74,19 +71,16 @@ class ScannerService:
         self.db = db
         self.connector_repo = connector_repo or ConnectorRepository(db)
         self.document_repo = document_repo or DocumentRepository(db)
-        # P1: If vector_service not provided, we can't easily verify creation without Settings.
-        # Ideally, it should always be provided via DI.
         self.vector_service = vector_service
 
     async def _run_blocking_io(self, func, *args, **kwargs):
-        """Wrapper to offload blocking I/O to thread pool. Fixes P0."""
+        """Wrapper to offload blocking I/O to thread pool."""
         return await asyncio.to_thread(func, *args, **kwargs)
 
     async def scan_folder(self, connector_id: UUID, base_path: str, recursive: bool = True) -> Dict[str, int]:
         """
-        Scans folder and syncs ConnectorDocument records.
-        Fixes P0: Blocking path validation.
-        Fixes P1: Scalability (uses repo instead of direct select in loop).
+        Scans a folder and syncs ConnectorDocument records with the actual file system state.
+        Detects additions, updates, and deletions.
         """
         start_time = time.time()
         logger.info(f"START | ScannerService.scan_folder | connector={connector_id}, path={base_path}")
@@ -101,9 +95,9 @@ class ScannerService:
             if not connector:
                 raise TechnicalError(message=f"Connector {connector_id} not found", error_code="CONNECTOR_NOT_FOUND")
 
-            initial_status = DocStatus.PENDING
-            if connector.schedule_type == "manual" or not connector.schedule_cron:
-                initial_status = DocStatus.IDLE
+            # P0: Always set to IDLE during scan to prevent auto-ingestion
+            # The user must manually click 'Process' or wait for the scheduled sync
+            initial_status = DocStatus.IDLE
 
             await self._safe_emit("SCAN_STARTED", {"connector_id": str(connector_id), "message": "Scanning files..."})
 
@@ -114,6 +108,7 @@ class ScannerService:
 
             # 3. Walk directory
             found_files = await self._run_blocking_io(self._walk_directory_sync, base_path, recursive)
+            logger.info(f"SCAN | Found {len(found_files)} candidates in {base_path}")
 
             stats = {"added": 0, "updated": 0, "ignored": 0, "deleted": 0}
             last_ws_update = time.time()
@@ -240,6 +235,11 @@ class ScannerService:
             is_supported = False
             validation_error = "CSV files are not supported in Folder connectors. Use the CSV File connector instead."
 
+        # Logic to exclude non-CSVs from local_file
+        if connector_type == "local_file" and ext != ".csv":
+            is_supported = False
+            validation_error = "Only CSV files are supported in this connector type."
+
         if is_supported and ext == ".csv":
             try:
                 await IngestionUtils.validate_csv_file(full_path)
@@ -288,7 +288,7 @@ class ScannerService:
                     "file_metadata": {
                         "file_name": os.path.basename(full_path),
                         "file_path": rel_path,
-                        "file_type": self._detect_mime_type(full_path),
+                        "file_type": IngestionUtils.detect_mime_type(full_path),
                         "reason": reason,
                     },
                 }
@@ -330,8 +330,8 @@ class ScannerService:
         if os.path.isfile(base_path):
             base_name = os.path.basename(base_path)
             if not (base_name.startswith(self.IGNORED_PREFIXES) or base_name in self.IGNORED_FILES):
-                # For single file, rel_path is the filename
-                found_files[base_name] = base_path
+                # For single file, use the full path as rel_path to preserve directory structure
+                found_files[base_path] = base_path
             return found_files
 
         for root, dirs, files in os.walk(base_path):
@@ -363,10 +363,9 @@ class ScannerService:
         except Exception as e:
             logger.debug(f"WS emit failed for {event}: {e}")
 
-    @staticmethod
-    def _detect_mime_type(file_path: str) -> str:
-        type_, _ = mimetypes.guess_type(file_path)
-        return type_ or "application/octet-stream"
+    def _detect_mime_type(self, full_path: str) -> str:
+        """Helper to detect mime type via IngestionUtils."""
+        return IngestionUtils.detect_mime_type(full_path)
 
 
 async def get_scanner_service(

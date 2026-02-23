@@ -6,6 +6,8 @@ status filtering, and ACL-based access control.
 """
 
 import logging
+import os
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 from uuid import UUID
 
@@ -195,8 +197,6 @@ class DocumentRepository(SQLRepository[ConnectorDocument, Any, Any]):
         Raises:
             TechnicalError: If database operation fails
         """
-        from datetime import datetime, timezone
-
         processed_docs = []
 
         try:
@@ -207,14 +207,21 @@ class DocumentRepository(SQLRepository[ConnectorDocument, Any, Any]):
                 # Check if document exists
                 existing = await self.get_by_file_path(connector_id, file_path)
 
-                # Extract file_name with fallback
-                file_name = doc.metadata.get("file_name")
-                if not file_name:
-                    import os
+                if existing:
+                    # Update existing document (Manual UPDATE to keep transaction open)
+                    existing.status = DocStatus.INDEXED
+                    existing.file_metadata = doc.metadata
 
-                    file_name = os.path.basename(file_path)
+                    self.db.add(existing)  # Add to session for flush/commit
+                    processed_docs.append(existing)
+                    logger.debug(f"Updated existing document: {file_path}")
 
-                if not existing:
+                else:
+                    # Extract file_name with fallback
+                    file_name = doc.metadata.get("file_name")
+                    if not file_name:
+                        file_name = os.path.basename(file_path)
+
                     # Create new document
                     new_doc = ConnectorDocument(
                         connector_id=connector_id,
@@ -224,25 +231,16 @@ class DocumentRepository(SQLRepository[ConnectorDocument, Any, Any]):
                         file_metadata=doc.metadata,
                     )
                     self.db.add(new_doc)
-                    await self.db.flush()  # Get ID
                     processed_docs.append(new_doc)
                     logger.debug(f"Created new document: {file_path}")
 
-                if existing:
-                    # Update existing document (or migrated legacy one)
-                    updated = await self.update(
-                        existing.id,
-                        {
-                            "status": DocStatus.INDEXED,
-                            "file_metadata": doc.metadata,
-                            "last_indexed_at": datetime.now(timezone.utc),
-                        },
-                    )
-                    processed_docs.append(updated)
-                    logger.debug(f"Updated existing document: {file_path}")
-
-            # Commit transaction
+            # Commit transaction once for all documents
             await self.db.commit()
+
+            # Refresh all to get generated fields if needed (optional optimization: skip if not needed)
+            for doc in processed_docs:
+                await self.db.refresh(doc)
+
             logger.info(f"Upserted {len(processed_docs)} documents for connector {connector_id}")
             return processed_docs
 

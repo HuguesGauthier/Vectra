@@ -64,7 +64,7 @@ export const useConnectorDocumentStore = defineStore('connectorDocument', {
 
     async fetchPricing() {
       try {
-        const response = await api.get('/pricing/pricing');
+        const response = await api.get('/pricing/');
         this.pricing = response.data;
       } catch (error) {
         console.warn('Failed to fetch pricing config:', error);

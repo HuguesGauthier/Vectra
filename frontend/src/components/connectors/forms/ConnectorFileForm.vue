@@ -2,14 +2,17 @@
   <q-form ref="formRef" @submit="onSubmit" class="q-gutter-md">
     <ConfigurationGeneralFields v-model="localData" />
 
-    <FileConfigFields v-model="localData.configuration" v-model:file="activeFile" />
+    <FileConfigFields
+      v-model="localData.configuration"
+      v-model:file="activeFile"
+      :accept="localData.connector_type === 'local_file' ? '.csv' : undefined"
+    />
 
     <q-select
       v-if="!props.hideAiProvider"
       v-model="localData.configuration.ai_provider"
       :options="aiProviderOptions"
       :label="$t('aiProvider')"
-      dark
       color="white"
       standout
       emit-value
@@ -26,7 +29,6 @@
       multiple
       input-debounce="0"
       @new-value="createValue"
-      dark
       standout
       :hint="$t('connectorAclHint')"
       :rules="[
@@ -124,8 +126,21 @@ const activeFile = ref<File | null>(null);
 watch(
   () => data.value,
   (newValue) => {
-    localData.value = createCopy(newValue);
-    activeFile.value = null; // Reset file input when data changes
+    // Compare JSON to avoid re-cloning if the prop update came from our own sync-back
+    if (JSON.stringify(newValue) !== JSON.stringify(localData.value)) {
+      localData.value = createCopy(newValue);
+      activeFile.value = null; // Reset file input when data changes
+    }
+  },
+  { deep: true },
+);
+
+// Sync changes back to parent immediately for dirty state detection
+watch(
+  [localData, activeFile],
+  ([newLocalData]) => {
+    Object.assign(data.value, newLocalData);
+    data.value.configuration = { ...newLocalData.configuration };
   },
   { deep: true },
 );

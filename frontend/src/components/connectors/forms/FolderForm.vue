@@ -7,7 +7,6 @@
       v-model="localData.configuration.ai_provider"
       :options="aiProviderOptions"
       :label="$t('aiProvider')"
-      dark
       color="white"
       standout
       emit-value
@@ -25,7 +24,6 @@
       use-input
       use-chips
       multiple
-      dark
       input-debounce="0"
       @new-value="createValue"
       standout
@@ -50,7 +48,6 @@
       v-model="localData.schedule_type"
       :options="scheduleOptions"
       :label="$t('schedule')"
-      dark
       color="white"
       standout
       emit-value
@@ -141,7 +138,21 @@ watch(
 watch(
   () => data.value,
   (newValue) => {
-    localData.value = createCopy(newValue);
+    // Only update if it's a different content to avoid loops
+    // Compare JSON to avoid re-cloning if the prop update came from our own sync-back
+    if (JSON.stringify(newValue) !== JSON.stringify(localData.value)) {
+      localData.value = createCopy(newValue);
+    }
+  },
+  { deep: true },
+);
+
+// Sync changes back to parent immediately for dirty state detection
+watch(
+  localData,
+  (newValue) => {
+    Object.assign(data.value, newValue);
+    data.value.configuration = { ...newValue.configuration };
   },
   { deep: true },
 );

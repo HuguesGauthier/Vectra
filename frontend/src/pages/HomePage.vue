@@ -61,7 +61,7 @@ const { t } = useI18n();
 // Initialisé avec les couleurs par défaut
 const currentColors = reactive({
   left: '#2A4B7C',
-  right: '#E08E45',
+  right: '#b08989',
   mid: '#7D6868',
 });
 </script>

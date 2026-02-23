@@ -2,35 +2,31 @@ import asyncio
 import json
 import logging
 import time
-from typing import (Any, AsyncGenerator, Dict, List, Optional, Set, Tuple,
-                    TypeVar)
-
-from llama_index.core import VectorStoreIndex
-from llama_index.core.tools import FunctionTool
-from llama_index.core.vector_stores import (FilterOperator, MetadataFilter,
-                                            MetadataFilters)
-from llama_index.vector_stores.qdrant import QdrantVectorStore
+from typing import Any, AsyncGenerator, Dict, List, Optional, Set, Tuple, TypeVar
 
 from app.core.rag.pipeline import RAGPipeline
-from app.core.rag.processors import (QueryRewriterProcessor,
-                                     RerankingProcessor, RetrievalProcessor,
-                                     SynthesisProcessor,
-                                     VectorizationProcessor)
+from app.core.rag.processors import (
+    QueryRewriterProcessor,
+    RerankingProcessor,
+    RetrievalProcessor,
+    SynthesisProcessor,
+    VectorizationProcessor,
+)
 from app.core.rag.types import PipelineContext, PipelineEvent
-from app.repositories import (ConnectorRepository, DocumentRepository,
-                              VectorRepository)
+from app.repositories import ConnectorRepository, DocumentRepository, VectorRepository
 from app.services.chat.chat_metrics_manager import ChatMetricsManager
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.source_service import SourceService
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter, LLMFactory
+from app.services.chat.utils import EventFormatter
 
 logger = logging.getLogger(__name__)
 
 
 # Constants - Pipeline Steps
 STEP_CONNECTION = PipelineStepType.CONNECTION
-
+STEP_RETRIEVAL = PipelineStepType.RETRIEVAL
+STEP_VECTORIZATION = PipelineStepType.VECTORIZATION
 
 # Constants - Keys
 KEY_EMBEDDING = "embedding"
@@ -53,41 +49,54 @@ class RAGGenerationProcessor(BaseChatProcessor):
     Supports both Standard RAG and specialized CSV pipelines.
     Hardened with Timeouts and Circuit Breakers.
     """
-
     async def process(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
+        """Orchestrates the RAG pipeline with SSE event streaming."""
         if ctx.should_stop:
+            logger.debug("[RAGGenerationProcessor] Skipping: ctx.should_stop is True")
             return
-
-        # Skip if CSV pipeline was already handled via Agentic Processor
-        if ctx.metadata.get("csv_pipeline_executed"):
-            logger.info("⏩ RAG Processor: Skipping (CSV pipeline executed)")
-            return
-
+            
         self._ensure_metrics(ctx)
 
-        # 1. Initialize & Dependencies
+        # 1. Initialize & Dependencies (Connection check)
         t0 = time.time()
-        yield EventFormatter.format(STEP_CONNECTION, StepStatus.RUNNING, ctx.language)
+        conn_id = ctx.metrics.start_span(STEP_CONNECTION)
+        yield EventFormatter.format(STEP_CONNECTION, StepStatus.RUNNING, conn_id)
 
         try:
-            rag_ctx = await asyncio.wait_for(self._initialize_standard_rag(ctx), timeout=10.0)
+            # Build components for first connector to validate connectivity
+            connectors = list(ctx.assistant.linked_connectors or [])
+            first_provider = connectors[0].configuration.get("ai_provider") if connectors else None
+            first_components = await asyncio.wait_for(
+                self._get_components_for_provider(ctx, first_provider), timeout=10.0
+            )
         except asyncio.TimeoutError:
-            yield EventFormatter.format(STEP_CONNECTION, StepStatus.FAILED, ctx.language, label="Connection Timeout")
+            yield EventFormatter.format(STEP_CONNECTION, StepStatus.FAILED, conn_id, label="Connection Timeout")
             return
 
         dur = round(time.time() - t0, 3)
-        yield EventFormatter.format(STEP_CONNECTION, StepStatus.COMPLETED, ctx.language, duration=dur)
-        ctx.metrics.record_completed_step(STEP_CONNECTION, "Connection", dur)
+        ctx.metrics.end_span(conn_id)
+        yield EventFormatter.format(STEP_CONNECTION, StepStatus.COMPLETED, conn_id, duration=dur)
 
-        # 2. Retrieval Phase
-        async for event in self._execute_retrieval_phase(rag_ctx, ctx):
+        # 2. Query Rewrite + Vectorization (shared — done once on first connector)
+        rag_ctx = self._build_rag_context(ctx, first_components)
+        async for event in self._execute_query_rewrite_and_vectorize(rag_ctx, ctx):
             yield event
 
-        # 3. Sources Processing
+        # 3. Multi-Connector Retrieval Phase (parent step wrapping per-connector sub-steps)
+        all_nodes: list = []
+        async for event in self._execute_multi_connector_retrieval(ctx, rag_ctx, connectors, all_nodes):
+            yield event
+
+        # 4. Reranking (on merged nodes)
+        rag_ctx.retrieved_nodes = all_nodes
+        async for event in self._execute_reranking(rag_ctx, ctx):
+            yield event
+
+        # 5. Sources Processing
         if await self._process_and_yield_sources(rag_ctx, ctx):
             yield json.dumps({"type": "sources", "data": ctx.retrieved_sources}, default=str) + "\n"
 
-        # 4. Synthesis Phase
+        # 6. Synthesis Phase
         async for event in self._execute_synthesis_phase(rag_ctx, ctx):
             yield event
 
@@ -97,10 +106,8 @@ class RAGGenerationProcessor(BaseChatProcessor):
         if not ctx.metrics:
             ctx.metrics = ChatMetricsManager()
 
-    async def _initialize_standard_rag(self, ctx: ChatContext) -> PipelineContext:
-        """Sets up the RAG context and dependencies."""
-        components = await self._get_components(ctx)
-
+    def _build_rag_context(self, ctx: ChatContext, components: Dict) -> PipelineContext:
+        """Builds a PipelineContext from pre-fetched components."""
         return PipelineContext(
             user_message=ctx.message,
             chat_history=ctx.history,
@@ -109,24 +116,152 @@ class RAGGenerationProcessor(BaseChatProcessor):
             llm=components["llm"],
             embed_model=components["embed_model"],
             search_strategy=components["search_strategy"],
-            tools=[],  # Visualization tool moved to VisualizationProcessor
+            settings_service=ctx.settings_service,
+            tools=[],
         )
 
-    async def _execute_retrieval_phase(self, rag_ctx: PipelineContext, ctx: ChatContext) -> AsyncGenerator[str, None]:
+    async def _execute_query_rewrite_and_vectorize(
+        self, rag_ctx: PipelineContext, ctx: ChatContext
+    ) -> AsyncGenerator[str, None]:
+        """Runs QueryRewriter + Vectorization once (shared across all connectors)."""
         pipeline = RAGPipeline(
             context=rag_ctx,
-            processors=[QueryRewriterProcessor(), VectorizationProcessor(), RetrievalProcessor(), RerankingProcessor()],
+            processors=[QueryRewriterProcessor(), VectorizationProcessor()],
         )
-        # Circuit Breaker around Retrieval Loop
-        # Note: Since pipeline yields step-by-step, we wrap consumption
         try:
             async for event in self._consume_with_timeout(pipeline.run(ctx.message), TIMEOUT_RETRIEVAL):
-                yield self._format_from_event(event, ctx)
+                chunk = self._format_from_event(event, ctx)
+                if chunk:
+                    yield chunk
                 if self._is_embedding_event(event):
                     ctx.captured_source_embedding = event.payload[KEY_EMBEDDING]
         except asyncio.TimeoutError:
-            logger.error(f"Retrieval Phase Timeout ({TIMEOUT_RETRIEVAL}s)")
-            yield json.dumps({"type": KEY_ERROR, "message": "Retrieval timed out."}, default=str) + "\n"
+            logger.error(f"Vectorization Phase Timeout ({TIMEOUT_RETRIEVAL}s)")
+            yield json.dumps({"type": KEY_ERROR, "message": "Vectorization timed out."}, default=str) + "\n"
+
+    async def _execute_multi_connector_retrieval(
+        self,
+        ctx: ChatContext,
+        base_rag_ctx: PipelineContext,
+        connectors: list,
+        all_nodes: list,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Emits a parent RETRIEVAL step, then one VECTORIZATION sub-step per connector.
+        Merges retrieved nodes into all_nodes (deduplicating by node id).
+        """
+        # If no connectors, fall back to a single retrieval with default provider
+        effective_connectors = connectors or [None]
+
+        # --- Parent RETRIEVAL: RUNNING ---
+        retrieval_t0 = time.time()
+        retrieval_id = ctx.metrics.start_span(STEP_RETRIEVAL)
+        yield EventFormatter.format(STEP_RETRIEVAL, StepStatus.RUNNING, retrieval_id)
+
+        seen_ids: Set[str] = set()
+
+        for connector in effective_connectors:
+            provider = connector.configuration.get("ai_provider") if connector else None
+            collection = await ctx.vector_service.get_collection_name(provider)
+
+            # Label shown in the UI: "Ollama (documents_ollama)"
+            provider_display = (provider or "local").capitalize()
+            sub_label = f"{provider_display} ({collection})"
+            sub_payload = {"is_substep": True}
+
+            # --- Sub-step: RUNNING ---
+            sub_t0 = time.time()
+            sub_id = ctx.metrics.start_span(STEP_VECTORIZATION, parent_id=retrieval_id)
+            yield EventFormatter.format(
+                STEP_VECTORIZATION,
+                StepStatus.RUNNING,
+                sub_id,
+                parent_id=retrieval_id,
+                label=sub_label,
+                payload=sub_payload,
+            )
+
+            try:
+                # Build retrieval pipeline (reuses already-computed embedding from base_rag_ctx)
+                components = await self._get_components_for_provider(ctx, provider)
+                connector_rag_ctx = self._build_rag_context(ctx, components)
+                # Transfer the already-computed embedding so we don't re-vectorize
+                connector_rag_ctx.question_embedding = base_rag_ctx.question_embedding
+
+                retrieval_pipeline = RAGPipeline(
+                    context=connector_rag_ctx,
+                    processors=[RetrievalProcessor()],
+                )
+                async for event in self._consume_with_timeout(
+                    retrieval_pipeline.run(ctx.message), TIMEOUT_RETRIEVAL
+                ):
+                    pass  # consume events; nodes stored on connector_rag_ctx
+
+                # Merge nodes (deduplicate)
+                for node in (connector_rag_ctx.retrieved_nodes or []):
+                    node_id = getattr(node, "node_id", None) or id(node)
+                    if node_id not in seen_ids:
+                        seen_ids.add(node_id)
+                        all_nodes.append(node)
+
+                sub_dur = round(time.time() - sub_t0, 3)
+                node_count = len(connector_rag_ctx.retrieved_nodes or [])
+                sub_payload_done = {"is_substep": True, "source_count": node_count}
+
+                # --- Sub-step: COMPLETED ---
+                ctx.metrics.end_span(sub_id, payload=sub_payload_done)
+                yield EventFormatter.format(
+                    STEP_VECTORIZATION,
+                    StepStatus.COMPLETED,
+                    sub_id,
+                    parent_id=retrieval_id,
+                    payload=sub_payload_done,
+                    duration=sub_dur,
+                    label=sub_label,
+                )
+
+            except asyncio.TimeoutError:
+                sub_dur = round(time.time() - sub_t0, 3)
+                logger.error(f"Retrieval timeout for connector provider '{provider}'")
+                ctx.metrics.end_span(sub_id, payload={"is_substep": True})
+                yield EventFormatter.format(
+                    STEP_VECTORIZATION,
+                    StepStatus.FAILED,
+                    sub_id,
+                    parent_id=retrieval_id,
+                    label=sub_label,
+                )
+            except Exception as e:
+                logger.error(f"Retrieval error for connector provider '{provider}': {e}", exc_info=True)
+                ctx.metrics.end_span(sub_id, payload={"is_substep": True})
+                yield EventFormatter.format(
+                    STEP_VECTORIZATION,
+                    StepStatus.FAILED,
+                    sub_id,
+                    parent_id=retrieval_id,
+                    label=sub_label,
+                )
+
+        # --- Parent RETRIEVAL: COMPLETED ---
+        retrieval_dur = round(time.time() - retrieval_t0, 3)
+        ctx.metrics.end_span(retrieval_id)
+        yield EventFormatter.format(
+            STEP_RETRIEVAL, StepStatus.COMPLETED, retrieval_id, duration=retrieval_dur
+        )
+
+    async def _execute_reranking(self, rag_ctx: PipelineContext, ctx: ChatContext) -> AsyncGenerator[str, None]:
+        """Runs the reranking step on the merged nodes."""
+        pipeline = RAGPipeline(
+            context=rag_ctx,
+            processors=[RerankingProcessor()],
+        )
+        try:
+            async for event in self._consume_with_timeout(pipeline.run(ctx.message), TIMEOUT_RETRIEVAL):
+                chunk = self._format_from_event(event, ctx)
+                if chunk:
+                    yield chunk
+        except asyncio.TimeoutError:
+            logger.error(f"Reranking Phase Timeout ({TIMEOUT_RETRIEVAL}s)")
 
     async def _execute_synthesis_phase(self, rag_ctx: PipelineContext, ctx: ChatContext) -> AsyncGenerator[str, None]:
         syn_pipeline = RAGPipeline(context=rag_ctx, processors=[SynthesisProcessor()])
@@ -152,11 +287,27 @@ class RAGGenerationProcessor(BaseChatProcessor):
                             yield json.dumps({"type": "token", "content": token, "text": token}, default=str) + "\n"
 
                 elif event.type == KEY_ERROR:
-                    yield json.dumps({"type": KEY_ERROR, "message": str(event.payload)}, default=str) + "\n"
+                    msg = str(event.payload)
+                    logger.error(f"Synthesis failed: {msg}")
+
+                    # P0: Friendly translation for connectivity issues
+                    if "ConnectError" in msg or "Connection refused" in msg or "11434" in msg:
+                        msg = "Failed to connect to Ollama. Ensure the service is running and accessible."
+
+                    yield json.dumps({"type": KEY_ERROR, "message": msg}, default=str) + "\n"
 
         except asyncio.TimeoutError:
             logger.error(f"Synthesis Phase Timeout ({TIMEOUT_SYNTHESIS}s)")
-            yield json.dumps({"type": KEY_ERROR, "message": "Generation timed out."}, default=str) + "\n"
+            yield json.dumps(
+                {
+                    "type": KEY_ERROR,
+                    "message": "Generation timed out. Ollama might be overloaded or model is too large.",
+                },
+                default=str,
+            ) + "\n"
+        except Exception as e:
+            logger.error(f"Unexpected Synthesis Exception: {e}", exc_info=True)
+            yield json.dumps({"type": KEY_ERROR, "message": f"Synthesis Error: {str(e)}"}, default=str) + "\n"
 
     async def _process_and_yield_sources(self, rag_ctx: PipelineContext, ctx: ChatContext) -> bool:
         ctx.retrieved_sources = await SourceService.process_sources(rag_ctx.retrieved_nodes, ctx.db)
@@ -180,7 +331,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
         while True:
             try:
                 # Wait for next item with timeout
-                item = await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+                item = await asyncio.wait_for(anext(iterator), timeout=timeout)
                 yield item
             except StopAsyncIteration:
                 break
@@ -189,43 +340,32 @@ class RAGGenerationProcessor(BaseChatProcessor):
             except Exception:
                 raise
 
-    async def _get_components(self, ctx: ChatContext) -> Dict:
-        """Fetches standard RAG dependencies."""
-        settings = ctx.settings_service
-        # Use centralized Factory to get the correctly configured Chat Engine
+    async def _get_components_for_provider(self, ctx: ChatContext, provider: Optional[str]) -> Dict:
+        """
+        Fetches RAG dependencies for a specific embedding provider.
+        Used both for the initial connection check and per-connector retrieval.
+        """
         from app.factories.chat_engine_factory import ChatEngineFactory
+        from app.strategies import HybridStrategy, VectorOnlyStrategy
 
-        llm = await ChatEngineFactory.create_from_assistant(
-            ctx.assistant, ctx.settings_service, temperature=ctx.assistant.configuration.get("temperature", 0.7)
-        )
+        llm = await ChatEngineFactory.create_from_assistant(ctx.assistant, ctx.settings_service)
 
-        # Decouple Collection from Chat Provider.
-        # Collection depends on the Embedding Provider (Global/Connector), not the Chat LLM.
-        # Priority:
-        # A. First Linked Connector's "ai_provider" (User Preference on Source)
-        # B. Global Default (if None passed to VectorService)
-
-        provider = None
-        if ctx.assistant.linked_connectors:
-            # Use the first connector's config to determine the embedding context.
-            # In a single-collection system, all connectors for a query usually share the provider.
-            first_conn = ctx.assistant.linked_connectors[0]
-            provider = first_conn.configuration.get("ai_provider")
-            if provider:
-                logger.info(f"RAG Processor | Using Connector Embedding Provider: {provider}")
+        if provider:
+            logger.info(f"RAG Processor | Using Connector Embedding Provider: {provider}")
 
         col = await ctx.vector_service.get_collection_name(provider)
         await ctx.vector_service.ensure_collection_exists(col, provider)
         try:
             embed = await ctx.vector_service.get_embedding_model(provider=provider)
-        except:
+        except Exception as e:
+            logger.warning(
+                f"Failed to get embedding model for provider '{provider}'. Falling back to local. Error: {e}"
+            )
             embed = await ctx.vector_service.get_embedding_model(
                 model_kwargs={"local_files_only": True}, provider="local"
             )
 
-        from app.strategies import HybridStrategy, VectorOnlyStrategy
-
-        vec_repo = VectorRepository(ctx.vector_service.get_async_qdrant_client())
+        vec_repo = VectorRepository(await ctx.vector_service.get_async_qdrant_client())
         strat_type = getattr(ctx.assistant, "search_strategy", "hybrid")
 
         if strat_type == "vector":
@@ -242,29 +382,38 @@ class RAGGenerationProcessor(BaseChatProcessor):
             return ""
 
         if event.status == "running":
-            ctx.step_timers[event.step_type] = time.time()
-            return EventFormatter.format(event.step_type, "running", ctx.language)
+            span_id = ctx.metrics.start_span(event.step_type)
+            ctx.step_timers[event.step_type] = span_id
+            return EventFormatter.format(event.step_type, "running", span_id)
 
         elif event.status == "completed":
-            start = ctx.step_timers.pop(event.step_type, time.time())
-            dur = round(time.time() - start, 3)
+            span_id = ctx.step_timers.pop(event.step_type, None)
+            if not span_id:
+                # Fallback: record a syncless step if we missed the start
+                dur = 0.0
+                sid = ctx.metrics.record_completed_step(
+                    step_type=event.step_type,
+                    label=getattr(event, "label", None),
+                    duration=0.0,
+                    payload=event.payload if isinstance(event.payload, dict) else {},
+                )
+                return EventFormatter.format(event.step_type, "completed", sid, duration=0.0)
 
             payload = event.payload if isinstance(event.payload, dict) else {}
             tokens = payload.get(KEY_TOKENS, {})
-
-            ctx.metrics.record_completed_step(
-                step_type=event.step_type,
-                label=getattr(event, "label", None),
-                duration=dur,
+            step_metric = ctx.metrics.end_span(
+                span_id,
                 input_tokens=int(tokens.get(KEY_INPUT, 0)),
                 output_tokens=int(tokens.get(KEY_OUTPUT, 0)),
                 payload=payload,
             )
+            
             return EventFormatter.format(
-                event.step_type, "completed", ctx.language, payload, dur, label=getattr(event, "label", None)
+                event.step_type, "completed", span_id, payload=payload, duration=step_metric.duration, label=getattr(event, "label", None)
             )
 
         elif event.status == "failed":
-            return EventFormatter.format(event.step_type, "failed", ctx.language, event.payload)
+            span_id = ctx.step_timers.pop(event.step_type, None)
+            return EventFormatter.format(event.step_type, "failed", span_id or f"failed_{event.step_type}")
 
         return ""

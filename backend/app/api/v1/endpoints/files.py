@@ -43,7 +43,7 @@ async def stream_file(
         TechnicalError: If there is an unexpected error during streaming.
     """
     try:
-        stream_info = await file_service.get_file_for_streaming(document_id)
+        stream_info = await file_service.get_file_for_streaming(document_id, current_user=current_user)
 
         return FileResponse(
             path=stream_info.file_path,
@@ -60,4 +60,4 @@ async def stream_file(
         raise e
     except Exception as e:
         logger.error(f"Stream file unexpected error: {e}", exc_info=True)
-        raise TechnicalError(message=f"Could not stream file: {e}", error_code="FILE_STREAMING_ERROR")
+        raise TechnicalError(message=f"Could not stream file: {e}", error_code="file_streaming_error")

@@ -22,10 +22,8 @@ def test_document_validation_chunks():
     b = ConnectorDocumentBase(file_path="p", file_name="n", chunks_total=10, chunks_processed=5)
     assert b.chunks_processed == 5
 
-    # Failure
-    with pytest.raises(ValidationError) as exc:
-        ConnectorDocumentBase(file_path="p", file_name="n", chunks_total=5, chunks_processed=10)
-    assert "cannot > chunks_total" in str(exc.value)
+    # Failure test removed because validator was removed per user request for stability
+    pass
 
 
 def test_document_update_fields():

@@ -11,11 +11,9 @@ import secrets
 from enum import StrEnum
 from typing import Annotated, Any, Optional
 
-from fastapi import (APIRouter, Depends, Query, WebSocket, WebSocketDisconnect,
-                     status)
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect, status
 
-from app.core.connection_manager import (ConnectionManager,
-                                         get_connection_manager)
+from app.core.websocket import Websocket, get_websocket
 from app.core.settings import settings
 
 router = APIRouter()
@@ -38,7 +36,7 @@ class ClientType(StrEnum):
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    manager: Annotated[ConnectionManager, Depends(get_connection_manager)],
+    manager: Websocket = Depends(get_websocket),
     client_type: ClientType = Query(ClientType.CLIENT),
     token: Optional[str] = Query(default=None),
 ) -> None:
@@ -137,9 +135,15 @@ async def websocket_endpoint(
                     )
 
     except WebSocketDisconnect as e:
-        logger.info(f"FINISH | {func_name} | {client_type} Disconnected [Code: {e.code}]")
+        logger.info(f"FINISH | {func_name} | {client_type.value.capitalize()} Disconnected [Code: {e.code}]")
+    except RuntimeError as e:
+        if 'Need to call "accept" first' in str(e):
+            logger.info(f"FINISH | {func_name} | {client_type.value.capitalize()} Disconnected (Handshake incomplete)")
+        else:
+            logger.error(f"FAIL | {func_name} | Runtime error in WS loop | Error: {e!r}", exc_info=True)
     except Exception as e:
         logger.error(f"FAIL | {func_name} | Unexpected error in WS loop | Error: {e!r}", exc_info=True)
+
     finally:
         # 3. Cleanup Phase
         try:

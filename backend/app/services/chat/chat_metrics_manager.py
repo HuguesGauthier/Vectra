@@ -2,19 +2,21 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from app.services.chat.types import PipelineStepType
-
 
 @dataclass
 class StepMetric:
     step_type: str
     label: str
     start_time: float
+    step_id: str = ""  # Unique ID for nesting
+    parent_id: Optional[str] = None  # Reference to parent span
     end_time: float = 0.0
     duration: float = 0.0
     input_tokens: int = 0
     output_tokens: int = 0
+    sequence: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
+    sub_steps: List["StepMetric"] = field(default_factory=list)
 
     @property
     def is_completed(self) -> bool:
@@ -32,6 +34,7 @@ class ChatMetricsManager:
         self.steps: Dict[str, StepMetric] = {}  # Keyed by step_type or unique ID
         self.completed_steps: List[StepMetric] = []
         self._step_counter: int = 0
+        self._sequence_counter: int = 0
 
         # Aggregates
         self.total_input_tokens: int = 0
@@ -51,9 +54,30 @@ class ChatMetricsManager:
             self.custom_metrics[key] = value
 
     def __getitem__(self, key: str) -> Any:
-        """Allow dict-style getting."""
+        """Allow dict-style getting with lazy evaluation."""
+        if key == "ttft":
+            return self.ttft
+        if key == "input_tokens":
+            return self.total_input_tokens
+        if key == "output_tokens":
+            return self.total_output_tokens
+        if key == "total_duration":
+            return round(time.time() - self.start_time, 3)
+
+        # Retrieve summary only if complex keys are requested
+        # or if key is not found in fast paths (could be in custom_metrics)
+        # Note: get_summary() builds the whole dict, which is heavy.
+        # We try to look in custom_metrics first as a common fallback?
+        # The original code did: summary = self.get_summary(); return summary[key]
+        # get_summary() merges custom_metrics into the result.
+        # So if key is in custom_metrics, it returns it.
+
+        if key in self.custom_metrics:
+            return self.custom_metrics[key]
+
+        # Fallback for calculated fields usually found in summary
         summary = self.get_summary()
-        return summary[key]  # Raises Key error if missing, consistent with dict
+        return summary[key]
 
     def get(self, key: str, default: Any = None) -> Any:
         """Safe get method."""
@@ -62,7 +86,7 @@ class ChatMetricsManager:
         except KeyError:
             return default
 
-    def start_span(self, step_type: str, label: Optional[str] = None) -> str:
+    def start_span(self, step_type: str, label: Optional[str] = None, parent_id: Optional[str] = None) -> str:
         """Start a new timing span. Returns a unique span ID."""
         if not label:
             label = step_type.replace("_", " ").title()
@@ -70,10 +94,22 @@ class ChatMetricsManager:
         span_id = f"{step_type}_{self._step_counter}"
         self._step_counter += 1
 
-        self.steps[span_id] = StepMetric(step_type=step_type, label=label, start_time=time.time())
+        self.steps[span_id] = StepMetric(
+            step_type=step_type, label=label, start_time=time.time(), step_id=span_id, parent_id=parent_id
+        )
+        # Assign sequence at START to preserve nesting order (Parent < Children)
+        self.steps[span_id].sequence = self._sequence_counter
+        self._sequence_counter += 1
         return span_id
 
-    def end_span(self, span_id: str, payload: Optional[Dict] = None, input_tokens: int = 0, output_tokens: int = 0):
+    def end_span(
+        self,
+        span_id: str,
+        payload: Optional[Dict] = None,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        increment_total: bool = True,
+    ):
         """End a timing span and record metrics."""
         if span_id not in self.steps:
             return  # Should log warning
@@ -93,9 +129,11 @@ class ChatMetricsManager:
         if payload:
             step.metadata = payload
 
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
+        if increment_total:
+            self.total_input_tokens += input_tokens
+            self.total_output_tokens += output_tokens
 
+        # Sequence is already assigned at start_span
         self.completed_steps.append(step)
         return step
 
@@ -107,10 +145,16 @@ class ChatMetricsManager:
         input_tokens: int = 0,
         output_tokens: int = 0,
         payload: Dict = None,
+        increment_total: bool = True,
+        parent_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ):
         """Manually record a step that was tracked elsewhere (e.g. internally in a callback)."""
         # Create a synthetic step
         now = time.time()
+        sid = step_id or f"{step_type}_sync_{self._step_counter}"
+        self._step_counter += 1
+
         step = StepMetric(
             step_type=step_type,
             label=label,
@@ -120,15 +164,23 @@ class ChatMetricsManager:
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             metadata=payload or {},
+            step_id=sid,
+            parent_id=parent_id,
         )
-        self.total_input_tokens += input_tokens
-        self.total_output_tokens += output_tokens
+
+        if increment_total:
+            self.total_input_tokens += input_tokens
+            self.total_output_tokens += output_tokens
+
+        step.sequence = self._sequence_counter
+        self._sequence_counter += 1
         self.completed_steps.append(step)
+        return sid
 
     def get_summary(self) -> Dict:
         """Return compatible dictionary for existing frontend/API contracts."""
-        # Sort steps by start_time to preserve chronological order
-        sorted_steps = sorted(self.completed_steps, key=lambda x: x.start_time)
+        # Sort steps by sequence to preserve absolute chronological order
+        sorted_steps = sorted(self.completed_steps, key=lambda x: x.sequence)
 
         summary = {
             "total_duration": round(time.time() - self.start_time, 3),
@@ -137,13 +189,16 @@ class ChatMetricsManager:
             "output_tokens": self.total_output_tokens,
             "step_breakdown": [
                 {
+                    "step_id": s.step_id,
+                    "parent_id": s.parent_id,
                     "step_type": s.step_type,
                     "label": s.label,
                     "duration": s.duration,
+                    "sequence": s.sequence,
                     "tokens": {"input": s.input_tokens, "output": s.output_tokens},
                     "metadata": s.metadata,
                 }
-                for s in sorted_steps  # Use sorted list
+                for s in sorted_steps
             ],
             # Merged dict for legacy analytics/DB persistence
             "legacy_step_breakdown": self._get_merged_durations(),

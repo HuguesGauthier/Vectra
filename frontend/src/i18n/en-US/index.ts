@@ -8,10 +8,14 @@ export default {
   close: 'Close',
   search: 'Search',
   actions: 'Actions',
+  yes: 'Yes',
+  no: 'No',
   status: 'Status',
   name: 'Name',
   firstName: 'First Name',
   lastName: 'Last Name',
+  jobTitle: 'Job Title',
+  jobTitles: 'Job Titles',
   description: 'Description',
   date: 'Date',
   size: 'Size',
@@ -24,6 +28,15 @@ export default {
   source: 'Source',
   lastVectorized: 'Last Vectorized',
   recordsPerPage: 'Records per page:',
+  excerpt: 'excerpt',
+  excerpts: 'excerpts',
+  file: 'file',
+  files: 'files',
+  page: 'Page',
+  from: 'from',
+  rows: 'rows',
+  columns: 'columns',
+  dataPreview: 'Data Preview',
 
   // --- Auth & Profile ---
   loginTitle: 'Vectra Admin',
@@ -147,13 +160,22 @@ export default {
   openaiDesc:
     'Renowned for its logical reasoning and ability to follow complex instructions. Best for structured outputs and precise answers.',
   mistral: 'Mistral AI',
+  mistralTagline: 'High-performance European AI',
   mistralLocal: 'Mistral AI (Local via Ollama)',
   mistralLocalDesc:
     'Run advanced models locally on your machine via Ollama. Private and offline. Requires sufficient hardware resources.',
   ollamaConfiguration: 'Ollama Configuration',
+  ollama: 'Ollama (Local)',
+  ollamaTagline: 'Run models locally',
+  ollamaDesc:
+    'The standard solution for running LLMs on your own hardware. Private, secure, and fully offline.',
   mistralConfiguration: 'Mistral Configuration',
   mistralDesc:
     'A powerful European LLM known for efficiency and open-weights performance. Balanced for reasoning and chat.',
+  anthropicConfiguration: 'Anthropic Configuration',
+  anthropic: 'Anthropic Claude',
+  anthropicTagline: 'Safe and reliable AI',
+  anthropicDesc: 'Advanced AI models focused on safety, reasoning, and reliability.',
   localEmbedding: 'BAAI (Local)',
   local: 'Local',
   localTagline: 'Private & Offline',
@@ -163,13 +185,23 @@ export default {
   popular: 'Popular',
   public: 'Public', // Added
   private: 'Private',
-  transcriptionModel: 'Transcription Model',
+  transcriptionModel: 'Audio Transcription Model',
   temperature: 'Temperature',
   topK: 'Top K',
   modelNameHint: 'e.g. models/text-embedding-004',
   chatModelHintGemini: 'e.g. gemini-1.5-flash, gemini-1.5-pro',
   chatModelHintOpenAI: 'e.g. gpt-4-turbo, gpt-4o',
   chatModelHint: 'Default model used for answering questions in chat',
+  selectModel: 'Select a Model',
+  searchModels: 'Search models...',
+  inputPrice: 'Input',
+  outputPrice: 'Output',
+  perMillionTokens: 'per 1M tokens',
+  noModelsFound: 'No models found',
+  categoryFlagship: 'Flagship',
+  categoryReasoning: 'Reasoning',
+  categoryBalanced: 'Balanced',
+  categoryEconomy: 'Economy',
   transcriptionModelHint: 'e.g. gemini-1.5-flash',
   httpProxy: 'HTTP Proxy',
   proxyHint: 'Leave empty if not used',
@@ -178,6 +210,9 @@ export default {
   themeLight: 'Light',
   langEnglish: 'English',
   langFrench: 'Français',
+  assistantNotVectorized: 'Assistant not vectorized. Chat is disabled.',
+  vectorizeSourcesToEnableChat: 'Please vectorize the data sources to enable chat.',
+  chatDisabledPlaceholder: 'Chat disabled - Assistant not vectorized',
 
   chat: 'Chat',
   systemOverview: 'System Overview & Real-time Metrics',
@@ -201,6 +236,18 @@ export default {
   seenJustNow: 'Seen just now',
   noSignal: 'No signal',
   connected: 'Connected',
+  storage: 'Storage',
+  storageOfflineTitle: 'Storage Mount Broken',
+  storageOfflineDesc:
+    'Docker cannot access your data path. Please update VECTRA_DATA_PATH in your .env file (root folder) to a physical drive.',
+  storageOnline: 'Storage Online',
+  storageOffline: 'Storage Offline',
+  storageFixTitle: 'How to Fix Storage',
+  storageFixStep1: '1. Locate the .env file in the project root folder.',
+  storageFixStep2: '2. Find the VECTRA_DATA_PATH variable.',
+  storageFixStep3: '3. Change it to a physical path (e.g., C:/VectraData or /home/user/data).',
+  storageFixStep4: '4. Restart the Docker containers.',
+  storageFixPathLabel: 'Project Root Path:',
   cpuUsage: 'CPU Usage',
   memoryUsage: 'Memory Usage',
   totalQueries: 'Total Queries',
@@ -264,6 +311,7 @@ export default {
   stepIntelligence: 'Chat Engine',
   selectAIEngine: 'Select Answer Engine',
   configure: 'Configure',
+  configureProvider: 'Configure provider settings',
   selectAIEngineDesc:
     'Choose the AI model that will formulate answers and reason about your data (not embedding).',
   selectConnectorTypeDesc: 'Choose the type of data source you want to connect.',
@@ -291,6 +339,12 @@ export default {
   localEmbeddings: 'Local Embeddings',
   localEmbeddingsDesc: 'Model: HuggingFace / Ollama',
   engineNotConfigured: 'Engine not configured (See Settings)',
+  notConfigured: 'Not configured',
+  rerankEngine: 'Rerank Engine',
+  cohereTagline: 'Superior Precision',
+  cohereDesc: 'AI model provider specialized in relevance and reranking for unparalleled search accuracy.',
+  cohereRerankDesc: 'Recommended for highest precision.',
+  localRerankDesc: 'Runs privately on your CPU using FastEmbed.',
   modelDeprecationWarning:
     'Warning: Cloud AI models may be deprecated over time. Ensure you select a stable model to avoid re-vectorization.',
 
@@ -321,6 +375,8 @@ export default {
   similarityCutoff: 'Minimum Relevance',
   similarityCutoffHint: 'Filters out irrelevant results. Higher = Stricter.',
   configureDesc: 'Configure the specific settings for your data source.',
+  retrievalVolumeAndRelevance: 'Retrieval Volume and Minimum Relevance',
+  precisionBoost: 'Precision Boost',
 
   // Connector Drawer Tabs & Fields
   configuration: 'Configuration',
@@ -359,8 +415,7 @@ export default {
   addFile: 'Add File',
   fileAlreadyExists: 'This file has already been added to this data source.',
   connectorNameHint: 'A unique name to identify this data source',
-  connectorDescriptionHint:
-    'A specialized description to help the AI understand when to use this source',
+  connectorDescriptionHint: 'A description to help users identify this data source',
 
   // Specific Connector Fields
   sharePoint: 'Microsoft SharePoint',
@@ -609,6 +664,7 @@ export default {
   security: 'Security',
   userAuthentication: 'User Authentication',
   userAuthenticationHint: 'Enforce user authentication for this assistant.',
+  secureAccess: 'Secure access',
 
   // --- Advanced LLM Parameters ---
   advancedLlmParameters: 'Advanced LLM Parameters',
@@ -627,6 +683,25 @@ export default {
   presencePenalty: 'Topic Diversity (Presence Penalty)',
   presencePenaltyHint:
     'Forces AI to cover new topics. Increase if AI repeats ideas. (Default: 0.0)',
+
+  // --- Parameter Explanations ---
+  tempTitle: '🌡️ Temperature (T)',
+  tempSubtitle: 'The Creativity Slider',
+  tempDesc:
+    'Temperature controls the degree of randomness in word choice by modifying the probability distribution of tokens.',
+  tempExpert:
+    'Low (0.1 - 0.3): "The Rigid Expert". The AI almost always chooses the most likely word. Ideal for SQL generation or precise extraction. Factual and reproducible.',
+  tempCollaborator:
+    'Medium (0.7 - default): "The Collaborator". A good balance for fluid discussion without wandering too much.',
+  tempPoet:
+    'High (1.0 - 1.5): "The Hallucinated Poet". The AI takes risks and uses rare words. Great for brainstorming but risky for RAG.',
+  topKTitle: '🎯 Top K',
+  topKSubtitle: 'The Diversity Filter',
+  topKDesc: 'Top K limits the "vocabulary" available for each generated word.',
+  topKSmall:
+    "Small K (e.g., 10): The AI is highly focused. It won't say anything weird, but sentences may feel repetitive.",
+  topKLarge:
+    'Large K (e.g., 100+): The AI has access to a much richer vocabulary. More natural, but higher chance of nonsense if temperature is high.',
 
   // Optimization
   instructionsOptimized: 'Instructions optimized!',
@@ -665,6 +740,7 @@ export default {
   keepEditing: 'Keep Editing',
   ingestionFailedForDoc: 'Processing failed for {name}',
   unknownError: 'Unknown error',
+  additionalInformation: 'Additional Information',
 
   // --- Errors ---
   pageNotFound: '404',
@@ -690,6 +766,141 @@ export default {
     csv_id_column_not_unique: 'CSV "id" column must contain unique values.',
     invalid_csv_data: 'Failed to read CSV data.',
     path_not_found: 'The specified folder path does not exist.',
+  },
+  model_desc: {
+    // ── Gemini Chat ──
+    'gemini-3-pro-preview':
+      'Our most powerful frontier model. Superior reasoning, coding, and complex task handling with massive context.',
+    'gemini-2.5-pro':
+      'Premium flagship model. Optimized for high-level reasoning and deep document analysis.',
+    'gemini-3-flash-preview':
+      'Next-gen efficiency (Preview). Ultra-fast responses with GPT-4 class intelligence.',
+    'gemini-2.5-flash':
+      'The perfect all-rounder. Fast, reliable, and capable for most production tasks.',
+    'gemini-2.5-flash-lite':
+      'High-efficiency 2.5 model. Optimized for speed and massive volume at low cost.',
+    'gemini-2.0-flash':
+      'Industry-leading speed. Incredible performance with near-instant responses.',
+    'gemini-2.0-flash-lite':
+      'Our most cost-effective model ever. Built for massive scale without sacrificing core logic.',
+    'gemini-embedding-001':
+      'Stable, legacy-compatible embedding model. Great for consistent results across all Google Cloud regions.',
+
+    // ── OpenAI Chat ──
+    'gpt-5.2':
+      'The latest pinnacle of AI intelligence. It feels more "human" in its reasoning and can handle extremely complex instructions across vast amounts of text.',
+    'gpt-5.2-pro':
+      'The "Expert" model. If you need a virtual scientist, senior coder, or deep strategist, this is the most precise and capable model OpenAI offers.',
+    'gpt-5.1':
+      'A highly capable and reliable flagship model. It offers a premium experience with great stability for professional and creative writing.',
+    'gpt-5':
+      'The foundation of the new generation. A very smart all-rounder that handles almost any task with high intelligence and natural phrasing.',
+    o1: 'The "Deep Thinker". Unlike other models, it "thinks" before it speaks. Best for complex logic, math problems, and scientific reasoning where accuracy is paramount.',
+    o3: 'The next generation of reasoning. Faster and even more logical than its predecessors, it is a master of solving difficult puzzles and coding challenges.',
+    'o3-mini':
+      'A faster, more compact version of the reasoning models. Great when you need logic-heavy processing but want a quicker response time.',
+    'o4-mini':
+      'The most affordable logical thinker. It provides advanced reasoning capabilities at a fraction of the cost of the larger models.',
+    'gpt-5-mini':
+      'Smart, fast, and affordable. The best choice for most users who want the power of the latest generation for daily tasks without the high cost.',
+    'gpt-4.1-mini':
+      'A reliable and very fast model widely used for production. It is great for building apps that need quick, intelligent responses.',
+    'gpt-4o-mini':
+      'A classic cost-effective model. It is very fast and works well for simple interactions and data processing.',
+    'gpt-5-nano':
+      'The ultra-lightweight version. Almost instantaneous and extremely cheap. Best for very simple tasks or high-volume processing of basic data.',
+
+    // ── Mistral Chat ──
+    'mistral-large-latest':
+      'Mistral’s heavy hitter. It is designed to compete with the smartest models in the world, excelling at complex reasoning and high-precision coding.',
+    'mistral-medium-latest':
+      'The "Goldilocks" model: smart enough for complex work but optimized for speed and cost. Great for professional business applications.',
+    'mistral-small-latest':
+      'Efficient and focused. It has a large memory for its size, making it ideal for routine tasks that involve reading several documents at once.',
+    'open-mistral-nemo':
+      'A specialized model developed with NVIDIA. It is impressively smart for its size and works especially well for technical and edge use cases.',
+    'mistral-tiny':
+      'The most basic Mistral model. Best for fast, simple tasks like identifying keywords or basic text categorization.',
+    'ministral-3b-latest':
+      'A tiny model designed to run on edge devices. Very quick and focused on simple, direct instructions.',
+    'ministral-8b-latest':
+      'A small model perfect for resource-constrained environments but capable of analyzing and generating text.',
+    'ministral-14b-latest':
+      'The most capable Ministral model, bringing Mistral’s power for advanced edge processing.',
+    'codestral-latest':
+      'Specially trained for software development. It writes, fixes, and analyzes code in 80+ languages.',
+    'pixtral-large-latest':
+      'A multimodal expert. Not only can it read text, but it can also "see" and analyze complex images, charts, and technical diagrams with high precision.',
+    'pixtral-12b-2409':
+      'A versatile model that can handle both text and images efficiently. Great for general vision tasks like describing what is in a photo.',
+    'voxtral-latest':
+      'The "Audio Expert". Specialized in understanding and processing spoken language and audio files directly.',
+    'devstral-latest':
+      'An experimental tool designed specifically for developers. It is optimized to act as an assistant for software engineering tasks.',
+    'open-mistral-7b':
+      'A classic and reliable model that started it all. Fast and effective for simple, direct conversations.',
+
+    // ── Anthropic Chat ──
+    'claude-3-opus-latest':
+      'Our most powerful model, designed to excel in highly complex tasks. Ideal for when you need maximum intelligence.',
+    'claude-3-sonnet-latest':
+      'The perfect balance of intelligence and speed. Excellent for most tasks requiring solid reasoning.',
+    'claude-3-haiku-latest':
+      'Our fastest and most compact model. Perfect for near-instant execution of simple tasks.',
+
+    // ── Ollama Chat ──
+    mistral:
+      'A powerful local model that runs entirely on your own computer. It is very efficient, good at logic, and has excellent support for the French language.',
+
+    // ── Embedding (Search & Organization) ──
+    'models/text-embedding-004':
+      "The current standard for search. It converts text into a mathematical format that allows the system to find documents based on their 'meaning' rather than just keywords.",
+    'models/text-embedding-005':
+      'The next-generation search model. Faster and more efficient at organizing large amounts of data for pinpoint retrieval.',
+    'text-embedding-3-small':
+      'OpenAI’s highly efficient search model. It provides great performance for general document search and organization.',
+    'text-embedding-3-large':
+      'The most powerful search model from OpenAI. It captures very subtle nuances in text, making it the best choice for high-accuracy research.',
+    'bge-m3':
+      'The ultimate multilingual search model. It can help find documents across over 100 different languages with high accuracy.',
+    'nomic-embed-text':
+      'A high-performance open-source search model. It has a massive memory for reading very long documents during the search process.',
+
+    // ── Rerank (Refining Search Results) ──
+    'BAAI/bge-reranker-base':
+      'A local "quality checker". It takes your search results and re-runs them to ensure the most relevant ones are at the very top. Runs privately on your machine.',
+    'BAAI/bge-reranker-v2-m3':
+      'The latest generation local quality checker. It is more accurate and supports many languages, ensuring your search results are always relevant.',
+    'rerank-v3.5':
+      'The gold standard for search refinement. It is incredibly good at understanding the "intent" of your question to pick the perfect document from a list.',
+    'rerank-multilingual-v3.0':
+      'Optimized for international use. It refines search results across dozens of languages to ensure accuracy regardless of the document’s language.',
+    'rerank-english-v3.0':
+      'A specialized quality checker for English. It is very fast and precise when dealing exclusively with English content.',
+
+    // ── Transcription (Speech to Text) ──
+    'whisper-1':
+      'The industry leader in converting speech to text. Extremely accurate at transcribing audio files into written documents.',
+    whisper:
+      'A reliable, local version of speech-to-text. It allows you to transcribe audio privately on your own computer without sending data to the cloud.',
+  },
+  model_desc_transcription: {
+    'gemini-1.5-flash':
+      'The champion of speed. Ideal for converting large amounts of audio to text quickly and at a lower cost.',
+    'gemini-1.5-pro':
+      'The expert choice for precision. Capable of faithfully transcribing complex, long, or multi-speaker recordings.',
+    'whisper-1':
+      'World-class voice specialist. Recognizes speech with incredible accuracy, even with heavy accents or background noise.',
+    whisper:
+      'Private and local transcription. Transcribes your files directly on your computer without ever sending data to the cloud.',
+  },
+  model_desc_extraction: {
+    'gemini-1.5-flash': 'Quick and accurate for extracting key information from simple documents.',
+    'gemini-2.0-flash':
+      'Optimized for complex data extraction with an excellent speed-to-accuracy ratio.',
+    'gpt-4o-mini':
+      'Great compact model for understanding data structure and isolating important points.',
+    mistral: 'Efficient local model for analyzing your documents privately.',
   },
   // --- Assistant Wizard ---
   wizard: {
@@ -782,46 +993,44 @@ export default {
   createAssistant: 'Create Assistant',
   defaultSystemInstructions: 'You are a helpful assistant.',
   pipelineSteps: {
-    connection: 'AI Preparation',
+    title: 'Pipeline Steps',
+    connection: 'Session Initialization',
     cache_lookup: 'Cache Lookup',
-    cache_hit: 'Cache Hit: Answer restored',
-    cache_miss: 'Cache Miss: Proceeding to search',
-    history_loading: 'Loading Chat History',
-    query_rewrite: 'Query Rewrite',
+    cache_hit: 'Answer found in cache',
+    cache_miss: 'Knowledge search required',
+    history_loading: 'Loading History',
     vectorization: 'Vectorization',
-    retrieval: 'Retrieval',
-    reranking: 'Reranking',
-    synthesis: 'Synthesis',
-    assistant_persistence: 'Assistant message saved',
+    retrieval: 'Document Search',
+    reranking: 'Re-ranking',
+    synthesis: 'Drafting Answer',
+    assistant_persistence: 'Saving Message',
     cache_update: 'Cache Update',
-    user_persistence: 'User message saved',
+    user_persistence: 'Saving Question',
     trending: 'Trending',
     completed: 'Completed',
+    failed: 'Failed',
     initialization: 'Chat Initialization',
-    visualization_analysis: 'Visualization Analysis',
-    ambiguity_guard: 'Contextual Query Guard',
-    csv_schema_retrieval: 'Structured Data Retrieval',
-    csv_synthesis: 'Product Profile Generation',
-    facet_query: 'Faceted Filter Analysis',
-    router: 'Agentic Router',
-    router_processing: 'Context Preparation',
-    router_reasoning: 'Generating Answer',
-    router_retrieval: 'Retrieve Knowledge Base',
+    visualization_analysis: 'Visual Analysis',
+    ambiguity_guard: 'Context Guard',
+    csv_schema_retrieval: 'Data Retrieval',
+    csv_synthesis: 'Sheet Generation',
+    facet_query: 'Filter Analysis',
+    router: 'Intelligent Router',
+    router_processing: 'Context Prep',
+    router_reasoning: 'Strategy Analysis',
+    router_retrieval: 'Document Search',
     router_selection: 'Tool Selection',
-    sql_generation: 'Generate SQL Query',
-    sql_schema_retrieval: 'Retrieve SQL Metadata',
-    tool_execution: 'Execute AI Tool',
+    query_rewrite: 'Query Optimization',
+    sql_generation: 'SQL Generation',
+    sql_schema_retrieval: 'SQL Structure Read',
+    tool_execution: 'Tool Execution',
     query_execution: 'Query Execution',
-    router_synthesis: 'Synthesize Answer',
-    streaming: 'Finalizing Response',
+    router_synthesis: 'Answer Synthesis',
+    streaming: 'Finalization',
   },
   stepDescriptions: {
     connection:
       'Establishing a secure connection with the AI providers and database services. This initial handshaking ensures the environment is ready for processing.',
-    query_rewrite:
-      'Refining your question to improve search results by adding missing context from the conversation. This step makes the query clearer for the AI retrieval engines.',
-    cache_hit:
-      'The exact answer was found in the semantic cache, saving time and cost. The response is instantly restored without needing a fresh AI generation.',
     cache_miss:
       'Reference answer was not found in the semantic cache. The system is proceeding with full analysis and data retrieval to construct a new answer.',
     router_processing:
@@ -836,6 +1045,8 @@ export default {
       'Reading the structure of your SQL database, including table names and column types. This allows the AI to understand how to query your data accurately.',
     tool_execution:
       'Orchestrating and executing the specialized tool selected to handle your specific request. This step bridges the gap between your question and the data sources.',
+    query_execution:
+      'Execution of the generated query against the target database or file system to extract precise data points.',
     router_retrieval:
       'Searching the Knowledge Base for relevant resources, such as documents or available database views. This semantic match identifies the right context needed to answer your request.',
     router_synthesis:
@@ -882,5 +1093,29 @@ export default {
   conversationCleared: 'Conversation cleared',
   validate: {
     atLeastOneSource: 'Please select at least one knowledge base.',
+  },
+  systemHealth: {
+    api: 'API',
+    worker: 'Worker',
+    storage: 'Storage',
+    lastUpdate: 'Update',
+    apiTitle: 'Application Programming Interface (API)',
+    apiDescription:
+      'The heart of the system. This service handles all communications between the user interface and the AI engine. If it is offline, the application cannot function.',
+    apiOnline: 'Server operational',
+    apiOffline: 'Server unreachable',
+    workerTitle: 'Background Processing (Worker)',
+    workerDescription:
+      'This service handles heavy tasks like document vectorization and data pipeline management. An "Offline" status means new documents will not be indexed.',
+    workerOnline: 'Tasks operational',
+    workerOffline: 'Worker disconnected',
+    storageTitle: 'Data Volume (Storage)',
+    storageDescription:
+      'This is where your documents and vector indexes are permanently stored. This service monitors the health of the /data volume required by Vectra.',
+    storageOnline: 'Volume mounted and accessible',
+    storageOffline: 'Volume missing or empty',
+    lastUpdateTitle: 'Dashboard Synchronization',
+    lastUpdateDescription:
+      'Indicates the time of the last global statistics extraction. The system pulses regularly to keep this data fresh.',
   },
 };

@@ -1,115 +1,134 @@
-import asyncio
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+import importlib
+import app.services.ingestion_service
 
-import pytest
-
-from app.services.ingestion_service import IngestionService
-
-
-@pytest.fixture
-def mock_db_session():
-    """Mock SQLAlchemy AsyncSession."""
-    session = AsyncMock()
-    return session
+importlib.reload(app.services.ingestion_service)
+from app.services.ingestion_service import IngestionService, IngestionStoppedError
+from app.models.enums import ConnectorStatus, DocStatus
+from app.core.exceptions import EntityNotFound, ConfigurationError
 
 
 @pytest.fixture
-def mock_settings_service(mock_db_session):
-    ss = MagicMock()
-    ss.get_value = AsyncMock(return_value="fake_val")
-    ss.load_cache = AsyncMock()
-    return ss
+def mock_db():
+    return AsyncMock()
 
 
 @pytest.fixture
-def mock_vector_service(mock_settings_service):
-    vs = MagicMock()
-    vs.get_collection_name = AsyncMock(return_value="test_collection")
-    vs.get_async_qdrant_client = MagicMock()
-    return vs
+def mock_orchestrator():
+    orch = AsyncMock()
+    orch.setup_pipeline.return_value = (MagicMock(), MagicMock(), 50, 5, MagicMock(), MagicMock())
+    return orch
 
 
 @pytest.fixture
-def ingestion_service(mock_db_session, mock_vector_service, mock_settings_service):
-    return IngestionService(
-        db=mock_db_session, vector_service=mock_vector_service, settings_service=mock_settings_service
-    )
+def ingestion_service(mock_db):
+    service = IngestionService(db=mock_db)
+    service.connector_repo = AsyncMock()
+    service.doc_repo = AsyncMock()
+    service.state_service = AsyncMock()
+    service.settings_service = AsyncMock()
+    service.vector_service = AsyncMock()
+    service.schema_service = AsyncMock()
+    return service
 
 
 @pytest.mark.asyncio
-async def test_process_connector_nominal(ingestion_service, mock_db_session):
-    """Test standard connector processing flow."""
-    import app.services.ingestion_service as svc_mod
-    from app.services.ingestion.orchestrator import IngestionOrchestrator
-
+async def test_process_connector_happy_path(ingestion_service, mock_orchestrator):
+    # Setup
+    connector_id = uuid4()
     connector = MagicMock()
-    connector.id = uuid4()
-    connector.connector_type = "folder"
-    connector.configuration = {"ai_provider": "gemini", "path": "/fake/path"}
+    connector.id = connector_id
+    connector.connector_type = "local_folder"
+    connector.configuration = {}
 
-    # Patch the instances on the service
-    ingestion_service.connector_repo = AsyncMock()
     ingestion_service.connector_repo.get_by_id.return_value = connector
-    ingestion_service.doc_repo = AsyncMock()
-    ingestion_service.doc_repo.get_by_connector.return_value = []
+    ingestion_service.doc_repo.upsert_connector_documents.return_value = []
 
-    mock_orch = MagicMock()
-    mock_orch.setup_pipeline = AsyncMock()
-    mock_orch.setup_pipeline.return_value = ("p", "v", True, 1, "t")
-    mock_orch.ingest_files = AsyncMock()
+    with (
+        patch.object(ingestion_service, "_get_or_create_orchestrator", return_value=mock_orchestrator),
+        patch("app.factories.connector_factory.ConnectorFactory.load_documents", return_value=[]),
+    ):
 
-    with patch.object(svc_mod, "IngestionOrchestrator", return_value=mock_orch):
-        with patch.object(svc_mod, "FileScanner") as mock_scanner_cls:
-            mock_scanner = mock_scanner_cls.return_value
-            mock_scanner.__aenter__ = AsyncMock(return_value=mock_scanner)
-            mock_scanner.__aexit__ = AsyncMock(return_value=None)
-            mock_scanner.load_connector = AsyncMock(return_value=connector)
-            mock_scanner.validate_path = MagicMock(return_value=True)
-            mock_scanner.scan_connector_files = AsyncMock(return_value={})
+        # Execute
+        await ingestion_service.process_connector(connector_id)
 
-            mock_scan_res = MagicMock()
-            mock_scan_res.files_to_ingest = ["/fake/path.txt"]
-            mock_scan_res.new_docs = []
-            mock_scanner.identify_changed_files = AsyncMock(return_value=mock_scan_res)
-
-            await ingestion_service.process_connector(connector.id)
-            assert mock_orch.setup_pipeline.call_count == 1
+        # Verify
+        ingestion_service.state_service.update_connector_status.assert_awaited_with(
+            connector_id, ConnectorStatus.VECTORIZING
+        )
+        ingestion_service.state_service.finalize_connector.assert_awaited_with(connector_id)
 
 
 @pytest.mark.asyncio
-async def test_process_single_document_nominal(ingestion_service):
-    """Test single document processing."""
-    import app.services.ingestion_service as svc_mod
-    from app.services.ingestion.orchestrator import IngestionOrchestrator
+async def test_process_connector_not_found(ingestion_service):
+    # Setup
+    connector_id = uuid4()
+    ingestion_service.connector_repo.get_by_id.return_value = None
 
+    # Execute
+    await ingestion_service.process_connector(connector_id)
+
+    # Verify
+    ingestion_service.state_service.update_connector_status.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_connector_error_handling(ingestion_service):
+    # Setup
+    connector_id = uuid4()
+    connector = MagicMock()
+    connector.id = connector_id
+    connector.connector_type = "local_folder"
+
+    ingestion_service.connector_repo.get_by_id.return_value = connector
+    ingestion_service.settings_service.load_cache.side_effect = Exception("Crashes!")
+
+    # Execute
+    with pytest.raises(Exception):
+        await ingestion_service.process_connector(connector_id)
+
+    # Verify
+    ingestion_service.state_service.mark_connector_failed.assert_awaited_once()
+    assert ingestion_service.db.rollback.called
+
+
+@pytest.mark.asyncio
+async def test_process_single_document_happy_path(ingestion_service, mock_orchestrator):
+    # Setup
+    doc_id = uuid4()
     doc = MagicMock()
-    doc.id = uuid4()
+    doc.id = doc_id
     doc.connector_id = uuid4()
     doc.file_path = "test.txt"
 
     connector = MagicMock()
     connector.id = doc.connector_id
-    connector.connector_type = "file"
-    connector.configuration = {"path": "/fake/", "ai_provider": "gemini"}
+    connector.connector_type = "local_file"
 
-    # Patch the instances on the service
-    ingestion_service.doc_repo = AsyncMock()
     ingestion_service.doc_repo.get_by_id.return_value = doc
-
-    ingestion_service.connector_repo = AsyncMock()
     ingestion_service.connector_repo.get_by_id.return_value = connector
+    ingestion_service._file_exists = AsyncMock(return_value=True)
 
-    async def mock_check_exists(*args, **kwargs):
-        return True
+    with patch.object(ingestion_service, "_get_or_create_orchestrator", return_value=mock_orchestrator):
+        # Execute
+        await ingestion_service.process_single_document(doc_id)
 
-    ingestion_service._check_file_exists = mock_check_exists
+        # Verify
+        ingestion_service.state_service.update_document_status.assert_awaited()
+        ingestion_service.state_service.finalize_connector.assert_awaited()
 
-    mock_orch = MagicMock()
-    mock_orch.setup_pipeline = AsyncMock()
-    mock_orch.setup_pipeline.return_value = ("p", "v", True, 1, "t")
-    mock_orch.ingest_files = AsyncMock()
 
-    with patch.object(svc_mod, "IngestionOrchestrator", return_value=mock_orch):
-        await ingestion_service.process_single_document(doc.id)
-        assert mock_orch.setup_pipeline.call_count == 1
+@pytest.mark.asyncio
+async def test_is_sql_connector(ingestion_service):
+    connector = MagicMock()
+
+    connector.connector_type = "sql"
+    assert ingestion_service._is_sql_connector(connector) is True
+
+    connector.connector_type = "VANNA_SQL"
+    assert ingestion_service._is_sql_connector(connector) is True
+
+    connector.connector_type = "local_file"
+    assert ingestion_service._is_sql_connector(connector) is False

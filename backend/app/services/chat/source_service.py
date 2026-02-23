@@ -1,7 +1,7 @@
-import json
+import os
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,10 +49,15 @@ class SourceService:
         missing_paths = {}
         for node in nodes:
             meta = node.node.metadata or {}
-            if not meta.get("file_path") and meta.get("connector_document_id"):
+            doc_id_val = meta.get("connector_document_id")
+            if not meta.get("file_path") and doc_id_val:
                 try:
-                    missing_paths[meta["connector_document_id"]] = None
-                except Exception:
+                    # Validate UUID format before adding to batch fetch
+                    if isinstance(doc_id_val, str):
+                        UUID(doc_id_val)
+                    missing_paths[str(doc_id_val)] = None
+                except (ValueError, AttributeError):
+                    logger.debug(f"Invalid connector_document_id format: {doc_id_val}")
                     pass
 
         # Batch fetch file paths from DB
@@ -68,7 +73,7 @@ class SourceService:
                 for row in rows:
                     missing_paths[str(row.id)] = {"file_path": row.file_path, "file_name": row.file_name}
             except Exception as e:
-                logger.warning(f"Failed to fetch file_paths from DB: {e}")
+                logger.error(f"Failed to fetch file_paths from DB: {e}")
 
         for node in nodes:
             # Handle different node types (TextNode vs others)
@@ -82,12 +87,14 @@ class SourceService:
             # Safe JSON parse attempt (Legacy format handling)
             if txt and txt.strip().startswith("{"):
                 try:
+                    import json
+
                     p = json.loads(txt)
                     if isinstance(p, dict):
                         txt = p.get("text", p.get("content", txt))
                         if "metadata" in p:
                             meta.update(p["metadata"])
-                except:
+                except (json.JSONDecodeError, TypeError):
                     pass
 
             if "page_number" in meta and "page_label" not in meta:
@@ -98,18 +105,26 @@ class SourceService:
             file_name = meta.get("file_name") or meta.get("filename") or meta.get("name", "Unknown")
 
             # Fallback: fetch from DB if not in Qdrant metadata
-            if not file_path and meta.get("connector_document_id"):
-                doc_data = missing_paths.get(meta["connector_document_id"])
+            if not file_path and doc_id_val:
+                doc_data = missing_paths.get(str(doc_id_val))
                 if doc_data:
                     file_path = doc_data["file_path"]
+                    meta["file_path"] = file_path
                     if not file_name or file_name == "Unknown":
                         file_name = doc_data["file_name"]
+                        meta["file_name"] = file_name
+
+            # Safe fallback for file_name: derivation from path if missing
+            if (not file_name or file_name == "Unknown") and file_path:
+                file_name = os.path.basename(file_path)
+                meta["file_name"] = file_name
 
             # Determine file type from extension if available
             file_type = "txt"  # default
             if file_path:
-                ext = file_path.split(".")[-1].lower()
-                if ext in ["pdf"]:
+                _, ext = os.path.splitext(file_path)
+                ext = ext.lstrip(".").lower()
+                if ext == "pdf":
                     file_type = "pdf"
                 elif ext in ["docx", "doc"]:
                     file_type = "docx"

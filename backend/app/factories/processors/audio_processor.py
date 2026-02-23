@@ -46,15 +46,27 @@ class AudioProcessor(FileProcessor):
             from app.core.database import get_session_factory
             from app.services.settings_service import SettingsService
 
-            client = get_gemini_client()
-
             # Create async DB session and SettingsService
             session_factory = get_session_factory()
             async with session_factory() as db:
                 settings_service = SettingsService(db)
-                service = GeminiAudioService(client, settings_service)
+                
+                # Select provider based on current embedding provider
+                provider = await settings_service.get_value("embedding_provider") or "ollama"
+                
+                if provider == "gemini":
+                    client = get_gemini_client()
+                    service = GeminiAudioService(client, settings_service)
+                elif provider in ["ollama", "local"]:
+                    from app.services.whisper_audio_service import WhisperAudioService
+                    service = WhisperAudioService(settings_service)
+                else:
+                    # Fallback or OpenAI (which could also use WhisperAudioService if configured for cloud)
+                    # For now, if not gemini, let's try local Whisper if provider is local-ish
+                    from app.services.whisper_audio_service import WhisperAudioService
+                    service = WhisperAudioService(settings_service)
 
-                logger.info(f"Audio Processing Started: {path.name}")
+                logger.info(f"Audio Processing Started ({provider}): {path.name}")
 
                 # Call Service (delegation)
                 chunks = await service.transcribe_file(str(path))

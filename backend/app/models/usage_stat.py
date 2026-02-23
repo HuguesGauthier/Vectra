@@ -9,26 +9,29 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
-from pydantic import ConfigDict
-from sqlalchemy import (Column, DateTime, Float, ForeignKey, Index, Integer,
-                        func)
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, Integer, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.assistant import Assistant
 
-# Validation constants
+# Validation constants (Source of truth for DB limits)
 MAX_SESSION_ID_LENGTH = 100
 MAX_MODEL_NAME_LENGTH = 100
 
 
 class UsageStatBase(SQLModel):
-    """Base properties for UsageStat."""
+    """
+    Base properties for UsageStat.
+    Shared between Model and Schemas.
+    """
 
     assistant_id: UUID = Field(
         sa_column=Column(ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True),
         description="Assistant being used",
     )
+
+    message_id: Optional[UUID] = Field(default=None, index=True, description="Assistant Message ID")
 
     session_id: str = Field(
         index=True, nullable=False, max_length=MAX_SESSION_ID_LENGTH, description="User session identifier"
@@ -56,18 +59,23 @@ class UsageStatBase(SQLModel):
 
     model: str = Field(nullable=False, max_length=MAX_MODEL_NAME_LENGTH, description="LLM model used")
 
+    provider: Optional[str] = Field(default=None, max_length=50, description="LLM Provider (e.g. openai, gemini, ollama)")
+
+    is_cached: bool = Field(default=False, description="Whether the prompt was cached (e.g. Gemini context caching)")
+
+    cost: float = Field(default=0.0, ge=0.0, description="Estimated cost in USD")
+
 
 class UsageStat(UsageStatBase, table=True):
     """
     Database model for tracking Assistant usage.
 
-    Query Patterns:
-    - Usage trends: GROUP BY DATE(timestamp), assistant_id
-    - Cost tracking: SUM(input_tokens + output_tokens)
-    - Satisfaction: AVG(feedback_score)
+    ARCHITECT NOTE:
+    - validate_assignment=True ensures Pydantic validation runs during updates.
     """
 
     __tablename__ = "usage_stats"
+    model_config = {"validate_assignment": True, "arbitrary_types_allowed": True}
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
 
@@ -80,39 +88,3 @@ class UsageStat(UsageStatBase, table=True):
         Index("ix_usage_stats_session", "session_id", "timestamp"),
         Index("ix_usage_stats_user_timestamp", "user_id", "timestamp"),
     )
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-class UsageStatCreate(SQLModel):
-    """Schema for creating usage stat."""
-
-    assistant_id: UUID
-    session_id: str = Field(min_length=1, max_length=MAX_SESSION_ID_LENGTH)
-    user_id: Optional[UUID] = None
-    total_duration: float = Field(default=0.0, ge=0.0)
-    ttft: Optional[float] = Field(None, ge=0.0)
-    step_duration_breakdown: Optional[Dict[str, Any]] = None
-    step_token_breakdown: Optional[Dict[str, Any]] = None
-    input_tokens: int = Field(default=0, ge=0)
-    output_tokens: int = Field(default=0, ge=0)
-    model: str = Field(max_length=MAX_MODEL_NAME_LENGTH)
-
-
-class UsageStatUpdate(SQLModel):
-    """Schema for updating usage stat."""
-
-    total_duration: Optional[float] = None
-    ttft: Optional[float] = None
-    step_duration_breakdown: Optional[Dict[str, Any]] = None
-    step_token_breakdown: Optional[Dict[str, Any]] = None
-    input_tokens: Optional[int] = None
-    output_tokens: Optional[int] = None
-    model: Optional[str] = None
-
-
-class UsageStatResponse(UsageStatBase):
-    """Schema for usage stat response."""
-
-    id: UUID
-    timestamp: datetime

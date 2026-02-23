@@ -1,9 +1,19 @@
 import pytest
 
-from app.core.exceptions import (AuthenticationError, ConfigurationError,
-                                 EntityNotFound, FunctionalError,
-                                 RateLimitError, TechnicalError,
-                                 VectraException)
+from app.core.exceptions import (
+    AuthenticationError,
+    ConfigurationError,
+    DuplicateError,
+    ExternalDependencyError,
+    EntityNotFound,
+    FileSystemError,
+    FunctionalError,
+    InvalidStateError,
+    RateLimitError,
+    TechnicalError,
+    ValidationError,
+    VectraException,
+)
 
 
 class TestVectraException:
@@ -81,3 +91,32 @@ class TestSpecificExceptions:
         assert exc.status_code == 429
         assert exc.details["retry_after"] == 60
         assert exc.error_code == "rate_limit_exceeded"
+
+    def test_validation_error(self):
+        """ValidationError should be 422."""
+        exc = ValidationError(field="email")
+        assert exc.status_code == 422
+        assert exc.details["field"] == "email"
+
+    def test_invalid_state_error(self):
+        """InvalidStateError should be 422."""
+        exc = InvalidStateError(current_state="published")
+        assert exc.status_code == 422
+        assert exc.details["current_state"] == "published"
+
+    def test_duplicate_error(self):
+        """DuplicateError should be 409."""
+        exc = DuplicateError()
+        assert exc.status_code == 409
+
+    def test_external_dependency_error(self):
+        """ExternalDependencyError should be 503."""
+        exc = ExternalDependencyError(service="OpenAI")
+        assert exc.status_code == 503
+        assert exc.details["failed_service"] == "OpenAI"
+
+    def test_filesystem_error(self):
+        """FileSystemError should be 500."""
+        exc = FileSystemError(file_path="/tmp/test.txt")
+        assert exc.status_code == 500
+        assert exc.details["file_path"] == "/tmp/test.txt"

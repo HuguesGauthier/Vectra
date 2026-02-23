@@ -92,7 +92,7 @@ export const connectorService = {
    * @returns {Promise<Connector>} The updated connector.
    */
   async update(id: string, payload: ConnectorUpdatePayload): Promise<Connector> {
-    const response = await api.put(`${API_PATH}/${id}/`, payload);
+    const response = await api.put(`${API_PATH}/${id}`, payload);
     return response.data;
   },
 
@@ -101,7 +101,7 @@ export const connectorService = {
    * @param {string} id - The connector ID to delete.
    */
   async delete(id: string): Promise<void> {
-    await api.delete(`${API_PATH}/${id}/`);
+    await api.delete(`${API_PATH}/${id}`);
   },
 
   /**
@@ -113,7 +113,7 @@ export const connectorService = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await api.post('/system/upload/', formData, {
+    const response = await api.post('/system/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -127,7 +127,7 @@ export const connectorService = {
    * @param {boolean} force - If true, forces a full re-sync (clearing old vectors).
    */
   async sync(id: string, force: boolean = false): Promise<void> {
-    const url = force ? `${API_PATH}/${id}/sync/?force=true` : `${API_PATH}/${id}/sync/`;
+    const url = force ? `${API_PATH}/${id}/sync?force=true` : `${API_PATH}/${id}/sync`;
     await api.post(url);
   },
 
@@ -136,7 +136,7 @@ export const connectorService = {
    * @param {string} id - The connector ID.
    */
   async stop(id: string): Promise<void> {
-    await api.post(`${API_PATH}/${id}/stop/`);
+    await api.post(`${API_PATH}/${id}/stop`);
   },
 
   /**

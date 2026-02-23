@@ -9,6 +9,7 @@
       animated
       flat
       class="bg-transparent"
+      :header-nav="isEdit"
     >
       <!-- Step 1: General Info -->
       <q-step :name="1" :title="$t('generalInfo')" icon="edit" :done="step > 1">
@@ -21,6 +22,7 @@
             color="accent"
             bg-color="secondary"
             lazy-rules
+            autofocus
             :rules="[(val) => !!val || $t('fieldRequired')]"
             class="q-mb-md"
           />
@@ -163,6 +165,7 @@ const $q = useQuasar();
 const props = defineProps({
   hideSchedule: { type: Boolean, default: false },
   hideActions: { type: Boolean, default: false },
+  isEdit: { type: Boolean, default: false },
 });
 
 const data = defineModel<Connector>('data');

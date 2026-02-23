@@ -4,9 +4,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.core.logging import (JSONFormatter, get_correlation_id,
-                              mask_sensitive_data, set_correlation_id,
-                              setup_logging)
+from app.core.logging import (
+    JSONFormatter,
+    ConsoleFormatter,
+    get_correlation_id,
+    mask_sensitive_data,
+    set_correlation_id,
+    setup_logging,
+    log_context,
+)
 
 
 class TestCorrelationID:
@@ -19,6 +25,13 @@ class TestCorrelationID:
 
         set_correlation_id("test-id-456")
         assert get_correlation_id() == "test-id-456"
+
+    def test_log_context_manager(self):
+        """Should set and reset ID automatically."""
+        set_correlation_id("OUTER")
+        with log_context("INNER"):
+            assert get_correlation_id() == "INNER"
+        assert get_correlation_id() == "OUTER"
 
 
 class TestDataMasking:

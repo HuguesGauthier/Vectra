@@ -2,11 +2,10 @@ import logging
 from typing import AsyncGenerator, Optional
 
 from sqlalchemy import make_url
-from sqlalchemy.ext.asyncio import (AsyncEngine, AsyncSession,
-                                    async_sessionmaker, create_async_engine)
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.exceptions import TechnicalError
-from app.core.settings import settings
+from app.core.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +24,10 @@ def get_engine() -> AsyncEngine:
     if _engine is not None:
         return _engine
 
+    settings = get_settings()
     try:
         url = make_url(settings.DATABASE_URL)
 
-        # P3: Robust Driver Check
         # P3: Robust Driver Check
         if url.get_backend_name() == "postgresql" and "asyncpg" not in url.drivername:
             raise TechnicalError("Database Configuration Error: Async engine requires 'postgresql+asyncpg://' driver.")

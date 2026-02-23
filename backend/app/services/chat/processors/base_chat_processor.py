@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from app.services.chat.types import ChatContext
 
@@ -10,10 +10,10 @@ class ChatProcessorError(Exception):
     Base exception for all chat processor errors.
 
     Attributes:
-        original_error (Exception | None): The underlying cause, if any.
+        original_error (Optional[Exception]): The underlying cause, if any.
     """
 
-    def __init__(self, message: str, original_error: Exception = None):
+    def __init__(self, message: str, original_error: Optional[Exception] = None):
         super().__init__(message)
         self.original_error = original_error
 

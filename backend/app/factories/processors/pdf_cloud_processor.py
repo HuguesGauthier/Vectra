@@ -23,8 +23,7 @@ from google.genai import types
 from pydantic import BaseModel, Field, ValidationError
 
 from app.core.database import SessionLocal
-from app.core.exceptions import (ConfigurationError, ExternalDependencyError,
-                                 TechnicalError)
+from app.core.exceptions import ConfigurationError, ExternalDependencyError, TechnicalError
 from app.core.settings import get_settings
 from app.factories.processors.base import FileProcessor, ProcessedDocument
 from app.services.settings_service import SettingsService
@@ -81,24 +80,13 @@ class PdfCloudProcessor(FileProcessor):
     Do not add any conversational preamble or conclusion.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self):
         """
         Initialize PDF processor.
-
-        Args:
-            api_key: Gemini API key (optional, reads from settings if None)
         """
         super().__init__(max_file_size_bytes=self.MAX_FILE_SIZE_MB * 1024 * 1024)
-
-        # P0: Never log API key directly
-        self._api_key = api_key or get_settings().GEMINI_API_KEY
-
-        if self._api_key:
-            self.client = genai.Client(api_key=self._api_key)
-            logger.info("pdf_processor_initialized", extra={"provider": "gemini", "has_api_key": True})
-        else:
-            self.client = None
-            logger.warning("pdf_processor_initialized_without_api_key", extra={"provider": "gemini"})
+        self.client = None
+        logger.info("pdf_processor_initialized", extra={"provider": "gemini", "mode": "dynamic_settings"})
 
     async def process(self, file_path: str | Path) -> list[ProcessedDocument]:
         """
@@ -110,9 +98,16 @@ class PdfCloudProcessor(FileProcessor):
         file_hash: Optional[str] = None
 
         try:
-            # P0: Early API key validation
-            if not self._api_key or not self.client:
-                raise ConfigurationError("GEMINI_API_KEY is missing. Cannot process PDF.")
+            # P0: Early API key validation & Client initialization from DB
+            async with SessionLocal() as db:
+                settings_service = SettingsService(db)
+                api_key = await settings_service.get_value("gemini_api_key")
+
+            if not api_key:
+                raise ConfigurationError("GEMINI_API_KEY is missing in both DB and Env. Cannot process PDF.")
+
+            # Initialize client on-demand if missing or key changed (simplified here)
+            self.client = genai.Client(api_key=api_key)
 
             # Validate file (async, inherited)
             validated_path = await self._validate_file_path(file_path)
@@ -305,23 +300,7 @@ class PdfCloudProcessor(FileProcessor):
             Include all tables and handwritten text in the 'content' field as Markdown.
             """
 
-            # TRACING: Wrap Gemini call for Phoenix visibility
-            from opentelemetry import trace
-
-            tracer = trace.get_tracer(__name__)
-
-            with tracer.start_as_current_span(
-                "gemini_pdf_extraction",
-                attributes={
-                    "llm.vendor": "Google",
-                    "llm.request.model": model_name,
-                    "llm.request.max_tokens": 8192,
-                    "llm.request.temperature": 0.0,
-                    "llm.input_messages": str([{"role": "user", "content": prompt[:200] + "..."}]),  # Convert to string
-                    "file.hash": file_hash,
-                },
-            ) as span:
-                response = await asyncio.to_thread(
+            response = await asyncio.to_thread(
                     self.client.models.generate_content,
                     model=model_name,
                     contents=[prompt, gemini_file],
@@ -329,14 +308,6 @@ class PdfCloudProcessor(FileProcessor):
                         temperature=0.0, max_output_tokens=8192, top_p=0.95, response_mime_type="application/json"
                     ),
                 )
-
-                # Add response metrics to span
-                if response.text:
-                    span.set_attribute("llm.response.length", len(response.text))
-                    # Estimate token count (rough: 1 token ≈ 4 chars)
-                    estimated_tokens = len(response.text) // 4
-                    span.set_attribute("llm.usage.total_tokens", estimated_tokens)
-                    span.set_attribute("llm.usage.completion_tokens", estimated_tokens)
 
             import json
             import re

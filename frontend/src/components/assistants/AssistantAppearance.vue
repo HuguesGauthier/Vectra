@@ -10,7 +10,7 @@
             <div
               class="avatar-container"
               @mousedown="startDrag"
-              @touchstart="startDrag"
+              @touchstart.passive="startDrag"
               :class="{ 'cursor-grab': !isDragging, 'cursor-grabbing': isDragging }"
             >
               <q-avatar :style="avatarStyle" size="120px" class="shadow-10">
@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useI18n } from 'vue-i18n';
 import { assistantService } from 'src/services/assistantService';
@@ -330,17 +330,36 @@ const localAvatarPositionY = ref(50);
 const localAvatarUrl = ref<string | null>(null);
 
 const hasAvatar = computed(() => !!props.avatarImage || !!localAvatarUrl.value);
+const blobAvatarUrl = ref<string | null>(null);
+
 const avatarUrl = computed(() => {
   if (localAvatarUrl.value) return localAvatarUrl.value;
-
-  if (props.avatarImage && props.assistantId) {
-    // Add timestamp to bypass cache
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _monitor = avatarRefreshKey.value; // Force dependency
-    return `${assistantService.getAvatarUrl(props.assistantId)}?t=${Date.now()}`;
-  }
-  return null;
+  return blobAvatarUrl.value;
 });
+
+// Watcher to fetch blob from backend
+watch(
+  [() => props.assistantId, () => props.avatarImage, avatarRefreshKey],
+  async ([newId, newImage]) => {
+    // 1. Revoke old URL
+    if (blobAvatarUrl.value) {
+      URL.revokeObjectURL(blobAvatarUrl.value);
+      blobAvatarUrl.value = null;
+    }
+
+    // 2. Fetch new
+    if (newId && newImage) {
+      try {
+        const blob = await assistantService.getAvatarBlob(newId);
+        blobAvatarUrl.value = URL.createObjectURL(blob);
+      } catch (e) {
+        console.error('Failed to load avatar blob', e);
+        blobAvatarUrl.value = null;
+      }
+    }
+  },
+  { immediate: true },
+);
 
 // Drag to position avatar
 const isDragging = ref(false);
@@ -470,7 +489,6 @@ const previewBubbleStyle = computed(() => {
   };
 });
 // Drag to position avatar
-// (Variables moved to top scope)
 
 function startDrag(e: MouseEvent | TouchEvent) {
   if (!hasAvatar.value) return;
@@ -485,7 +503,7 @@ function startDrag(e: MouseEvent | TouchEvent) {
   document.addEventListener('touchmove', onDrag);
   document.addEventListener('touchend', stopDrag);
 
-  e.preventDefault();
+  // e.preventDefault();
 }
 
 function onDrag(e: MouseEvent | TouchEvent) {
@@ -516,6 +534,17 @@ function stopDrag() {
   // Commit the final position
   emit('update:avatarPositionY', localAvatarPositionY.value);
 }
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchmove', onDrag);
+  document.removeEventListener('touchend', stopDrag);
+
+  if (blobAvatarUrl.value) {
+    URL.revokeObjectURL(blobAvatarUrl.value);
+  }
+});
 </script>
 
 <style scoped>
@@ -572,6 +601,7 @@ function stopDrag() {
   /* border-radius removed logic handled by q-avatar mask, container is square for drag zone */
   cursor: grab;
   transition: transform 0.1s;
+  touch-action: none;
 }
 
 .avatar-container:active {

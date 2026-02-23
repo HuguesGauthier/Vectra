@@ -7,12 +7,10 @@ We define the Pydantic schemas here to decouple API validation logic from Databa
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import ConfigDict, field_validator
-from sqlalchemy import Column, Enum, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
@@ -48,14 +46,9 @@ class ConnectorBase(SQLModel):
 
     name: str = Field(min_length=1, max_length=MAX_NAME_LENGTH)
     description: Optional[str] = Field(default=None, max_length=MAX_DESCRIPTION_LENGTH)
-    connector_type: ConnectorType = Field(
-        sa_column=Column(Enum(ConnectorType, values_callable=lambda obj: [e.value for e in obj]))
-    )
-    configuration: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-    schedule_type: Optional[ScheduleType] = Field(
-        default=ScheduleType.MANUAL,
-        sa_column=Column(Enum(ScheduleType, values_callable=lambda obj: [e.value for e in obj]), nullable=True),
-    )
+    connector_type: ConnectorType
+    configuration: Dict[str, Any] = Field(default_factory=dict)
+    schedule_type: Optional[ScheduleType] = Field(default=ScheduleType.MANUAL)
     is_enabled: bool = Field(default=True)
     schedule_cron: Optional[str] = Field(default=None, max_length=MAX_CRON_LENGTH)
 
@@ -152,3 +145,16 @@ class ConnectorResponse(ConnectorBase):
     last_sync_end_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class ConnectorTestConnection(SQLModel):
+    """Schema for Connection Testing."""
+
+    connector_type: ConnectorType
+    configuration: Dict[str, Any]
+
+
+class ConnectorVannaTrain(SQLModel):
+    """Schema for Vanna Training payload."""
+
+    document_ids: List[UUID]

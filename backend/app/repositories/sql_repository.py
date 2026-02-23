@@ -16,8 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 
 from app.core.exceptions import TechnicalError
-from app.repositories.base_repository import (DEFAULT_LIMIT, MAX_LIMIT,
-                                              BaseRepository)
+from app.repositories.base_repository import DEFAULT_LIMIT, MAX_LIMIT, BaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +98,18 @@ class SQLRepository(
             logger.error(f"Failed to get {self.model.__name__} {entity_id}: {e}")
             raise TechnicalError(f"Database error retrieving entity: {e}")
 
+    async def get_by_ids(self, entity_ids: List[UUID]) -> List[ModelType]:
+        """Retrieve multiple entities by their IDs in a single batch."""
+        if not entity_ids:
+            return []
+        try:
+            statement = select(self.model).where(self.model.id.in_(entity_ids))
+            result = await self.db.execute(statement)
+            return list(result.scalars().all())
+        except SQLAlchemyError as e:
+            logger.error(f"Failed to get {self.model.__name__} batch: {e}")
+            raise TechnicalError(f"Database error retrieving entities: {e}")
+
     async def get_all(
         self, skip: int = 0, limit: int = DEFAULT_LIMIT, filters: Optional[Dict[str, Any]] = None
     ) -> List[ModelType]:
@@ -159,9 +170,10 @@ class SQLRepository(
             else:
                 raise TechnicalError(f"Model {self.model.__name__} has no known primary key")
             result = await self.db.execute(statement)
+            deleted = result.rowcount > 0
+
             await self.db.commit()
 
-            deleted = result.rowcount > 0
             if deleted:
                 logger.debug(f"Deleted {self.model.__name__} {entity_id}")
             return deleted
@@ -184,19 +196,23 @@ class SQLRepository(
     async def update_batch(self, update_tasks: List[Dict[str, Any]]) -> int:
         """
         Processes a list of updates without individual commits.
+
+        WARNING: Does NOT commit. Caller must ensure transaction management.
+
         update_tasks: List of dicts, each must contain 'id' and the fields to update.
         """
         try:
             count = 0
             for task in update_tasks:
-                entity_id = task.pop("id", None)
+                # Avoid mutating input dict
+                entity_id = task.get("id")
                 if not entity_id:
                     continue
 
                 entity = await self.get_by_id(entity_id)
                 if entity:
                     for key, value in task.items():
-                        if hasattr(entity, key):
+                        if key != "id" and hasattr(entity, key):
                             setattr(entity, key, value)
                     self.db.add(entity)
                     count += 1

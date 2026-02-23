@@ -14,7 +14,7 @@ declare module '@vue/runtime-core' {
 // Default to backend URL. In prod use env var.
 // Default to backend URL. In prod use env var.
 const api = axios.create({
-  baseURL: process.env.VUE_APP_API_BASE_URL || 'http://localhost:8000/api/v1',
+  baseURL: process.env.VUE_APP_API_BASE_URL || '/api/v1',
   withCredentials: true, // Function to pass cookies to the backend
   headers: {
     'Content-Type': 'application/json',
@@ -87,15 +87,17 @@ export default boot(({ app, router }) => {
         return Promise.reject(error instanceof Error ? error : new Error(String(error)));
       }
 
-      // 1. Authentication (401) - Special case, still functional but redirection needed
-      if (status === 401) {
-        console.warn('[Axios] 401 Unauthorized - Logging out');
+      // 1. Authentication (401) or Forbidden (403)
+      if (status === 401 || status === 403) {
+        console.warn(`[Axios] ${status} Error - Handling session failure`);
         console.warn('Failed Request:', config.url);
 
         const authStore = useAuthStore();
         authStore.logout();
 
-        if (router.currentRoute.value.path !== '/login') {
+        // Only redirect to login if the current route explicitly requires authentication
+        const requiresAuth = router.currentRoute.value.meta.requiresAuth;
+        if (requiresAuth && router.currentRoute.value.path !== '/login') {
           void router.push('/login');
         }
       }

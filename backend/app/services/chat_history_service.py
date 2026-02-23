@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -63,8 +64,7 @@ class ChatHistoryService:
                 if raw_items:
                     logger.info(f"🔥 Re-hydrating Redis with {len(raw_items)} messages from Cold Storage")
                     # Warmup Redis to prevent repeating this DB hit
-                    for item in raw_items:
-                        await self.repository.push_message(session_id, item)
+                    await self.repository.push_messages(session_id, raw_items)
                 else:
                     logger.debug(f"∅ No history in Cold Storage either for {session_id}")
 
@@ -101,6 +101,7 @@ from app.core.settings import settings
 
 # P1: Singleton Pattern (Connection Pooling)
 _redis_client: Optional[Redis] = None
+_redis_lock = asyncio.Lock()
 
 
 async def get_redis_client() -> Redis:
@@ -109,15 +110,27 @@ async def get_redis_client() -> Redis:
     Reuses the internal connection pool across requests.
     """
     global _redis_client
-    if _redis_client is None:
-        logger.info("⚡ Initializing Global Redis Connection Pool...")
-        redis_url = (
-            f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
-        )
-        # decode_responses=True ensures we get str not bytes
-        _redis_client = redis_from_url(redis_url, decode_responses=True)
+    if _redis_client is not None:
+        return _redis_client
+
+    async with _redis_lock:
+        if _redis_client is None:
+            logger.info("⚡ Initializing Global Redis Connection Pool...")
+            redis_url = (
+                f"redis://:{settings.REDIS_PASSWORD}@{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
+            )
+            # decode_responses=True ensures we get str not bytes
+            _redis_client = redis_from_url(redis_url, decode_responses=True)
 
     return _redis_client
+
+
+async def shutdown_redis():
+    """Closes the Redis connection pool."""
+    global _redis_client
+    if _redis_client:
+        await _redis_client.close()
+        _redis_client = None
 
 
 async def get_chat_history_repository() -> ChatRedisRepository:

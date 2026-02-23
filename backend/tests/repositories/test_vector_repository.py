@@ -1,16 +1,9 @@
-"""
-Tests for VectorRepository.
-"""
-
-from unittest.mock import AsyncMock, MagicMock
-from uuid import uuid4
-
 import pytest
+from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock, ANY
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.http.models import PointStruct
-
-from app.core.exceptions import ExternalDependencyError
 from app.repositories.vector_repository import VectorRepository
+from app.core.exceptions import ExternalDependencyError
 
 
 @pytest.fixture
@@ -19,56 +12,76 @@ def mock_client():
 
 
 @pytest.fixture
-def repository(mock_client):
-    return VectorRepository(mock_client)
+def vector_repo(mock_client):
+    return VectorRepository(client=mock_client)
 
 
 @pytest.mark.asyncio
-async def test_upsert_points_success(repository, mock_client):
-    # Arrange
-    points = [PointStruct(id=1, vector=[0.1] * 1536, payload={})]
+async def test_upsert_points_success(vector_repo, mock_client):
+    """Test successful upsert."""
+    points = [MagicMock(), MagicMock()]
+    await vector_repo.upsert_points("test_collection", points)
 
-    # Act
-    await repository.upsert_points("test_col", points)
-
-    # Assert
-    mock_client.upsert.assert_awaited_once()
+    mock_client.upsert.assert_awaited_once_with(collection_name="test_collection", points=points, wait=False)
 
 
 @pytest.mark.asyncio
-async def test_upsert_points_failure(repository, mock_client):
-    # Arrange
-    points = [PointStruct(id=1, vector=[0.1] * 1536, payload={})]
-    mock_client.upsert.side_effect = Exception("Connection Refused")
+async def test_upsert_points_error(vector_repo, mock_client):
+    """Test upsert error handling."""
+    # UnexpectedResponse(status_code, reason, content, headers)
+    mock_client.upsert.side_effect = UnexpectedResponse(500, "Error", b"Content", None)
 
-    # Act & Assert
     with pytest.raises(ExternalDependencyError):
-        await repository.upsert_points("test_col", points)
+        await vector_repo.upsert_points("test_collection", [MagicMock()])
 
 
 @pytest.mark.asyncio
-async def test_delete_by_connector_success(repository, mock_client):
-    # Arrange
-    cid = uuid4()
+async def test_delete_by_connector_id(vector_repo, mock_client):
+    """Test delete by connector ID."""
+    connector_id = uuid4()
+    await vector_repo.delete_by_connector_id("test_collection", connector_id)
 
-    # Act
-    await repository.delete_by_connector_id("test_col", cid)
-
-    # Assert
     mock_client.delete.assert_awaited_once()
+    # verify call args structure (filter check)
+    call_args = mock_client.delete.call_args
+    assert call_args.kwargs["collection_name"] == "test_collection"
+    assert call_args.kwargs["wait"] is True
+    # Deep inspection of FilterSelector is complex due to objects,
+    # ensuring call happened with correct high level args is pragmatic.
 
 
 @pytest.mark.asyncio
-async def test_update_acl_success(repository, mock_client):
-    # Arrange
-    cid = uuid4()
-    acl = ["group:admin"]
+async def test_delete_ignore_not_found(vector_repo, mock_client):
+    """Test delete ignores not found errors."""
+    mock_client.delete.side_effect = Exception("Collection not found")
 
-    # Act
-    await repository.update_acl("test_col", "connector_id", str(cid), acl)
+    # Should not raise
+    await vector_repo.delete_by_connector_id("test_collection", uuid4())
 
-    # Assert
-    mock_client.set_payload.assert_awaited_once()
-    # Verify payload structure
-    call_kwargs = mock_client.set_payload.call_args[1]
-    assert call_kwargs["payload"] == {"connector_acl": acl}
+
+@pytest.mark.asyncio
+async def test_search_success(vector_repo, mock_client):
+    """Test search functionality."""
+    mock_point = MagicMock()
+    mock_result = MagicMock()
+    mock_result.points = [mock_point]
+    mock_client.query_points.return_value = mock_result
+
+    result = await vector_repo.search("test_collection", [0.1, 0.2])
+
+    assert len(result) == 1
+    assert result[0] == mock_point
+    mock_client.query_points.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_count_by_document_id(vector_repo, mock_client):
+    """Test counting points."""
+    mock_result = MagicMock()
+    mock_result.count = 42
+    mock_client.count.return_value = mock_result
+
+    count = await vector_repo.count_by_document_id("test_collection", uuid4())
+
+    assert count == 42
+    mock_client.count.assert_awaited_once()

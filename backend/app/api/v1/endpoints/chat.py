@@ -1,5 +1,5 @@
 import logging
-import traceback
+import logging
 from typing import Annotated, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -11,8 +11,7 @@ from app.core.exceptions import EntityNotFound, FunctionalError, TechnicalError
 from app.core.security import get_current_user
 from app.models.user import User
 from app.schemas.chat import ChatRequest
-from app.services.assistant_service import (AssistantService,
-                                            get_assistant_service)
+from app.services.assistant_service import AssistantService, get_assistant_service
 from app.services.chat_service import ChatService, get_chat_service
 
 # Initialize logger
@@ -36,7 +35,10 @@ async def get_optional_user(request: Request, db: Annotated[AsyncSession, Depend
     """
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
+        parts = auth_header.split(" ")
+        if len(parts) != 2:
+            return None
+        token = parts[1]
         try:
             return await get_current_user(token=token, db=db)
         except Exception:
@@ -176,6 +178,7 @@ async def get_chat_history(
                 # Format Steps (Ensure labels are present)
                 if "steps" in meta and isinstance(meta["steps"], list):
                     meta["steps"] = [_format_step(step) for step in meta["steps"]]
+                    meta["steps"] = _rebuild_step_hierarchy(meta["steps"])
 
                 # Format Visualization (Repair types if stringified by sanitization)
                 if "visualization" in meta and meta["visualization"]:
@@ -188,8 +191,9 @@ async def get_chat_history(
         return {"messages": formatted_messages}
     except Exception as e:
         logger.error(f"Failed to retrieve history for session {session_id}: {e}", exc_info=True)
-        # Don't fail hard - return empty history on error
-        return {"messages": []}
+        if isinstance(e, (TechnicalError, FunctionalError)):
+            raise
+        raise TechnicalError(f"Failed to retrieve history: {e}")
 
 
 def _format_source(source: Dict[str, Any]) -> Dict[str, Any]:
@@ -234,9 +238,16 @@ def _format_step(step: Dict[str, Any]) -> Dict[str, Any]:
     """
     # Filter out steps with no label and no meaningful data
     if not step.get("label"):
-        # Try to infer label from step_type
-        stype = step.get("step_type", "unknown")
-        step["label"] = stype.replace("_", " ").title()
+        # Let frontend handle missing labels via i18n
+        pass
+    else:
+        # Strip provider suffix if this is nested under a tool
+        # In French UI: "Recherche Base de Connaissances (Openai)" -> "Recherche Base de Connaissances"
+        label = step["label"]
+        if label.startswith("Recherche Base de Connaissances (") and label.endswith(")"):
+            step["label"] = "Recherche Base de Connaissances"
+        elif label.startswith("Knowledge Base Search (") and label.endswith(")"):
+            step["label"] = "Knowledge Base Search"
 
     # Map nesting metadata (backend 'is_substep' -> frontend 'isSubStep')
     step_meta = step.get("metadata", {})
@@ -281,88 +292,33 @@ def _format_visualization(viz: Dict[str, Any]) -> Dict[str, Any]:
     return viz
 
 
-@router.post("/debug-stream")
-async def debug_stream(
-    request: ChatRequest,
-    chat_service: Annotated[ChatService, Depends(get_chat_service)],
-    assistant_service: Annotated[AssistantService, Depends(get_assistant_service)],
-    user: Annotated[Optional[User], Depends(get_optional_user)],
-) -> Dict[str, Any]:
+# 🔵 P1: Removed Debug/Test Endpoints (debug_stream, ping, test-db, test-assistant-service)
+# Code Cleanliness and Security Hygiene.
+
+
+def _rebuild_step_hierarchy(steps: list) -> list:
     """
-    Debug version that returns full exceptions.
-
-    Args:
-        request: The chat request payload.
-        chat_service: The chat service instance.
-        assistant_service: The assistant service instance.
-        user: The optional authenticated user.
-
-    Returns:
-        A dictionary containing debug information or the first event.
+    Reconstructs the parent->child tree structure from a flat list using parent_id.
+    Returns only the root steps.
     """
-    try:
-        assistant_uuid = request.assistant_id
-        assistant = await assistant_service.get_assistant_model(assistant_uuid)
-        if not assistant:
-            return {"error": "Assistant not found"}
+    step_map = {s.get("step_id"): {**s, "sub_steps": []} for s in steps if s.get("step_id")}
+    roots = []
 
-        user_id = str(user.id) if user else None
+    # Add steps without ID directly to roots so they are not lost
+    for s in steps:
+        if not s.get("step_id"):
+            roots.append({**s, "sub_steps": []})
 
-        # Try to get first event
-        async for event in chat_service.stream_chat(
-            request.message,
-            assistant,
-            request.session_id,
-            language=request.language,
-            history=request.history,
-            user_id=user_id,
-        ):
-            return {"success": True, "first_event": event[:200]}
-    except Exception as e:
-        return {
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc(),
-        }
-    return {"error": "No events yielded"}
+    for step in step_map.values():
+        pid = step.get("parent_id")
+        if pid and pid in step_map:
+            step_map[pid]["sub_steps"].append(step)
+        else:
+            roots.append(step)
 
+    # Sort each level by sequence
+    for step in step_map.values():
+        step["sub_steps"].sort(key=lambda x: x.get("sequence", 0))
+    roots.sort(key=lambda x: x.get("sequence", 0))
 
-@router.get("/ping")
-async def ping() -> Dict[str, str]:
-    """
-    Minimal test endpoint with zero dependencies.
-
-    Returns:
-        A dictionary with status and message.
-    """
-    return {"status": "ok", "message": "Backend is alive"}
-
-
-@router.get("/test-db")
-async def test_db(db: Annotated[AsyncSession, Depends(get_db)]) -> Dict[str, str]:
-    """
-    Test if DB injection works.
-
-    Args:
-        db: The database session.
-
-    Returns:
-        A dictionary with status and db info.
-    """
-    return {"status": "ok", "db": "connected"}
-
-
-@router.get("/test-assistant-service")
-async def test_assistant_svc(
-    assistant_service: Annotated[AssistantService, Depends(get_assistant_service)],
-) -> Dict[str, str]:
-    """
-    Test if AssistantService injection works.
-
-    Args:
-        assistant_service: The assistant service instance.
-
-    Returns:
-        A dictionary with status and service info.
-    """
-    return {"status": "ok", "service": "injected"}
+    return roots

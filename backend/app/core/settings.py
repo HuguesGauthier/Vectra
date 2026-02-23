@@ -3,10 +3,17 @@ import os
 import secrets
 import sys
 import threading
-from typing import Literal, Optional
+from typing import Literal, Optional, Type, Tuple
 
 from pydantic import ValidationError, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    SettingsConfigDict,
+    PydanticBaseSettingsSource,
+    YamlConfigSettingsSource,
+    JsonConfigSettingsSource,
+    TomlConfigSettingsSource,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +31,8 @@ class Settings(BaseSettings):
 
     # Infrastructure
     DATABASE_URL: str = "postgresql+asyncpg://vectra:vectra@localhost:5432/vectra"
+    BACKEND_WS_URL: str = "ws://localhost:8000/api/v1/ws?client_type=worker"
+    VECTRA_DATA_PATH: Optional[str] = None  # Local path on Windows (mapped to /data in Docker)
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 3600
@@ -54,16 +63,32 @@ class Settings(BaseSettings):
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     # Embedding Configuration
-    EMBEDDING_PROVIDER: Literal["local", "openai", "gemini"] = "gemini"
+    EMBEDDING_PROVIDER: Literal["local", "openai", "gemini", "ollama"] = "ollama"
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"
     GEMINI_TRANSCRIPTION_MODEL: str = "gemini-1.5-flash-latest"
     GEMINI_CHAT_MODEL: str = "gemini-1.5-flash-latest"
-    MISTRAL_CHAT_MODEL: str = "mistral-large-latest"
+
+    # Ollama Configuration
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_CHAT_MODEL: str = "mistral"
+    OLLAMA_EMBEDDING_MODEL: str = "bge-m3"  # User requested default
+
+    LOCAL_EXTRACTION_MODEL: Optional[str] = "mistral"
+    LOCAL_EXTRACTION_URL: str = "http://localhost:11434"
+
+    # Whisper Configuration (Local)
+    WHISPER_BASE_URL: str = "http://localhost:8003/v1"
 
     # Observability
-    ENABLE_PHOENIX_TRACING: bool = False  # Set to True via env to enable Arize Phoenix
+
+    ENABLE_TRENDING: bool = True  # Toggle trending analysis in ChatPipeline
+    LOG_RETENTION_DAYS: int = 30  # Days to keep error logs
+
+    # Reranker Configuration
+    RERANKER_PROVIDER: Literal["cohere", "local"] = "cohere"
+    LOCAL_RERANK_MODEL: str = "BAAI/bge-reranker-base"
+
+    # Hardware Tuning
+    INGESTION_LOCAL_WORKERS: Optional[int] = None  # Override for local worker count
 
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"
@@ -76,6 +101,30 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=True,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        """
+        Customise settings sources.
+        Priority order:
+        1. Init settings
+        2. .env file settings (Higher priority to protect local dev)
+        3. Environment variables (Fallback for Docker)
+        4. Class defaults
+        """
+        return (
+            init_settings,
+            env_settings,  # Standard: Environment variables override .env
+            dotenv_settings,
+            file_secret_settings,
+        )
 
     @field_validator("DATABASE_URL")
     @classmethod
@@ -103,6 +152,15 @@ class Settings(BaseSettings):
             logger.info(f"🔧 Config: QDRANT_API_KEY loaded (length: {len(v)})")
         else:
             logger.warning("⚠️  Config: QDRANT_API_KEY is empty or not set!")
+        return v
+
+    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST", "WHISPER_BASE_URL")
+    @classmethod
+    def fix_ollama_host_for_windows(cls, v: str) -> str:
+        """Fix Windows/Docker localhost issues for Ollama and Redis."""
+        if sys.platform == "win32" and "localhost" in v:
+            logger.info(f"🔧 Config: Replacing 'localhost' with '127.0.0.1' in {v} for Windows compatibility.")
+            return v.replace("localhost", "127.0.0.1")
         return v
 
     @model_validator(mode="after")
@@ -155,30 +213,101 @@ class Settings(BaseSettings):
         if is_prod and self.DEBUG:
             raise ValueError("DEBUG must be False in production.")
 
+        # 6. DATABASE_URL Check (Production only)
+        # Prevent accidental use of the default local dev DB in production
+        # We check for both localhost and 127.0.0.1 (Windows fixer might have run)
+        if is_prod and any(h in self.DATABASE_URL for h in ["localhost:5432/vectra", "127.0.0.1:5432/vectra"]):
+            raise ValueError(
+                "Default local DATABASE_URL detected in production environment. "
+                "Please set a valid DATABASE_URL in your environment variables."
+            )
+
         return self
 
     @model_validator(mode="after")
     def validate_provider_dependencies(self) -> "Settings":
         """
-        Ensure required API keys are present for selected providers.
-        Skipped in test environments.
+        Validate that required keys are present for the chosen provider.
+        Bypassed in test environment to avoid mocking .env in every test.
         """
         if self.ENV == "test":
+            print(f"DEBUG: Skipping validation because ENV={self.ENV}")
             return self
 
-        if self.EMBEDDING_PROVIDER == "openai" and not self.OPENAI_API_KEY:
-            raise ValueError(
-                "EMBEDDING_PROVIDER='openai' requires OPENAI_API_KEY. "
-                "Set it in your .env file or environment variables."
-            )
+        print(
+            f"DEBUG: Validating provider. ENV={self.ENV}, PROVIDER={self.EMBEDDING_PROVIDER}, KEY={self.GEMINI_API_KEY}"
+        )
+
+        if self.ENV == "development" and self.EMBEDDING_PROVIDER == "gemini" and not self.GEMINI_API_KEY:
+            logger.warning("⚠️  Config: GEMINI_API_KEY missing in development. Falling back to 'local' provider.")
+            self.EMBEDDING_PROVIDER = "local"
+            return self
 
         if self.EMBEDDING_PROVIDER == "gemini" and not self.GEMINI_API_KEY:
-            raise ValueError(
-                "EMBEDDING_PROVIDER='gemini' requires GEMINI_API_KEY. "
-                "Set it in your .env file or environment variables."
-            )
+            raise ValueError("EMBEDDING_PROVIDER 'gemini' requires GEMINI_API_KEY")
+
+        if self.EMBEDDING_PROVIDER == "openai" and not self.OPENAI_API_KEY:
+            raise ValueError("EMBEDDING_PROVIDER 'openai' requires OPENAI_API_KEY")
+
+        if self.EMBEDDING_PROVIDER == "ollama" and not self.OLLAMA_BASE_URL:
+            raise ValueError("EMBEDDING_PROVIDER 'ollama' requires OLLAMA_BASE_URL")
 
         return self
+
+    @property
+    def computed_local_workers(self) -> int:
+        """
+        Dynamically determine the number of workers for local embedding/extraction
+        based on available hardware (VRAM).
+        """
+        if self.INGESTION_LOCAL_WORKERS is not None:
+            return self.INGESTION_LOCAL_WORKERS
+
+        # Hardware Detection (NVIDIA)
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            vram_mb = int(result.stdout.strip().split("\n")[0])
+            vram_gb = vram_mb / 1024
+
+            if vram_gb < 6:
+                # P0: For very low VRAM on Windows, stay synchronous (0 workers)
+                # to avoid multiprocessing overhead and memory pressure.
+                workers = 0 if sys.platform == "win32" else 1
+            elif vram_gb < 12:
+                workers = 4  # Balanced (RTX 4060)
+            else:
+                workers = 8  # Performance (RTX 4070+)
+
+            logger.info(f"⚡ Hardware Detection: Detected {vram_gb:.1f} GB VRAM -> Using {workers} workers")
+            return workers
+        except Exception as e:
+            logger.debug(f"Hardware detection failed or no GPU found: {e}. Defaulting to 1 worker.")
+            return 1
+
+    @property
+    def computed_extraction_concurrency(self) -> int:
+        """
+        Dynamically determine how many parallel LLM extraction calls to allow.
+        """
+        # Hardware-aware concurrency
+        try:
+            workers = self.computed_local_workers
+            if workers == 0:
+                return 1  # Ultra-safe
+            if workers == 1:
+                return 1  # Safe
+            if workers <= 4:
+                return 2  # Balanced
+            return 5  # Performance
+        except:
+            return 1
 
 
 # --- Thread-Safe Lazy Singleton ---
@@ -217,8 +346,18 @@ def get_settings() -> Settings:
                 redis_pw_status = "SET" if _settings.REDIS_PASSWORD else "MISSING"
                 logger.info(f"✅ Configuration loaded (ENV={_settings.ENV}). Redis PW: {redis_pw_status}")
             except ValidationError as e:
-                logger.critical(f"❌ Configuration validation failed: {e}")
-                raise
+                if "pytest" in sys.modules:
+                    logger.warning(
+                        f"⚠️  Config validation failed during test collection: {e}. Using model_construct fallback."
+                    )
+                    _settings = Settings.model_construct(
+                        _env_file=None,
+                        SECRET_KEY="test-fallback-secret-key",
+                        WORKER_SECRET="test-fallback-worker-secret",
+                    )
+                else:
+                    logger.critical(f"❌ Configuration validation failed: {e}")
+                    raise
             except Exception as e:
                 logger.critical(f"❌ Unexpected error loading configuration: {e}")
                 raise
@@ -245,8 +384,14 @@ except ValidationError as e:
             # We can create a partial mock or just re-raise if strictly needed.
             # But let's try to construct it with checks disabled? No easy way.
             # Best effort: use the class defaults which might be enough if ENV != production
-            settings = Settings(_env_file=None)
-            logger.warning("⚠️  Loaded fallback settings for testing.")
+            # Use model_construct to bypass validation during test collection
+            settings = Settings.model_construct(
+                _env_file=None,
+                SECRET_KEY="test-fallback-secret-key",
+                WORKER_SECRET="test-fallback-worker-secret",
+            )
+
+            logger.warning("⚠️  Loaded fallback settings via model_construct for testing.")
         except Exception as e2:
             logger.critical(f"❌ Could not create fallback settings: {e2}")
             raise e

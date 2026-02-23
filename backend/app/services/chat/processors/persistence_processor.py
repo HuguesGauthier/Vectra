@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, Dict, Optional
 from app.repositories.chat_history_repository import ChatPostgresRepository
 from app.services.chat.processors.base_chat_processor import BaseChatProcessor
 from app.services.chat.types import ChatContext, PipelineStepType, StepStatus
-from app.services.chat.utils import EventFormatter
+from app.services.chat.utils import EventFormatter, resolve_embedding_provider
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,10 @@ class UserPersistenceProcessor(BaseChatProcessor):
         yield self._emit_completion_event(ctx, duration)
 
     def _emit_start_event(self, ctx: ChatContext) -> str:
-        return EventFormatter.format(PipelineStepType.USER_PERSISTENCE, StepStatus.RUNNING, ctx.language)
+        ctx.metadata["_user_pers_id"] = ctx.metrics.start_span(PipelineStepType.USER_PERSISTENCE)
+        return EventFormatter.format(
+            PipelineStepType.USER_PERSISTENCE, StepStatus.RUNNING, ctx.metadata["_user_pers_id"]
+        )
 
     async def _persist_to_hot_storage(self, ctx: ChatContext) -> None:
         """Saves message to Redis (Best Effort)."""
@@ -88,9 +91,8 @@ class UserPersistenceProcessor(BaseChatProcessor):
             )
 
     def _emit_completion_event(self, ctx: ChatContext, duration: float) -> str:
-        return EventFormatter.format(
-            PipelineStepType.USER_PERSISTENCE, StepStatus.COMPLETED, ctx.language, duration=duration
-        )
+        sid = ctx.metadata.get("_user_pers_id", "user_pers_step")
+        return EventFormatter.format(PipelineStepType.USER_PERSISTENCE, StepStatus.COMPLETED, sid, duration=duration)
 
 
 class AssistantPersistenceProcessor(BaseChatProcessor):
@@ -127,7 +129,8 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         """Constructs and sanitizes metadata for persistence."""
         # Extract steps from metrics if available
         # Filter out system/infrastructure steps that shouldn't persist
-        EXCLUDED_STEPS = {"completed", "initialization", "streaming"}
+        # Streaming is ephemeral, but Initialization is useful for history
+        EXCLUDED_STEPS = {"streaming"}
 
         steps = []
         if ctx.metrics:
@@ -175,13 +178,15 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         self, ctx: ChatContext, metadata: Dict[str, Any]
     ) -> AsyncGenerator[str, None]:
         """Persists to Postgres and yields UI events."""
-        yield EventFormatter.format(PipelineStepType.ASSISTANT_PERSISTENCE, StepStatus.RUNNING, ctx.language)
+        sid = ctx.metrics.start_span(PipelineStepType.ASSISTANT_PERSISTENCE)
+        ctx.metadata["_asst_pers_id"] = sid
+        yield EventFormatter.format(PipelineStepType.ASSISTANT_PERSISTENCE, StepStatus.RUNNING, sid)
 
         start_time = time.time()
 
         try:
             audit_repo = ChatPostgresRepository(ctx.db)
-            await audit_repo.add_message(
+            ctx.assistant_message_id = await audit_repo.add_message(
                 ctx.session_id,
                 ROLE_ASSISTANT,
                 ctx.full_response_text,
@@ -193,9 +198,17 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
             logger.error(LOG_COLD_FAIL, "AssistantProcessor", e)
 
         duration = round(time.time() - start_time, ROUNDING_PRECISION)
+        self._record_metrics(ctx, duration)
+        sid = ctx.metadata.get("_asst_pers_id", "asst_pers_step")
         yield EventFormatter.format(
-            PipelineStepType.ASSISTANT_PERSISTENCE, StepStatus.COMPLETED, ctx.language, duration=duration
+            PipelineStepType.ASSISTANT_PERSISTENCE, StepStatus.COMPLETED, sid, duration=duration
         )
+
+    def _record_metrics(self, ctx: ChatContext, duration: float) -> None:
+        if ctx.metrics:
+            ctx.metrics.record_completed_step(
+                step_type=PipelineStepType.ASSISTANT_PERSISTENCE, label=LABEL_ASSISTANT, duration=duration
+            )
 
     def _sanitize_metadata(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Ensures metadata is strictly JSON serializable by dumping to str if necessary."""
@@ -207,7 +220,11 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
             return data
         except (TypeError, OverflowError):
             # Slow path: clean recursive
-            return json.loads(json.dumps(data, default=str))
+            try:
+                return json.loads(json.dumps(data, default=str))
+            except Exception as e:
+                logger.error(f"METADATA_SANITIZE_FAIL | Error: {e}")
+                return {}
 
     # --- Cache Update Logic ---
 
@@ -215,11 +232,13 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         if not self._should_cache(ctx):
             return
 
-        yield EventFormatter.format(PipelineStepType.CACHE_UPDATE, StepStatus.RUNNING, ctx.language)
+        sid = ctx.metrics.start_span(PipelineStepType.CACHE_UPDATE)
+        yield EventFormatter.format(PipelineStepType.CACHE_UPDATE, StepStatus.RUNNING, sid)
 
         await self._perform_cache_update(ctx)
+        ctx.metrics.end_span(sid)
 
-        yield EventFormatter.format(PipelineStepType.CACHE_UPDATE, StepStatus.COMPLETED, ctx.language, duration=0.1)
+        yield EventFormatter.format(PipelineStepType.CACHE_UPDATE, StepStatus.COMPLETED, sid, duration=0.1)
 
     def _should_cache(self, ctx: ChatContext) -> bool:
         """
@@ -242,11 +261,14 @@ class AssistantPersistenceProcessor(BaseChatProcessor):
         try:
             payload = self._build_cache_payload(ctx)
 
+            provider = await resolve_embedding_provider(ctx)
+
             await ctx.cache_service.set_cached_response(
                 question=ctx.original_message,
                 assistant_id=str(ctx.assistant.id),
                 embedding=ctx.question_embedding,
                 response=payload,
+                embedding_provider=provider,
             )
         except Exception as e:
             logger.warning(LOG_CACHE_FAIL, "AssistantProcessor", e)

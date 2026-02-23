@@ -1,11 +1,12 @@
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import Depends
 from redis.asyncio import Redis
-from sqlalchemy import text
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -32,29 +33,36 @@ class ChatRedisRepository:
     def _get_key(self, session_id: str) -> str:
         return f"{self.KEY_PREFIX}{session_id}"
 
-    async def push_message(self, session_id: str, message_data: Dict[str, Any]) -> None:
+    async def push_messages(self, session_id: str, messages: List[Dict[str, Any]]) -> None:
         """
-        Atomic Push + Trim + Expire.
+        Atomic Bulk Push + Trim + Expire.
+        Uses a single pipeline for multiple messages.
         """
-        if not session_id or not message_data:
+        if not session_id or not messages:
             return
 
         key = self._get_key(session_id)
 
         try:
-            message_json = json.dumps(message_data)
-        except (TypeError, ValueError) as e:
-            logger.error(f"Failed to serialize message for Redis: {e}")
-            return
-
-        try:
             async with self.redis.pipeline() as pipe:
-                pipe.rpush(key, message_json)
+                for message_data in messages:
+                    try:
+                        message_json = json.dumps(message_data)
+                        pipe.rpush(key, message_json)
+                    except (TypeError, ValueError) as e:
+                        logger.error(f"Failed to serialize message for Redis: {e}")
+
                 pipe.ltrim(key, -self.WINDOW_SIZE, -1)
                 pipe.expire(key, self.TTL_SECONDS)
                 await pipe.execute()
         except Exception as e:
-            logger.error(f"Redis write failed for session {session_id}: {e}")
+            logger.error(f"Redis bulk write failed for session {session_id}: {e}")
+
+    async def push_message(self, session_id: str, message_data: Dict[str, Any]) -> None:
+        """
+        Atomic Push + Trim + Expire.
+        """
+        await self.push_messages(session_id, [message_data])
 
     async def get_recent_messages(self, session_id: str) -> List[Dict[str, Any]]:
         """
@@ -120,10 +128,13 @@ class ChatPostgresRepository:
             )
             self.db.add(entry)
             await self.db.commit()
+            await self.db.refresh(entry)
+            return entry.id
 
         except SQLAlchemyError as e:
             await self.db.rollback()
             logger.error(f"Failed to save message audit for {session_id}: {e}")
+            return None
 
     async def get_messages(self, session_id: str) -> List[ChatHistory]:
         """Retrieve full conversation history for a session."""
@@ -137,11 +148,32 @@ class ChatPostgresRepository:
             logger.error(f"Failed to fetch audit history for {session_id}: {e}")
             return []
 
+    async def update_message_metadata(self, message_id: UUID, metadata: Dict[str, Any]) -> bool:
+        """
+        Updates the metadata of a specific message.
+        Used to finalize metrics/steps after the pipeline completes.
+        """
+        try:
+            stmt = select(ChatHistory).where(ChatHistory.id == message_id)
+            result = await self.db.execute(stmt)
+            message = result.scalar_one_or_none()
+
+            if message:
+                # Merge or overwrite? Overwrite is safer for "finalizing"
+                message.metadata_ = metadata
+                await self.db.commit()
+                return True
+            return False
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update message metadata for {message_id}: {e}")
+            return False
+
     async def clear_history(self, session_id: str) -> bool:
         """Clear Postgres history (e.g. for hard reset)."""
         try:
-            stmt = text("DELETE FROM chat_history WHERE session_id = :session_id")
-            result = await self.db.execute(stmt, {"session_id": session_id})
+            stmt = delete(ChatHistory).where(ChatHistory.session_id == session_id)
+            result = await self.db.execute(stmt)
             await self.db.commit()
             return result.rowcount > 0
         except SQLAlchemyError as e:
