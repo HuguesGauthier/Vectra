@@ -1,6 +1,9 @@
 {
   "name": "Vectra Expert Dev Env",
-  "dockerComposeFile": ["../docker-compose.yml"],
+  "dockerComposeFile": [
+    "../docker-compose.yml",
+    "docker-compose.devcontainer.yml"
+  ],
   "runServices": [
     "vectra-api",
     "vectra-frontend",
@@ -35,7 +38,7 @@
       }
     }
   },
-  "forwardPorts": [80, 8000, 5050, 6333, 8081, 11434],
+  "forwardPorts": [80, 8000, 5050, 6333, 8081, 11435],
   "portsAttributes": {
     "80": {
       "label": "Frontend (Production Build)",
@@ -43,6 +46,10 @@
     },
     "8000": {
       "label": "Backend API",
+      "onAutoForward": "silent"
+    },
+    "11435": {
+      "label": "Ollama API (Codespace Host)",
       "onAutoForward": "silent"
     }
   },

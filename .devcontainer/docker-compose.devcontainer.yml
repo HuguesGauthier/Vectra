@@ -1,0 +1,4 @@
+services:
+  vectra-ollama:
+    ports:
+      - "11435:11434"
