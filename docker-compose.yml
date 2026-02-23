@@ -30,13 +30,6 @@ services:
       - vectra
     volumes:
       - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   vectra-frontend:
     profiles: ["prod"]
@@ -78,13 +71,6 @@ services:
       - vectra
     volumes:
       - "${VECTRA_DATA_PATH:-/tmp/vectra_data}:/data"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
   vectra-postgres:
     image: postgres:15
@@ -192,33 +178,19 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     networks:
       - vectra
 
   vectra-whisper:
-    image: fedirz/faster-whisper-server:latest-cuda
+    image: fedirz/faster-whisper-server:latest-cpu
     restart: always
     environment:
       - WHISPER__MODEL=base
-      - WHISPER__DEVICE=cuda
+      - WHISPER__DEVICE=cpu
     ports:
       - "8003:8000"
     volumes:
       - whisper_data:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     networks:
       - vectra
 
