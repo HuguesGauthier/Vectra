@@ -2,24 +2,40 @@ services:
   vectra-api:
     volumes:
       - ..:/workspaces/Vectra:cached
-    deploy: !!null
+    runtime: runc
     environment:
       - NVIDIA_VISIBLE_DEVICES=none
+    deploy:
+      resources:
+        reservations:
+          devices: []
 
   vectra-worker:
-    deploy: !!null
+    runtime: runc
     environment:
       - NVIDIA_VISIBLE_DEVICES=none
+    deploy:
+      resources:
+        reservations:
+          devices: []
 
   vectra-ollama:
-    deploy: !!null
+    runtime: runc
     environment:
       - NVIDIA_VISIBLE_DEVICES=none
+    deploy:
+      resources:
+        reservations:
+          devices: []
 
   vectra-whisper:
-    deploy: !!null
+    runtime: runc
     environment:
       - NVIDIA_VISIBLE_DEVICES=none
+    deploy:
+      resources:
+        reservations:
+          devices: []
 
   vectra-frontend:
     volumes:
