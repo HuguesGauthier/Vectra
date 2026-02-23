@@ -33,7 +33,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://vectra:vectra@localhost:5432/vectra"
     BACKEND_WS_URL: str = "ws://localhost:8000/api/v1/ws?client_type=worker"
     VECTRA_DATA_PATH: Optional[str] = None  # Local path on Windows (mapped to /data in Docker)
-    TEMP_UPLOAD_DIR: str = "/data/temp_uploads"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 3600
@@ -94,6 +93,16 @@ class Settings(BaseSettings):
     # Initial Bootstrap
     FIRST_SUPERUSER: str = "admin@vectra.ai"
     FIRST_SUPERUSER_PASSWORD: Optional[str] = None
+
+    @property
+    def TEMP_UPLOAD_DIR(self) -> str:
+        """
+        Dynamically determine upload directory.
+        Prioritizes VECTRA_DATA_PATH (shared volume) if available.
+        Falls back to local directory for non-containerized environments.
+        """
+        base = self.VECTRA_DATA_PATH or "."
+        return os.path.join(base, "temp_uploads")
 
     model_config = SettingsConfigDict(
         # Use absolute path to find .env regardless of where the app is run from

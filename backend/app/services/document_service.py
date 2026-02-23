@@ -265,10 +265,15 @@ class DocumentService:
         try:
             upload_dir = self.settings_service.settings.TEMP_UPLOAD_DIR
             # 🔴 P0: Non-blocking directory creation
-            await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
+            try:
+                await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
+            except Exception as e:
+                logger.error(f"❌ PERMISSION DENIED | Could not create {upload_dir}: {e}")
+                raise TechnicalError(f"Storage error: Cannot create upload directory at {upload_dir}", error_code="UPLOAD_DIR_ERROR")
 
             # os.path.join is purely string manipulation, safe in async.
             file_path = os.path.join(upload_dir, file.filename or "uploaded_file")
+            logger.info(f"📂 Attempting upload to: {file_path}")
 
             async with aiofiles.open(file_path, "wb") as out_file:
                 while content := await file.read(1024 * 1024):  # 1MB chunks
