@@ -1,7 +1,8 @@
 {
   "name": "Vectra Expert Dev Env",
   "dockerComposeFile": [
-    "../docker-compose.yml"
+    "../docker-compose.yml",
+    "docker-compose.codespaces.yml"
   ],
   "runServices": [
     "vectra-api",
@@ -20,8 +21,7 @@
     "REDIS_HOST": "vectra-redis",
     "REDIS_PASSWORD": "vectra_redis_2024",
     "DATABASE_URL": "postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra",
-    "OLLAMA_BASE_URL": "http://vectra-ollama:11434",
-    "OLLAMA_HOST_PORT": "11435"
+    "OLLAMA_BASE_URL": "http://vectra-ollama:11434"
   },
   "customizations": {
     "vscode": {
