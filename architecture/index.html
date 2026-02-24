@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -492,10 +492,71 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-background-worker" class="md-nav__link">
+  <a href="#4-background-worker-apscheduler" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Background Worker
+        4. Background Worker (APScheduler)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tech-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tech Stack
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tech Stack">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-orchestration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Orchestration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Infrastructure
       
     </span>
   </a>
@@ -1216,10 +1277,71 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-background-worker" class="md-nav__link">
+  <a href="#4-background-worker-apscheduler" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Background Worker
+        4. Background Worker (APScheduler)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tech-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tech Stack
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tech Stack">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#frontend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Frontend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ai-orchestration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AI Orchestration
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#infrastructure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Infrastructure
       
     </span>
   </a>
@@ -1279,7 +1401,7 @@
 <p>Vectra relies on a powerful dual-engine architecture:</p>
 <ol>
 <li><strong>AI Analyst (Vanna.ai)</strong>: An intelligent agent that generates SQL on-the-fly to answer ad-hoc questions and explore structured databases in real-time.</li>
-<li><strong>Vector Search (LlamaIndex)</strong>: Retrieves precise answers from internal wikis and documents (PDF, Word, Excel, PowerPoint) via <strong>Qdrant</strong>.</li>
+<li><strong>Vector Search (LlamaIndex &amp; Qdrant)</strong>: Neural retrieval from internal wikis and documents (PDF, Word, Excel, PowerPoint) acting as a collective memory.</li>
 </ol>
 <pre class="mermaid"><code>graph TD
     User([User]) &lt;--&gt; Frontend[Frontend Vue.js/Quasar]
@@ -1308,8 +1430,39 @@
 <p>Specialized in translating natural language into precise SQL queries. It allows for real-time exploration of structured data without pre-defined reports.</p>
 <h3 id="3-vector-search-llamaindex-qdrant">3. Vector Search (LlamaIndex &amp; Qdrant)</h3>
 <p>The backbone for unstructured data retrieval. It indexes and searches through your company's documents, acting as a "collective memory".</p>
-<h3 id="4-background-worker">4. Background Worker</h3>
-<p>Handles multimodal data ingestion and heavy vectorization workloads, ensuring the knowledge base is always up-to-date.</p>
+<h3 id="4-background-worker-apscheduler">4. Background Worker (APScheduler)</h3>
+<p>Handles multimodal data ingestion, scheduled sync jobs, and heavy vectorization workloads, ensuring the knowledge base is always up-to-date.</p>
+<h2 id="tech-stack">Tech Stack</h2>
+<h3 id="frontend">Frontend</h3>
+<ul>
+<li><strong>Vue 3.5 + Quasar 2.16</strong>: Premium UI framework and components.</li>
+<li><strong>TypeScript 5.9</strong>: Type-safe development.</li>
+<li><strong>Three.js 0.182</strong>: 3D graphics for advanced visualization.</li>
+<li><strong>ApexCharts 3.54</strong>: Interactive data visualization.</li>
+<li><strong>Pinia</strong>: Modern state management.</li>
+</ul>
+<h3 id="backend">Backend</h3>
+<ul>
+<li><strong>FastAPI 0.122</strong>: High-performance asynchronous API framework.</li>
+<li><strong>SQLModel 0.0.27</strong>: Modern ORM (SQLAlchemy + Pydantic).</li>
+<li><strong>Alembic</strong>: Database migration management.</li>
+<li><strong>JWT &amp; Bcrypt</strong>: Industrial-strength security.</li>
+</ul>
+<h3 id="ai-orchestration">AI Orchestration</h3>
+<ul>
+<li><strong>LlamaIndex 0.14</strong>: Premier RAG and LLM orchestration framework.</li>
+<li><strong>Vanna.ai 0.7</strong>: Specialized SQL generation agent.</li>
+<li><strong>Ollama</strong>: Local model inference engine.</li>
+<li><strong>Faster-Whisper</strong>: Optimized neural audio transcription.</li>
+<li><strong>Qdrant 1.16</strong>: High-scale neural search engine.</li>
+</ul>
+<h3 id="infrastructure">Infrastructure</h3>
+<ul>
+<li><strong>PostgreSQL 15</strong>: Metadata and persistent storage.</li>
+<li><strong>Redis 7.1</strong>: Caching and task message broker.</li>
+<li><strong>Docker &amp; Compose</strong>: Full containerization.</li>
+<li><strong>NVIDIA CUDA</strong>: Hardware acceleration for AI workloads.</li>
+</ul>
 <h2 id="security-privacy">Security &amp; Privacy</h2>
 <ul>
 <li><strong>Self-Hosted</strong>: Full control over your data; sensitive information never leaves your infrastructure.</li>
