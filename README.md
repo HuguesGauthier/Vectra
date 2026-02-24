@@ -4,113 +4,107 @@
   
   <br/>
   
-  <a href="https://github.com/HuguesGauthier/Vectra/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-AGPL%20v3-red.svg" alt="License">
-  </a>
-  <img src="https://img.shields.io/badge/Python-3.12+-yellow.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Vue-3.0-green.svg" alt="VueJS">
-  <img src="https://img.shields.io/badge/Docker-Ready-blue" alt="Docker">
+  [![License](https://img.shields.io/badge/License-AGPL%20v3-red.svg)](https://github.com/HuguesGauthier/Vectra/blob/main/LICENSE)
+  ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python&logoColor=white)
+  ![FastAPI](https://img.shields.io/badge/FastAPI-0.122+-009688?style=flat&logo=fastapi&logoColor=white)
+  ![VueJS](https://img.shields.io/badge/Vue.js-3.5-4FC08D?style=flat&logo=vuedotjs&logoColor=white)
+  ![Quasar](https://img.shields.io/badge/Quasar-2.16-1976D2?style=flat&logo=quasar&logoColor=white)
+  ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat&logo=typescript&logoColor=white)
+  ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat&logo=postgresql&logoColor=white)
+  ![Redis](https://img.shields.io/badge/Redis-7.1-DC382D?style=flat&logo=redis&logoColor=white)
+  ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
+  ![NVIDIA](https://img.shields.io/badge/NVIDIA-CUDA%20Ready-76B900?style=flat&logo=nvidia&logoColor=white)
+  ![LlamaIndex](https://img.shields.io/badge/Orchestrator-LlamaIndex%200.14-black?style=flat)
+  ![Qdrant](https://img.shields.io/badge/Vector%20DB-Qdrant%201.16-red?style=flat)
+
 </div>
 
 ## What is Vectra?
 
-Vectra is an **Agentic RAG Assistant** designed to democratize access to corporate data. It unifies structured (SQL) and unstructured (Documents) data into a single, intuitive chat interface.
+Vectra is a state-of-the-art **Agentic RAG Assistant** designed to unify corporate knowledge. It bridges the gap between structured databases and unstructured documentation through a high-end, intuitive interface.
 
 Vectra relies on a powerful **Hybrid Architecture**:
 
 1.  **AI Analyst (Vanna.ai):** An intelligent agent that generates SQL on-the-fly to answer ad-hoc questions and explore databases in real-time.
-2.  **Vector Search (RAG):** Retrieves precise answers from internal wikis and documents, supporting both **PDFs and the entire Microsoft Office suite** (Word, Excel, PowerPoint) via Qdrant.
-3.  **Knowledge Decentralization:** Vectra acts as the company’s collective memory. It is specifically designed to offload **"human knowledge hubs"** (the "Joe Expert" syndrome) by making specialized expertise accessible to everyone, 24/7.
+2.  **Vector Search (RAG):** Neural retrieval from internal wikis and documents, supporting **PDFs and the entire Microsoft Office suite** (Word, Excel, PowerPoint) via Qdrant.
+3.  **Knowledge Centralization:** Specifically built to solve the "Knowledge Silo" problem by making specialized expertise accessible to everyone, 24/7.
 
 ---
 
 ### Why Vectra?
 
-- **Free up your experts:** Drastically reduces the constant interruptions faced by key employees who historically hold all the technical or procedural knowledge.
-- **Document Omniscience:** No longer limited to just PDFs; it indexes your actual working files (Office suite) and internal wikis to provide context-aware answers.
-- **Operational Agility:** Converts complex business questions into instant SQL queries without needing to wait for a ticket from the IT or BI departments.
+- **Free up your experts:** Reduces interruptions by making technical and procedural knowledge self-service.
+- **Document Omniscience:** Indexes PDFs, Word, Excel, PowerPoint, and internal wikis for context-aware answers.
+- **Operational Agility:** Instant SQL generation for complex business questions without IT tickets.
+- **Privacy First:** Fully self-hosted architecture; your data never leaves your infrastructure.
 
 ## Key Features
 
-- **Smart Routing:** Automatically detects user intent to determine whether to query structured data (SQL) or internal documentation (Vector).
-- **Vectra Chat UI:** Features streaming responses, interactive chart rendering, and precise source citations for every answer.
-- **Model Agnostic:** Fully compatible with a wide range of LLMs, including **Mistral**, **Gemini**, **Claude** and **OpenAI**, allowing you to choose the best engine for your privacy and performance needs.
-- **Self-Hosted & Secure:** A Docker-first architecture ensuring full control over your data. Your sensitive corporate information never leaves your infrastructure.
-- **Multimodal Data Ingestion:** Seamlessly processes PDFs, the complete Microsoft Office suite (Word, Excel, PowerPoint).
-- **Scalable Vector Search:** Powered by Qdrant for high-performance retrieval, even with large volumes of corporate documentation.
+- **Smart Intent Routing:** Automatically detects whether to query SQL databases or document vector stores.
+- **Interactive Analytics:** Real-time chart rendering (ApexCharts) for SQL query results.
+- **Live Voice Input:** Integrated **Web Speech API** for real-time hands-free chat interaction.
+- **Audio Transcription:** High-performance neural processing for audio files and recordings via **Whisper**.
+- **Admin Dashboard:** Complete user management, connector monitoring, and system health tracking.
+- **Enterprise Connectors:** Native support for SQL Server, MySQL, PostgreSQL, and local/network filesystems.
+- **Professional Chat UI:** Streaming responses, precise source citations, and glassmorphism design.
+- **Hardware Acceleration:** Native **NVIDIA GPU (CUDA)** support for local LLMs and STT.
+- **Internationalization:** Full support for multiple languages via Vue I18n.
+- **3D Visualization:** Advanced UI components powered by Three.js.
 
 ## Tech Stack
 
-Vectra is built on a high-performance, **Docker-first** architecture with native **NVIDIA GPU support**, ensuring seamless deployment and enterprise-grade scaling.
+### Frontend
 
-### Frontend (Vue.js Ecosystem)
+- **Vue 3 + Quasar:** Premium Material Design UI component library.
+- **Pinia:** Modern state management.
+- **Three.js:** 3D graphics for advanced visualization.
+- **ApexCharts:** Interactive data visualization.
+- **Axios:** Robust HTTP client with interceptors.
 
-- **Framework:** Vue 3 + [Quasar Framework](https://quasar.dev) (Material Design).
-- **State Management:** Pinia.
-- **Visualization & Graphics:** ApexCharts for data rendering and **Three.js** for advanced 3D components.
-- **Internationalization:** Vue I18n.
-- **HTTP Client:** Axios.
+### Backend
 
-### Backend (Python Ecosystem)
+- **FastAPI:** High-performance, asynchronous Python API framework.
+- **SQLModel:** Modern ORM bridging SQLAlchemy and Pydantic.
+- **Alembic:** Structured database migrations.
+- **APScheduler:** Background task orchestration and sync jobs.
+- **JWT & Bcrypt:** Industrial-strength security and authentication.
 
-- **API Framework:** **FastAPI** (Asynchronous, high-performance).
-- **Web Server:** Uvicorn.
-- **ORM:** [SQLModel](https://sqlmodel.tiangolo.com/) (Combining the power of SQLAlchemy & Pydantic).
-- **Migrations:** Alembic.
-- **Security:** JWT (python-jose) & Bcrypt (passlib) for enterprise-grade authentication.
-- **Task Scheduling:** APScheduler for background maintenance and sync tasks.
+### AI Orchestration
 
-### AI & RAG Orchestration
+- **LlamaIndex:** The premier framework for RAG and LLM data connection.
+- **Vanna.ai:** Specialized SQL generation agent.
+- **Ollama:** Local inference engine for models like Mistral and Llama 3.
+- **Faster-Whisper:** Neural engine for high-accuracy audio transcription and content analysis.
+- **Web Speech API:** Native browser integration for real-time voice-to-text input.
+- **Multi-Provider Support:** Native integration for **Gemini, Claude, OpenAI, Mistral, and Cohere**.
+- **Qdrant:** High-scale vector database for neural search.
 
-- **Orchestrator:** **LlamaIndex** (The backbone for LLM data connection and retrieval).
-- **SQL Agent:** **Vanna.ai** (Specialized in translating natural language to precise SQL).
-- **Local Inference:** **Ollama** for self-hosted model execution.
-- **Audio Processing:** **Faster-Whisper** for high-performance localized speech-to-text.
-- **LLM Providers:** Native support for **Mistral**, **Gemini**, **Claude**, **OpenAI**, and **Cohere**.
-- **Vector Store:** **Qdrant** (High-performance vector search engine).
+### Infrastructure & Storage
 
-### Data & Storage
-
-- **Primary Database:** PostgreSQL 15.
-- **External SQL Support:** Native connectivity for SQL Server and MySQL (via ODBC/pyodbc and pytds).
-- **Caching & Broker:** **Redis 7** (Used for session storage and background task queuing).
-- **Document Processing:**
-  - **PDF:** PyPDF.
-  - **Word:** python-docx.
-  - **Excel/CSV:** Openpyxl & Pandas.
-
-### Infrastructure & Operations
-
-- **Orchestration:** Docker & Docker Compose with full environment isolation.
-- **Hardware Acceleration:** Native **NVIDIA GPU** support for local LLM (Ollama) and Speech-to-Text (Whisper).
-- **Observability:** Integrated management tools (pgAdmin, Redis Commander, Qdrant UI).
+- **PostgreSQL 15:** Primary metadata and assistant storage.
+- **Redis 7:** High-speed caching and task message broker.
+- **Docker & Compose:** Full containerization with environment isolation.
+- **CUDA Support:** Direct GPU passthrough for AI workloads.
 
 ## The Vectra Stack (Docker Services)
 
-Vectra runs as a coordinated mesh of specialized services:
-
-| Service            | Container Name     | Role                                           |
-| :----------------- | :----------------- | :--------------------------------------------- |
-| **Backend API**    | `vectra-api`       | FastAPI server, business logic & orchestration |
-| **Frontend**       | `vectra-frontend`  | Vue 3 / Quasar dashboard interface             |
-| **Worker**         | `vectra-worker`    | Asynchronous task processing (Ingestion, Sync) |
-| **Database**       | `vectra-postgres`  | Persistent metadata & assistant storage        |
-| **Vector Store**   | `vectra-qdrant`    | Neural search engine & vector embeddings       |
-| **Cache/Queue**    | `vectra-redis`     | In-memory broker for workers and caching       |
-| **LLM Engine**     | `vectra-ollama`    | Local model inference (Mistral, BGE-M3)        |
-| **STT Engine**     | `vectra-whisper`   | Faster-Whisper for voice-to-text               |
-| **Monitor: DB**    | `vectra-pgadmin`   | Visual management for PostgreSQL               |
-| **Monitor: Redis** | `vectra-redis-web` | Redis Commander interface                      |
+| Service                  | Container                      | Role                                     |
+| :----------------------- | :----------------------------- | :--------------------------------------- |
+| **Backend API**          | `vectra-api`                   | FastAPI server & business logic          |
+| **Frontend**             | `vectra-frontend`              | Vue 3 Dashboard interface                |
+| **Worker**               | `vectra-worker`                | Async processing (Ingestion, Sync)       |
+| **Database**             | `vectra-postgres`              | Metadata & Persistent storage            |
+| **Vector Store**         | `vectra-qdrant`                | Neural search & Embeddings               |
+| **Cache/Queue**          | `vectra-redis`                 | Redis broker & Performance caching       |
+| **LLM Engine**           | `vectra-ollama`                | Local model inference (Mistral, etc.)    |
+| **Transcription Engine** | `vectra-whisper`               | Faster-Whisper for audio file processing |
+| **Admin Tools**          | `vectra-pgadmin` / `commander` | Visual management interfaces             |
 
 ---
 
 ## Quick Start (Docker)
 
-Vectra is designed to work out-of-the-box on **Windows (Docker Desktop)**, **Linux**, and **Mac**.
-
 ### 1. Simple Launch
-
-If you have Docker installed, just run:
 
 ```bash
 git clone https://github.com/HuguesGauthier/Vectra.git
@@ -118,73 +112,39 @@ cd Vectra
 docker-compose up -d
 ```
 
-Access the UI at: http://localhost:9000
+Access the UI at: **http://localhost:9000**
 
-### Data Persistence (Docker)
+### Data Persistence
 
-To allows Vectra to access your local files and folders in Docker:
+Map your local files by setting `VECTRA_DATA_PATH` in your `.env`:
 
-1. Define the base path of your documents in your `.env`:
+```env
+VECTRA_DATA_PATH=D:/MyDocuments
+```
 
-   ```env
-   VECTRA_DATA_PATH=D:/MyDocuments
-   ```
+## Development Environments
 
-2. Any connector created with a path starting with `D:/MyDocuments` will be automatically mapped to the internal Docker `/data` volume.
+### Hybrid Development
 
-## Environments Setup
+Run infrastructure in Docker and code locally for fast debugging:
 
-Vectra supports multiple environments using Docker Compose profiles.
+1. **Infra:** `docker compose up -d`
+2. **Backend:** `cd backend && pip install -r requirements.txt && python main.py`
+3. **Frontend:** `cd frontend && npm install && npm run dev`
 
-### Hybrid Development (Recommended)
-
-This mode runs the **Infrastructure** (Postgres, Qdrant, Redis, Ollama) in Docker and your **Application code** locally for better performance and debugging.
-
-1.  **Launch Infrastructure:**
-    ```bash
-    # Launches only the databases and infra services
-    docker compose up -d
-    ```
-2.  **Launch Backend:**
-    ```bash
-    cd backend
-    pip install -r requirements.txt
-    python main.py
-    ```
-3.  **Launch Frontend:**
-    ```bash
-    cd frontend
-    npm install
-    npm run dev
-    ```
-
-### Production (Full Docker)
-
-This mode builds and runs everything inside optimized Docker containers. It doesn't rely on local code once built.
+### Production
 
 ```bash
-# Use --profile prod to include the application services
 docker compose --profile prod up -d --build
 ```
 
-- **Frontend:** http://localhost (Port 80)
-- **Backend API:** http://localhost:8000
-
-## License
-
-Vectra is open-source software licensed under the **GNU AGPL v3**.
-
-> [!IMPORTANT]
-> The **AGPL v3** is a "strong copyleft" license. If you modify Vectra or use it to provide a service over a network, you must make your modified source code available to the users of that service.
-
 ---
 
-## Commercial Use
+## License & Commercial
 
-If you wish to:
+Vectra is licensed under the **GNU AGPL v3**.
 
-- **Integrate Vectra** into a proprietary software product.
-- **Build a commercial SaaS** without releasing your own source code.
-- **Benefit from Enterprise Support** and priority features.
+> [!IMPORTANT]
+> Modifications or network usage require sharing the source code under AGPL.
 
-You must purchase a **Commercial License**. Please [contact me](mailto:hugues.gauthier@gmail.com) for enterprise pricing and licensing options.
+For **Proprietary Integration**, **Commercial SaaS**, or **Enterprise Support**, please [contact me](mailto:hugues.gauthier@gmail.com) for a **Commercial License**.
