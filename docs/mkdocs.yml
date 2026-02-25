@@ -1,0 +1,69 @@
+site_name: Vectra Documentation
+site_url: https://huguesgauthier.github.io/Vectra/
+repo_url: https://github.com/HuguesGauthier/Vectra
+repo_name: HuguesGauthier/Vectra
+
+extra_javascript:
+  - https://unpkg.com/mermaid/dist/mermaid.min.js
+
+theme:
+  name: material
+  palette:
+    # Dark mode by default (Pro !)
+    scheme: slate
+    primary: indigo
+    accent: blue
+  features:
+    - content.code.copy
+    - navigation.expand
+    - navigation.sections
+    - navigation.tracking
+    - toc.follow
+  toc:
+    depth: 2
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [../backend]
+          options:
+            show_root_toc_entry: false
+            show_source: true
+            docstring_section_style: list
+
+markdown_extensions:
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Installation: install.md
+      - Configuration: config.md
+  - Architecture: architecture.md
+  - API Reference:
+      - Endpoints V1:
+          - Analytics: api/v1/analytics.md
+          - Assistants: api/v1/assistants.md
+          - Audio: api/v1/audio.md
+          - Auth: api/v1/auth.md
+          - Chat: api/v1/chat.md
+          - Connectors: api/v1/connectors.md
+          - Dashboard: api/v1/dashboard.md
+          - Files: api/v1/files.md
+          - Notifications: api/v1/notifications.md
+          - Pricing: api/v1/pricing.md
+          - Prompts: api/v1/prompts.md
+          - Providers: api/v1/providers.md
+          - Settings: api/v1/settings.md
+          - System: api/v1/system.md
+          - Trending: api/v1/trending.md
+          - Users: api/v1/users.md
+          - WebSockets: api/v1/ws.md

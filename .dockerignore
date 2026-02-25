@@ -1,0 +1,16 @@
+# .dockerignore
+
+# Fichiers Git
+.git
+.gitignore
+
+# Outils de dev locaux
+agent/
+prompts/
+tests/
+venv/
+__pycache__/
+.env
+
+# Doc (optionnel, si tu ne veux pas la doc sur le serveur)
+docs/

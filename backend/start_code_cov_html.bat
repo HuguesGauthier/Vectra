@@ -1,0 +1,1 @@
+.\venv\Scripts\python.exe -m pytest --cov=app --cov-report=html tests/

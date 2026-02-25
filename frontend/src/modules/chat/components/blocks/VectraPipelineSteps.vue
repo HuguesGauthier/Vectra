@@ -1,0 +1,312 @@
+<template>
+  <q-expansion-item
+    class="pipeline-steps-block q-my-sm"
+    header-class="header-bg"
+    expand-icon="arrow_drop_down"
+    :expand-icon-class="`custom-chevron-${textColor.replace('#', '')}`"
+    :style="{ color: textColor }"
+  >
+    <template v-slot:header>
+      <div class="row items-center full-width no-wrap">
+        <q-icon name="route" size="xs" class="q-mr-sm" :style="{ color: textColor }" />
+        <div class="text-subtitle2 text-weight-bold flex-1 ellipsis" :style="{ color: textColor }">
+          {{ $t('pipelineSteps.title') || 'Pipeline Steps' }}
+          <span class="text-caption text-weight-regular q-ml-xs opacity-60" :style="{ color: textColor }">
+            ({{ completedCount }} {{ $t('pipelineSteps.completed') || 'Completed' }})
+          </span>
+        </div>
+
+        <!-- Summary Metrics aligned to columns -->
+        <div class="row no-wrap items-center q-ml-md">
+          <div style="width: 80px" class="row justify-end">
+            <div class="badge-pill bg-opacity" :style="{ color: textColor }">{{ totalDuration.toFixed(2) }}s</div>
+          </div>
+          <div style="width: 110px" class="row justify-end q-ml-sm">
+            <div v-if="totalInputTokens > 0 || totalOutputTokens > 0" class="badge-pill bg-opacity" :style="{ color: textColor }">
+              ↑{{ totalInputTokens }} ↓{{ totalOutputTokens }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <q-card class="bg-transparent shadow-none">
+      <q-card-section class="q-pt-none q-pb-md px-lg">
+        <div
+          class="steps-tree column q-ml-sm q-mt-sm"
+          :style="{ borderLeft: `1px solid ${textColor}26`, paddingLeft: '12px' }"
+        >
+          <component
+            :is="StepNode"
+            v-for="(step, index) in filteredRootSteps"
+            :key="step.step_id || index"
+            :step="step"
+            :is-last="index === filteredRootSteps.length - 1"
+          />
+        </div>
+      </q-card-section>
+    </q-card>
+  </q-expansion-item>
+</template>
+
+<script setup lang="ts">
+import { computed, h, defineComponent } from 'vue';
+import type { VNode } from 'vue';
+import { QTooltip } from 'quasar';
+import messages from 'src/i18n';
+import type { ChatStep } from '../../composables/useChatStream';
+
+const props = defineProps<{
+  steps: ChatStep[];
+  textColor: string;
+}>();
+
+// --- Metrics Computation ---
+
+const completedStep = computed(() => {
+  return props.steps.find((s) => s.step_type === 'completed' && s.status === 'completed');
+});
+
+const totalDuration = computed(() => {
+  if (completedStep.value) return completedStep.value.duration || 0;
+  return props.steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.duration || 0), 0);
+});
+
+const totalInputTokens = computed(() => {
+  if (completedStep.value) return completedStep.value.tokens?.input || 0;
+  return props.steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.input || 0), 0);
+});
+
+const totalOutputTokens = computed(() => {
+  if (completedStep.value) return completedStep.value.tokens?.output || 0;
+  return props.steps.reduce((sum, s) => sum + (s.parent_id ? 0 : s.tokens?.output || 0), 0);
+});
+
+const completedCount = computed(() => {
+  return props.steps.filter(
+    (s) => s.status === 'completed' && s.step_type !== 'completed' && !s.parent_id,
+  ).length;
+});
+
+// --- Hierarchy Reconstruction ---
+
+const rootTree = computed(() => {
+  const stepMap = new Map<string, ChatStep>();
+  const roots: ChatStep[] = [];
+
+  const flattenToMap = (itemList: ChatStep[]) => {
+    itemList.forEach((s) => {
+      const copy = { ...s, sub_steps: [] as ChatStep[] };
+      if (!copy.step_id) copy.step_id = `step_${Math.random()}`;
+      stepMap.set(copy.step_id, copy);
+      if (s.sub_steps && s.sub_steps.length > 0) {
+        flattenToMap(s.sub_steps);
+      }
+    });
+  };
+  flattenToMap(props.steps);
+
+  stepMap.forEach((step) => {
+    if (step.parent_id && stepMap.has(step.parent_id)) {
+      const parent = stepMap.get(step.parent_id)!;
+      if (!parent.sub_steps) parent.sub_steps = [];
+      if (!parent.sub_steps.some((c) => c.step_id === step.step_id)) {
+        parent.sub_steps.push(step);
+      }
+    } else {
+      roots.push(step);
+    }
+  });
+
+  return roots;
+});
+
+const filteredRootSteps = computed(() => {
+  return rootTree.value.filter((s) => s.step_type !== 'completed');
+});
+
+// --- Recursive StepNode component ---
+const StepNode = defineComponent({
+  name: 'StepNode',
+  props: {
+    step: { type: Object, required: true },
+    level: { type: Number, default: 0 },
+    isLast: { type: Boolean, default: false },
+  },
+  setup(nodeProps) {
+    return (): VNode => {
+      const step = nodeProps.step as ChatStep;
+      const level = nodeProps.level;
+
+      const statusIcon = step.status === 'completed' ? '✓' : step.status === 'failed' ? '✕' : '⟳';
+      const statusColor = props.textColor; // Fallback to theme text color
+      // But we still want to keep the semantic colors if they have enough contrast,
+      // or just use the theme color for everything for a purer look.
+      // The user said "le font color des étapes doit etre celui choisi"
+
+      const durationText =
+        step.duration !== undefined && step.duration > 0.01 ? `${step.duration.toFixed(2)}s` : '';
+      const tokensText =
+        step.tokens && (step.tokens.input > 0 || step.tokens.output > 0)
+          ? `↑${step.tokens.input} ↓${step.tokens.output}`
+          : '';
+
+      const locale = localStorage.getItem('app_language') || 'en-US';
+      const localeMessages = (messages as Record<string, Record<string, unknown>>)[locale];
+      const stepDescriptions = localeMessages?.stepDescriptions as
+        | Record<string, string>
+        | undefined;
+      const tooltip = stepDescriptions?.[step.step_type] || step.step_type;
+
+      const rowNode = h(
+        'div',
+        {
+          class: 'row items-center no-wrap full-width q-mb-xs relative-position',
+          style: {
+            opacity: level > 0 ? 0.8 : 1,
+            minHeight: '28px',
+            fontSize: level > 0 ? '12px' : '13px',
+          },
+        },
+        [
+          h(
+            'div',
+            {
+              class: 'q-mr-sm text-weight-bold',
+              style: { color: statusColor },
+            },
+            level > 0 ? `↳ ${statusIcon}` : statusIcon,
+          ),
+
+          h(
+            'div',
+            {
+              class: 'ellipsis flex-1 cursor-pointer',
+              style: {
+                fontWeight: level > 0 ? 400 : 500,
+                color: props.textColor,
+              },
+            },
+            [
+              h('span', {}, step.label),
+              h(
+                QTooltip,
+                {
+                  class: 'custom-tooltip shadow-4',
+                  offset: [0, 8],
+                  anchor: 'bottom middle',
+                  self: 'top middle',
+                },
+                () => tooltip,
+              ),
+            ],
+          ),
+
+          // Metrics (columns)
+          h(
+            'div',
+            {
+              class: 'row no-wrap items-center text-caption text-mono',
+              style: { color: props.textColor, opacity: 0.8 },
+            },
+            [
+              h('div', { style: { width: '80px' }, class: 'row justify-end' }, [
+                durationText ? h('span', { class: 'metric-badge' }, durationText) : null,
+              ]),
+              h('div', { style: { width: '110px' }, class: 'row justify-end q-ml-sm' }, [
+                tokensText ? h('span', { class: 'metric-badge' }, tokensText) : null,
+              ]),
+            ],
+          ),
+        ],
+      );
+
+      let childrenNode = null;
+      if (step.sub_steps && step.sub_steps.length > 0) {
+        const childrenList = step.sub_steps.map((child: ChatStep, idx: number): VNode => {
+          return h(StepNode, {
+            step: child,
+            level: level + 1,
+            isLast: idx === step.sub_steps!.length - 1,
+          });
+        });
+
+        childrenNode = h(
+          'div',
+          {
+            class: 'column q-ml-md q-mt-xs',
+            style: {
+              borderLeft: `1px solid ${props.textColor}1A`,
+              paddingLeft: '12px',
+            },
+          },
+          childrenList,
+        );
+      }
+
+      return h('div', { class: 'full-width column' }, [rowNode, childrenNode]);
+    };
+  },
+});
+</script>
+
+<style scoped>
+.pipeline-steps-block {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.header-bg {
+  background: transparent;
+  border-bottom: 1px solid v-bind('`${textColor}26`');
+}
+
+.badge-pill {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bg-opacity {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+::v-deep(.metric-badge) {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 8px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+::v-deep(.text-mono) {
+  font-family: 'Courier New', Courier, monospace;
+}
+</style>
+
+<style>
+/* Global styles for teleported tooltips */
+.custom-tooltip {
+  background: linear-gradient(135deg, var(--q-primary) 0%, var(--q-secondary) 100%) !important;
+  border: 1px solid var(--q-third) !important;
+  border-radius: 10px !important;
+  padding: 10px 16px !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: var(--q-text-third) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+  max-width: 320px !important;
+  backdrop-filter: blur(4px);
+}
+</style>

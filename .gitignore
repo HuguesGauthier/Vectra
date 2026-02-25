@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.DS_Store
+.env
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+coverage/
+*.log
+.venv/
+backend/.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.cache/
+.pytest_cache/
+
+# FlashRank models
+backend/flashrank_models/
+
+# OS artifacts
+__MACOSX/
+._*
+backend/user_avatars/
+backend/assistant_avatars/
+
+# utils
+prompts/
+agent/

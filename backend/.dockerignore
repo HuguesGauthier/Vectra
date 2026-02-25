@@ -1,0 +1,15 @@
+venv/
+.venv/
+.cache/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+temp_uploads/
+assistant_avatars/
+user_avatars/
+*.log
+.env
+.git
+.vscode

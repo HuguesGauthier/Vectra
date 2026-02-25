@@ -1,0 +1,41 @@
+[run]
+source = app
+omit =
+    */__init__.py
+    */tests/*
+    app/migrations/*
+    app/core/config.py
+
+[report]
+show_missing = True
+skip_empty = True
+precision = 2
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+    
+    # Ignore error handling blocks (Exception catching)
+    except:
+    except Exception:
+    except Exception as
+    except ImportError:
+    except KeyError:
+    except ValueError:
+    except AttributeError:
+    
+    # Ignore abstract or empty methods
+    def __repr__
+    def __str__
+    raise AssertionError
+    raise NotImplementedError
+    pass
+    \.\.\.
+    
+    # Ignore type checking blocks
+    if TYPE_CHECKING:
+    
+    # Ignore script entry points
+    if __name__ == .__main__.:
+
+[html]
+directory = htmlcov

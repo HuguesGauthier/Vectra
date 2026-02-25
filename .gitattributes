@@ -1,0 +1,13 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+*.sh text eol=lf
+
+
+# Ignore ces dossiers dans le ZIP de téléchargement (Release)
+agent/ export-ignore
+prompts/ export-ignore
+backend/tests/ export-ignore
+.github/ export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+.dockerignore export-ignore

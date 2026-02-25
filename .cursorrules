@@ -1,0 +1,26 @@
+# Global Rules
+
+You must always follow the Python coding standards defined in `backend/doc/python_standards.md`.
+
+## Critical Python Standards
+1. **Type Hints**: Always use strict type hints (Models, List, Dict, Optional). Use Pydantic V2.
+2. **AsyncIO**: Never use blocking calls (sleep, requests) in async functions. Use `await`.
+3. **Architecture**: Follow the Service Pattern (Routes -> Services -> Models). No logic in routes.
+4. **Logging**: NEVER use `print()`. Use `logger` with appropriate levels.
+5. **Error Handling**: Catch specific exceptions. Log stack traces only for errors.
+
+## Critical Frontend Standards (Vue/Quasar)
+1. **Component Structure**: `src/components/`, `src/layouts/`, `src/pages/`. Use `<script setup lang="ts">`.
+2. **State Management**: Use `pinia` for global state, `ref`/`reactive` for local.
+3. **Internationalization**: ALWAYS use `$t('key')` or `t('key')`. No hardcoded text.
+4. **Notifications**: Use `useNotification` composable, NOT `$q.notify` directly.
+5. **Styling**: Use Quasar utility classes (e.g. `text-primary`, `q-pa-md`). Scoped styles for custom CSS.
+
+## Documentation
+*   **Standards**: Follow `backend/doc/python_standards.md` provided in the context.
+*   **Frontend Standards**: Follow `frontend/doc/frontend_coding_standards.md`.
+*   **Project Summary**: Update `doc/project_summary.md` when high-level architecture or features change.
+
+## Reference
+See [backend/doc/python_standards.md](backend/doc/python_standards.md) for detailed Python standards.
+See [frontend/doc/frontend_coding_standards.md](frontend/doc/frontend_coding_standards.md) for detailed Frontend standards.
