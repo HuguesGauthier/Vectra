@@ -208,7 +208,7 @@ services:
               capabilities: [gpu]
     environment:
       - OLLAMA_KEEP_ALIVE=-1
-      - OLLAMA_MODELS=mistral,bge-m3
+      - MODELS_TO_PULL=mistral,bge-m3
     entrypoint: ["/bin/bash", "/start_ollama.sh"]
     healthcheck:
       test: ["CMD-SHELL", "ollama list && [ -f /tmp/ready ]"]
