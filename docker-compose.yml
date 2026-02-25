@@ -204,10 +204,10 @@ services:
       - OLLAMA_MODELS=mistral,bge-m3
     entrypoint: ["/bin/bash", "/start_ollama.sh"]
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: ["CMD-SHELL", "ollama list && [ -f /tmp/ready ]"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 20
       start_period: 30s
     networks:
       - vectra

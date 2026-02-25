@@ -30,6 +30,9 @@ else
     echo "No models specified in OLLAMA_MODELS. Skipping pulls."
 fi
 
+# Create a flag file to signal healthcheck that we are ready
+touch /tmp/ready
+
 echo "All specified models are ready!"
 
 # Wait for Ollama process to finish.
