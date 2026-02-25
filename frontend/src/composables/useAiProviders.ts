@@ -8,6 +8,7 @@ import localLogo from 'src/assets/local_logo.svg';
 import cohereLogo from 'src/assets/cohere.png';
 import mistralLogo from 'src/assets/m-rainbow.svg';
 import anthropicLogo from 'src/assets/claude.svg';
+import bgeLogo from 'src/assets/bge.png';
 import type { ProviderOption, ModelInfo } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
@@ -63,7 +64,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         let logo = localLogo;
         if (p.id === 'gemini') logo = geminiLogo;
         if (p.id === 'openai') logo = openaiLogo;
-        if (p.id === 'ollama' || p.id === 'local') logo = mistralLogo; // Use Mistral logo for Ollama and local
+        if (p.id === 'ollama' || p.id === 'local') logo = bgeLogo; // Use BGE logo for local embedding
         if (p.id === 'mistral') logo = mistralLogo;
 
         let modelInfo = '';
@@ -291,8 +292,8 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       openai: openaiLogo,
       mistral: mistralLogo,
       anthropic: anthropicLogo,
-      ollama: mistralLogo,
-      local: mistralLogo,
+      ollama: mistralLogo, // Default to Mistral for chat
+      local: bgeLogo, // Default to BGE for local/fastembed
       cohere: cohereLogo,
     };
     return logos[pid];
