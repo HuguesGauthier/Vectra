@@ -183,6 +183,9 @@ class IngestionService:
             if not connector:
                 raise EntityNotFound(f"Connector {doc.connector_id} not found")
 
+            connector_id = connector.id
+            document_id = doc.id
+
             # Get orchestrator
             orchestrator = await self._get_or_create_orchestrator()
 
@@ -208,7 +211,7 @@ class IngestionService:
             # Validate file exists
             full_path = get_full_path_from_connector(connector, doc.file_path)
             if not await self._file_exists(full_path):
-                await self.state_service.mark_document_failed(doc.id, "File not found on disk")
+                await self.state_service.mark_document_failed(document_id, "File not found on disk")
                 return
 
             pipeline, vector_store, batch_size, num_workers, text_splitter, docstore = (
@@ -245,7 +248,7 @@ class IngestionService:
                         file_paths=[(full_path, doc.file_path)],
                         pipeline=pipeline,
                         vector_store=vector_store,
-                        connector_id=connector.id,
+                        connector_id=connector_id,
                         connector_acl=connector_acl,
                         batch_size=batch_size,
                         num_workers=num_workers,
@@ -280,8 +283,8 @@ class IngestionService:
             logger.error(f"FAILURE | Document {document_id} | {e}", exc_info=True)
             await self.db.rollback()
             await self.state_service.mark_document_failed(document_id, str(e))
-            if "connector" in locals():
-                await self.state_service.update_connector_status(connector.id, ConnectorStatus.IDLE)
+            if "connector_id" in locals():
+                await self.state_service.update_connector_status(connector_id, ConnectorStatus.IDLE)
 
     async def analyze_and_map_csv(self, doc_id: UUID) -> None:
         """

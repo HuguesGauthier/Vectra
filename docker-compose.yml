@@ -36,6 +36,8 @@ services:
         condition: service_healthy
       vectra-whisper:
         condition: service_started
+      vectra-ollama:
+        condition: service_healthy
     networks:
       - vectra
     volumes:
@@ -86,9 +88,14 @@ services:
       - FIRST_SUPERUSER=${FIRST_SUPERUSER:-admin@vectra.ai}
       - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD:-vectra123!}
     depends_on:
-      - vectra-postgres
-      - vectra-qdrant
-      - vectra-redis
+      vectra-postgres:
+        condition: service_healthy
+      vectra-qdrant:
+        condition: service_started
+      vectra-redis:
+        condition: service_healthy
+      vectra-ollama:
+        condition: service_healthy
     networks:
       - vectra
     volumes:
