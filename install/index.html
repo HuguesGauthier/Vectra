@@ -1288,12 +1288,16 @@
 <ol>
 <li><strong>Configure environment</strong>:</li>
 </ol>
+<p><strong>Linux / macOS / PowerShell:</strong></p>
 <div class="highlight"><pre><span></span><code>cp<span class="w"> </span>.env.example<span class="w"> </span>.env
-<span class="c1"># Edit the .env file with your API keys (Gemini, etc.)</span>
 </code></pre></div>
+<p><strong>Windows (Command Prompt):</strong></p>
+<div class="highlight"><pre><span></span><code>copy .env.example .env
+</code></pre></div>
+<p><em>(Then edit the <code>.env</code> file to add your API keys)</em></p>
 <ol>
 <li><strong>Launch services</strong>:
-   <div class="highlight"><pre><span></span><code>docker-compose<span class="w"> </span>up<span class="w"> </span>-d
+   <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>dev<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div></li>
 </ol>
 <p>Access the UI at: <a href="http://localhost:9000">http://localhost:9000</a></p>
@@ -1312,8 +1316,8 @@
 <p>This mode runs the <strong>Infrastructure</strong> (Postgres, Qdrant, Redis, Ollama) in Docker and your <strong>Application code</strong> locally for better performance and debugging.</p>
 <ol>
 <li><strong>Launch Infrastructure</strong>:
-   <div class="highlight"><pre><span></span><code><span class="c1"># Launches only the databases and infra services</span>
-docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+   <div class="highlight"><pre><span></span><code><span class="c1"># Launches databases, infra and dev tools (pgAdmin, Redis Commander)</span>
+docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>dev<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div></li>
 <li><strong>Launch Backend</strong>:
    <div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>backend
