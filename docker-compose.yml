@@ -214,7 +214,7 @@ services:
       test: ["CMD-SHELL", "ollama list && [ -f /tmp/ready ]"]
       interval: 10s
       timeout: 5s
-      retries: 20
+      retries: 120
       start_period: 30s
     networks:
       - vectra
