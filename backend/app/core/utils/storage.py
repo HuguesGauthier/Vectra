@@ -22,8 +22,14 @@ def validate_data_mount() -> None:
     if not settings.VECTRA_DATA_PATH:
         return
 
-    # In development mode outside of Docker (e.g. Windows), /data doesn't exist.
-    # We skip validation and assume it's OK because paths are accessed directly.
+    # If running natively on Windows (not in Docker), /data mount doesn't exist.
+    # We skip validation as paths are accessed directly.
+    import sys
+
+    if sys.platform == "win32" and not os.path.exists("/.dockerenv"):
+        return
+
+    # For other non-containerized environments in development, also skip.
     if not os.path.exists("/.dockerenv") and settings.ENV == "development":
         return
 

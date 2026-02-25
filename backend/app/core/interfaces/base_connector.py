@@ -79,18 +79,26 @@ def translate_host_path(path: str) -> str:
     if sys.platform == "win32":
         return path
 
-    if not path or not settings.VECTRA_DATA_PATH:
+    if not path:
+        return path
+
+    # Case 1: Running in Docker (Linux)
+    # We need to recognize the HOST path prefix and replace it with /data
+    # VECTRA_DATA_PATH_HOST is the host-side path (e.g. H:/)
+    # VECTRA_DATA_PATH is the container-side path (e.g. /data)
+    host_prefix = settings.VECTRA_DATA_PATH_HOST or settings.VECTRA_DATA_PATH
+
+    if not host_prefix:
         return path
 
     # Normalize both paths to forward slashes for cross-platform comparison
-    # Important: rstrip slashes from data path to ensure correct len() calculation
-    norm_data_path = settings.VECTRA_DATA_PATH.replace("\\", "/").rstrip("/").lower()
+    norm_host_prefix = host_prefix.replace("\\", "/").rstrip("/").lower()
     norm_input_path = path.replace("\\", "/").lower()
 
-    if norm_input_path.startswith(norm_data_path):
-        # Replace the Windows prefix with /data
-        # We preserve the original case of the suffix (after the prefix)
-        rel_to_root = path.replace("\\", "/")[len(norm_data_path) :].lstrip("/")
+    if norm_input_path.startswith(norm_host_prefix):
+        # Replace the host prefix with /data
+        # We preserve the original case of the suffix
+        rel_to_root = path.replace("\\", "/")[len(norm_host_prefix) :].lstrip("/")
         translated = os.path.join("/data", rel_to_root).replace("\\", "/")
 
         import logging
@@ -100,7 +108,9 @@ def translate_host_path(path: str) -> str:
 
     import logging
 
-    logging.getLogger(__name__).debug(f"📂 [NO_TRANSLATION] '{norm_input_path}' does not start with '{norm_data_path}'")
+    logging.getLogger(__name__).debug(
+        f"📂 [NO_TRANSLATION] '{norm_input_path}' does not start with '{norm_host_prefix}'"
+    )
     return path
 
 
