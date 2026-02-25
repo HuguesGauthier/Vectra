@@ -2,13 +2,7 @@ services:
   vectra-api:
     profiles: ["prod"]
     build: ./backend
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     ports:
       - "8000:8000"
     environment:
@@ -62,13 +56,7 @@ services:
     build: ./backend
     # Override the default command to run the scheduler
     command: python worker.py
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
@@ -203,7 +191,7 @@ services:
       resources:
         reservations:
           devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+            - driver: ${VECTRA_GPU_DRIVER:-}
               count: ${VECTRA_GPU_COUNT:-0}
               capabilities: [gpu]
     environment:
@@ -233,7 +221,7 @@ services:
       resources:
         reservations:
           devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+            - driver: ${VECTRA_GPU_DRIVER:-}
               count: ${VECTRA_GPU_COUNT:-0}
               capabilities: [gpu]
     networks:
