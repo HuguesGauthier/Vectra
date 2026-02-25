@@ -25,7 +25,7 @@
     </div>
 
     <!-- Info Section -->
-    <q-card-section class="q-pt-none q-px-lg relative-position info-section flex-grow">
+    <q-card-section class="q-pt-none q-px-lg relative-position info-section col">
       <!-- Overlapping Avatar (Type Icon) -->
       <div class="avatar-wrapper">
         <div class="avatar-ring" :style="{ borderColor: typeColor }">
@@ -39,8 +39,10 @@
           :class="{
             'status-dot--active': isSyncing,
             'status-dot--error': connector.status === ConnectorStatus.ERROR,
-            'status-dot--idle': connector.status === ConnectorStatus.IDLE || connector.status === ConnectorStatus.PAUSED,
-            'status-dot--queued': connector.status === ConnectorStatus.QUEUED
+            'status-dot--idle':
+              connector.status === ConnectorStatus.IDLE ||
+              connector.status === ConnectorStatus.PAUSED,
+            'status-dot--queued': connector.status === ConnectorStatus.QUEUED,
           }"
         >
           <q-tooltip>{{ $t(connector.status) }}</q-tooltip>
@@ -63,7 +65,7 @@
             class="q-ml-sm"
             @click.stop
           >
-             <AppTooltip>{{ connector.is_enabled ? $t('enabled') : $t('disabled') }}</AppTooltip>
+            <AppTooltip>{{ connector.is_enabled ? $t('enabled') : $t('disabled') }}</AppTooltip>
           </q-toggle>
         </div>
 
@@ -101,9 +103,9 @@
             <span class="metric-label">{{ scheduleLabel }}</span>
           </div>
           <div class="metric-item full-width">
-             <q-icon name="history" size="14px" class="q-mr-xs" />
-             <span class="metric-label">{{ $t('lastSync') }}:</span>
-             <span class="metric-value q-ml-xs">{{ lastSyncDate || $t('neverSynced') }}</span>
+            <q-icon name="history" size="14px" class="q-mr-xs" />
+            <span class="metric-label">{{ $t('lastSync') }}:</span>
+            <span class="metric-value q-ml-xs">{{ lastSyncDate || $t('neverSynced') }}</span>
           </div>
         </div>
 
@@ -117,16 +119,22 @@
             track-color="transparent"
             class="q-mb-xs"
           />
-          <div class="row justify-between text-caption text-grey-5" style="font-size: 10px;">
+          <div class="row justify-between text-caption text-grey-5" style="font-size: 10px">
             <span>{{ progressLabel }}</span>
             <span>{{ Math.round(progressValue * 100) }}%</span>
           </div>
         </div>
 
         <!-- Error message if any -->
-        <div v-if="connector.status === ConnectorStatus.ERROR && connector.last_error" class="error-strip q-mt-xs pointer" @click.stop="$emit('show-error')">
-           <q-icon name="error" color="negative" size="xs" class="q-mr-xs" />
-           <span class="text-negative ellipsis" style="font-size: 11px;">{{ connector.last_error }}</span>
+        <div
+          v-if="connector.status === ConnectorStatus.ERROR && connector.last_error"
+          class="error-strip q-mt-xs pointer"
+          @click.stop="$emit('show-error')"
+        >
+          <q-icon name="error" color="negative" size="xs" class="q-mr-xs" />
+          <span class="text-negative ellipsis" style="font-size: 11px">{{
+            connector.last_error
+          }}</span>
         </div>
       </div>
     </q-card-section>
@@ -134,7 +142,15 @@
     <!-- Card Actions Footer -->
     <q-card-actions align="around" class="q-pb-md q-px-md actions-footer">
       <!-- Documents Listing -->
-      <q-btn flat round dense icon="playlist_add" size="sm" class="action-btn" @click.stop="$emit('view-docs')">
+      <q-btn
+        flat
+        round
+        dense
+        icon="playlist_add"
+        size="sm"
+        class="action-btn"
+        @click.stop="$emit('view-docs')"
+      >
         <AppTooltip>{{ $t('viewDocuments') }}</AppTooltip>
       </q-btn>
 
@@ -169,7 +185,16 @@
       </q-btn>
 
       <!-- Delete -->
-      <q-btn flat round dense icon="delete" color="negative" size="sm" class="action-btn" @click.stop="$emit('delete')">
+      <q-btn
+        flat
+        round
+        dense
+        icon="delete"
+        color="negative"
+        size="sm"
+        class="action-btn"
+        @click.stop="$emit('delete')"
+      >
         <AppTooltip>{{ $t('delete') }}</AppTooltip>
       </q-btn>
     </q-card-actions>
@@ -200,8 +225,12 @@ const providerLabel = computed(() => {
   return t(p.toLowerCase());
 });
 
-const providerLogo = computed(() => getProviderLogo(props.connector.configuration?.ai_provider || 'gemini'));
-const providerColor = computed(() => getProviderColor(props.connector.configuration?.ai_provider || 'gemini'));
+const providerLogo = computed(() =>
+  getProviderLogo(props.connector.configuration?.ai_provider || 'gemini'),
+);
+const providerColor = computed(() =>
+  getProviderColor(props.connector.configuration?.ai_provider || 'gemini'),
+);
 
 const pillStyle = computed(() => {
   const color = providerColor.value || 'grey-7';
@@ -209,45 +238,60 @@ const pillStyle = computed(() => {
     backgroundColor: `rgba(var(--q-${color}-rgb, 100, 100, 100), 0.12)`,
     backdropFilter: 'blur(8px)',
     border: `1px solid rgba(var(--q-${color}-rgb, 100, 100, 100), 0.25)`,
-    color: `var(--q-${color})`
+    color: `var(--q-${color})`,
   };
 });
 
 const glowStyle = computed(() => {
   const color = providerColor.value || 'grey-7';
   return {
-    background: `radial-gradient(circle at 50% 0%, var(--q-${color})15 0%, transparent 70%)`
+    background: `radial-gradient(circle at 50% 0%, var(--q-${color})15 0%, transparent 70%)`,
   };
 });
 
 // --- TYPE INFO ---
 const typeIcon = computed(() => {
   switch (props.connector.connector_type) {
-    case ConnectorType.LOCAL_FILE: return 'file_upload';
-    case ConnectorType.LOCAL_FOLDER: return 'folder';
-    case ConnectorType.SQL: return 'storage';
-    case ConnectorType.WEB: return 'language';
-    case ConnectorType.CONFLUENCE: return 'description';
-    case ConnectorType.SHAREPOINT: return 'cloud';
-    default: return 'hub';
+    case ConnectorType.LOCAL_FILE:
+      return 'file_upload';
+    case ConnectorType.LOCAL_FOLDER:
+      return 'folder';
+    case ConnectorType.SQL:
+      return 'storage';
+    case ConnectorType.WEB:
+      return 'language';
+    case ConnectorType.CONFLUENCE:
+      return 'description';
+    case ConnectorType.SHAREPOINT:
+      return 'cloud';
+    default:
+      return 'hub';
   }
 });
 
 const typeColor = computed(() => {
   switch (props.connector.connector_type) {
-    case ConnectorType.LOCAL_FOLDER: return 'var(--q-warning)';
-    case ConnectorType.SQL: return 'var(--q-info)';
-    case ConnectorType.WEB: return 'var(--q-accent)';
-    default: return 'var(--q-grey-5)';
+    case ConnectorType.LOCAL_FOLDER:
+      return 'var(--q-warning)';
+    case ConnectorType.SQL:
+      return 'var(--q-info)';
+    case ConnectorType.WEB:
+      return 'var(--q-accent)';
+    default:
+      return 'var(--q-grey-5)';
   }
 });
 
 const typeBgColor = computed(() => {
   switch (props.connector.connector_type) {
-    case ConnectorType.LOCAL_FOLDER: return 'amber-2';
-    case ConnectorType.SQL: return 'blue-2';
-    case ConnectorType.WEB: return 'purple-2';
-    default: return 'grey-9';
+    case ConnectorType.LOCAL_FOLDER:
+      return 'amber-2';
+    case ConnectorType.SQL:
+      return 'blue-2';
+    case ConnectorType.WEB:
+      return 'purple-2';
+    default:
+      return 'grey-9';
   }
 });
 
@@ -266,8 +310,10 @@ const lastSyncDate = computed(() => {
 
 // --- STATUS & PROGRESS ---
 const isSyncing = computed(() => {
-  return props.connector.status === ConnectorStatus.SYNCING || 
-         props.connector.status === ConnectorStatus.VECTORIZING;
+  return (
+    props.connector.status === ConnectorStatus.SYNCING ||
+    props.connector.status === ConnectorStatus.VECTORIZING
+  );
 });
 
 const progressValue = computed(() => {
@@ -281,8 +327,12 @@ const progressValue = computed(() => {
 });
 
 const progressLabel = computed(() => {
-  const current = props.connector.sync_total ? props.connector.sync_current : props.connector.indexed_docs_count;
-  const total = props.connector.sync_total ? props.connector.sync_total : props.connector.total_docs_count;
+  const current = props.connector.sync_total
+    ? props.connector.sync_current
+    : props.connector.indexed_docs_count;
+  const total = props.connector.sync_total
+    ? props.connector.sync_total
+    : props.connector.total_docs_count;
   return `${current} / ${total}`;
 });
 </script>
@@ -378,14 +428,29 @@ const progressLabel = computed(() => {
 }
 
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.2); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.status-dot--error { background: var(--q-negative); }
-.status-dot--idle { background: #757575; }
-.status-dot--queued { background: var(--q-warning); }
+.status-dot--error {
+  background: var(--q-negative);
+}
+.status-dot--idle {
+  background: #757575;
+}
+.status-dot--queued {
+  background: var(--q-warning);
+}
 
 .connector-name {
   letter-spacing: -0.01em;
