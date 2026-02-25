@@ -91,15 +91,29 @@ def translate_host_path(path: str) -> str:
     if not host_prefix:
         return path
 
+    # Case 1.1: Input is already an internal path (starts with /data)
+    if path.replace("\\", "/").startswith("/data"):
+        return path.replace("\\", "/")
+
     # Normalize both paths to forward slashes for cross-platform comparison
     norm_host_prefix = host_prefix.replace("\\", "/").rstrip("/").lower()
     norm_input_path = path.replace("\\", "/").lower()
 
-    if norm_input_path.startswith(norm_host_prefix):
+    # SECURITY/ROBUSTNESS: Check prefix with boundary (slash or end)
+    # This prevents "h:/form" matching "h:/formation"
+    prefix_match = False
+    if norm_input_path == norm_host_prefix:
+        prefix_match = True
+    elif norm_input_path.startswith(norm_host_prefix + "/"):
+        prefix_match = True
+
+    if prefix_match:
         # Replace the host prefix with /data
         # We preserve the original case of the suffix
         rel_to_root = path.replace("\\", "/")[len(norm_host_prefix) :].lstrip("/")
-        translated = os.path.join("/data", rel_to_root).replace("\\", "/")
+        translated = "/data"
+        if rel_to_root:
+            translated = os.path.join("/data", rel_to_root).replace("\\", "/")
 
         import logging
 
