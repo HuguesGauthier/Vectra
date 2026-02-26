@@ -226,7 +226,7 @@ const providerLabel = computed(() => {
 });
 
 const providerLogo = computed(() =>
-  getProviderLogo(props.connector.configuration?.ai_provider || 'gemini'),
+  getProviderLogo(props.connector.configuration?.ai_provider || 'gemini', 'embedding'),
 );
 const providerColor = computed(() =>
   getProviderColor(props.connector.configuration?.ai_provider || 'gemini'),

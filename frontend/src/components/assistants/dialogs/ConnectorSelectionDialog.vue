@@ -61,7 +61,7 @@
                     <q-tooltip>{{ getConnectorConfig(conn.connector_type).label }}</q-tooltip>
                   </q-avatar>
                   <q-avatar size="sm" rounded color="transparent">
-                    <img :src="getProviderLogo(conn)" />
+                    <img :src="getProviderLogoLocal(conn)" />
                     <q-tooltip>{{
                       $t((conn.configuration?.ai_provider as string) || 'local')
                     }}</q-tooltip>
@@ -139,9 +139,7 @@
 </template>
 
 <script setup lang="ts">
-import geminiLogo from 'src/assets/gemini_logo.svg';
-import openaiLogo from 'src/assets/openai_logo.svg';
-import bgeLogo from 'src/assets/bge.png';
+import { useAiProviders } from 'src/composables/useAiProviders';
 import { ref, computed } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -156,6 +154,7 @@ defineEmits([...useDialogPluginComponent.emits]);
 
 const { t } = useI18n();
 const { dialogRef, onDialogHide, onDialogOK } = useDialogPluginComponent();
+const { getProviderLogo } = useAiProviders();
 
 const searchQuery = ref('');
 const localSelectedIds = ref<string[]>(props.selectedIds || []);
@@ -191,12 +190,8 @@ const filteredConnectors = computed(() => {
   );
 });
 
-function getProviderLogo(conn: Connector) {
-  const provider = (conn.configuration?.ai_provider as string) || 'local';
-  if (provider === 'openai') return openaiLogo;
-  if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local' || provider === 'ollama') return bgeLogo;
-  return bgeLogo;
+function getProviderLogoLocal(conn: Connector) {
+  return getProviderLogo(conn.configuration?.ai_provider as string | undefined, 'embedding');
 }
 
 function getAclTags(conn: Connector): string[] {

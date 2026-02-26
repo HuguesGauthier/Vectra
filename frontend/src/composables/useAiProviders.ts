@@ -276,15 +276,23 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
   };
 
   /**
-   * Get the logo for a provider by ID
+   * Get the logo for a provider by ID and context type
    */
-  const getProviderLogo = (providerId: string | undefined): string | undefined => {
+  const getProviderLogo = (
+    providerId: string | undefined,
+    type: 'chat' | 'embedding' = 'chat',
+  ): string | undefined => {
     if (!providerId) return undefined;
     const pid = providerId.toLowerCase();
 
-    // Check chat options first as it's the most common
-    const chatOpt = chatProviderOptions.value.find((o) => o.id === pid);
-    if (chatOpt) return chatOpt.logo;
+    // Context-specific lookup
+    if (type === 'chat') {
+      const chatOpt = chatProviderOptions.value.find((o) => o.id === pid);
+      if (chatOpt) return chatOpt.logo;
+    } else if (type === 'embedding') {
+      const embedOpt = embeddingProviderOptions.value.find((o) => o.id === pid);
+      if (embedOpt) return embedOpt.logo;
+    }
 
     // Fallback to manual mapping for cases where providers haven't loaded yet or are special
     const logos: Record<string, string> = {
@@ -292,8 +300,8 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       openai: openaiLogo,
       mistral: mistralLogo,
       anthropic: anthropicLogo,
-      ollama: bgeLogo, // Default to BGE for local/ollama
-      local: bgeLogo, // Default to BGE for local/fastembed
+      ollama: type === 'embedding' ? bgeLogo : mistralLogo,
+      local: type === 'embedding' ? bgeLogo : mistralLogo,
       cohere: cohereLogo,
     };
     return logos[pid];

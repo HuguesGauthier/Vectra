@@ -76,7 +76,7 @@
                 text-color="white"
               />
               <q-avatar size="xs" rounded color="transparent">
-                <img :src="getProviderLogo(conn)" />
+                <img :src="getProviderLogoLocal(conn)" />
               </q-avatar>
               {{ conn.name }}
             </q-chip>
@@ -130,9 +130,7 @@ import { useI18n } from 'vue-i18n';
 import type { Connector } from 'src/services/connectorService';
 import type { Assistant } from 'src/services/assistantService';
 import ConnectorSelectionDialog from 'src/components/assistants/dialogs/ConnectorSelectionDialog.vue';
-import geminiLogo from 'src/assets/gemini_logo.svg';
-import openaiLogo from 'src/assets/openai_logo.svg';
-import bgeLogo from 'src/assets/bge.png';
+import { useAiProviders } from 'src/composables/useAiProviders';
 
 const $q = useQuasar();
 const { t } = useI18n();
@@ -151,6 +149,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', val: Partial<Assistant>): void;
 }>();
+
+const { getProviderLogo } = useAiProviders();
 
 const formData = computed({
   get: () => props.modelValue,
@@ -230,12 +230,8 @@ function getConnectorConfig(type: string) {
   );
 }
 
-function getProviderLogo(conn: Connector) {
-  const provider = (conn.configuration?.ai_provider as string) || 'gemini';
-  if (provider === 'openai') return openaiLogo;
-  if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local' || provider === 'ollama') return bgeLogo;
-  return bgeLogo;
+function getProviderLogoLocal(conn: Connector) {
+  return getProviderLogo(conn.configuration?.ai_provider as string | undefined, 'embedding');
 }
 
 function openSelector() {

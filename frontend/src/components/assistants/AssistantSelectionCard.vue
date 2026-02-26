@@ -8,14 +8,11 @@
     <div class="assistant-card-banner">
       <!-- Background Glow -->
       <div class="glow-overlay" :style="glowStyle"></div>
-      
+
       <!-- Top Right Header Badges -->
       <div class="header-badges-vertical">
         <!-- Model Pill -->
-        <div 
-          class="model-pill"
-          :style="pillStyle"
-        >
+        <div class="model-pill" :style="pillStyle">
           <q-img
             v-if="providerLogo"
             :src="providerLogo"
@@ -24,12 +21,7 @@
             class="q-mr-xs provider-logo"
             fit="contain"
           />
-          <q-icon 
-            v-else
-            name="bolt" 
-            size="12px" 
-            class="q-mr-xs" 
-          />
+          <q-icon v-else name="bolt" size="12px" class="q-mr-xs" />
           {{ displayModelName }}
         </div>
       </div>
@@ -38,7 +30,10 @@
     <q-card-section class="q-pt-none q-px-lg relative-position info-section">
       <!-- Avatar with Ring -->
       <div class="avatar-wrapper">
-        <div class="avatar-ring" :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }">
+        <div
+          class="avatar-ring"
+          :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }"
+        >
           <AssistantAvatar
             :assistant="assistant"
             size="80px"
@@ -52,7 +47,7 @@
         <div class="text-h6 text-weight-bolder assistant-name q-mb-xs">
           {{ assistant.name }}
         </div>
-        
+
         <!-- Description (Optional) -->
         <div v-if="assistant.description" class="description-text q-mb-sm">
           {{ assistant.description }}
@@ -61,17 +56,10 @@
         <!-- Tags Section -->
         <div v-if="tags.length > 0" class="tags-container q-mb-md">
           <div class="row q-gutter-xs">
-            <q-badge
-              v-for="tag in tags.slice(0, 3)"
-              :key="tag"
-              class="tag-badge"
-            >
+            <q-badge v-for="tag in tags.slice(0, 3)" :key="tag" class="tag-badge">
               {{ tag }}
             </q-badge>
-            <q-badge
-              v-if="tags.length > 3"
-              class="tag-badge more"
-            >
+            <q-badge v-if="tags.length > 3" class="tag-badge more">
               +{{ tags.length - 3 }}
             </q-badge>
           </div>
@@ -95,7 +83,7 @@ defineEmits(['select']);
 
 const { getProviderLogo, getProviderColor } = useAiProviders();
 
-const providerLogo = computed(() => getProviderLogo(props.assistant.model_provider));
+const providerLogo = computed(() => getProviderLogo(props.assistant.model_provider, 'chat'));
 const providerColor = computed(() => getProviderColor(props.assistant.model_provider));
 
 const displayModelName = computed(() => {
@@ -115,20 +103,20 @@ const pillStyle = computed(() => {
     backgroundColor: `rgba(var(--q-${color}-rgb, 100, 100, 100), 0.12)`,
     backdropFilter: 'blur(4px)',
     border: `1px solid rgba(var(--q-${color}-rgb, 100, 100, 100), 0.25)`,
-    color: `var(--q-${color})`
+    color: `var(--q-${color})`,
   };
 });
 
 const cardStyle = computed(() => {
   return {
-    '--assistant-color': props.assistant.avatar_bg_color || 'var(--q-accent)'
+    '--assistant-color': props.assistant.avatar_bg_color || 'var(--q-accent)',
   };
 });
 
 const glowStyle = computed(() => {
   const color = providerColor.value || 'grey-7';
   return {
-    background: `radial-gradient(circle at 50% 0%, var(--q-${color})15 0%, transparent 70%)`
+    background: `radial-gradient(circle at 50% 0%, var(--q-${color})15 0%, transparent 70%)`,
   };
 });
 </script>
@@ -201,7 +189,6 @@ const glowStyle = computed(() => {
   z-index: 5;
 }
 
-
 .assistant-name {
   letter-spacing: -0.01em;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
@@ -222,7 +209,7 @@ const glowStyle = computed(() => {
 }
 
 .provider-logo {
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .description-text {
@@ -254,7 +241,6 @@ const glowStyle = computed(() => {
 .tag-badge.more {
   border-style: dashed;
 }
-
 
 .action-btn-styled {
   display: flex;
