@@ -392,7 +392,6 @@ export function useChatStream() {
       sourceCount: payload?.source_count as number | undefined,
       metadata: payload,
     };
-
     // 2. Nesting Logic (Recursive)
     if (event.parent_id) {
       const findParentRecursive = (steps: ChatStep[]): ChatStep | undefined => {
@@ -410,13 +409,12 @@ export function useChatStream() {
       if (parent) {
         if (!parent.sub_steps) parent.sub_steps = [];
         updateOrPushStep(parent.sub_steps, newStep);
-        return false;
       }
-    }
-
-    // 3. Top-level sync
-    if (botMsg.steps) {
-      updateOrPushStep(botMsg.steps, newStep);
+    } else {
+      // 3. Top-level sync
+      if (botMsg.steps) {
+        updateOrPushStep(botMsg.steps, newStep);
+      }
     }
 
     // 4. Update status message if applicable
