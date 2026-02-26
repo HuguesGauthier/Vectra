@@ -132,7 +132,6 @@ import type { Assistant } from 'src/services/assistantService';
 import ConnectorSelectionDialog from 'src/components/assistants/dialogs/ConnectorSelectionDialog.vue';
 import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
-import mistralLogo from 'src/assets/m-rainbow.svg';
 import bgeLogo from 'src/assets/bge.png';
 
 const $q = useQuasar();

@@ -141,7 +141,6 @@
 <script setup lang="ts">
 import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
-import mistralLogo from 'src/assets/m-rainbow.svg';
 import bgeLogo from 'src/assets/bge.png';
 import { ref, computed } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
