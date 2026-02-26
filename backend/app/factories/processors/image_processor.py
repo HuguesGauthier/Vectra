@@ -5,10 +5,8 @@ from pathlib import Path
 from typing import List
 
 from app.core.exceptions import TechnicalError
-from app.factories.processors.base import (DocumentMetadata, FileProcessor,
-                                           ProcessedDocument)
-from app.services.gemini_vision_service import (GeminiVisionService,
-                                                get_gemini_client)
+from app.factories.processors.base import DocumentMetadata, FileProcessor, ProcessedDocument
+from app.services.gemini_vision_service import GeminiVisionService, get_gemini_client
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +34,11 @@ class ImageProcessor(FileProcessor):
             from app.core.database import get_session_factory
             from app.services.settings_service import SettingsService
 
-            client = get_gemini_client()
             session_factory = get_session_factory()
 
             async with session_factory() as db:
                 settings_service = SettingsService(db)
+                client = await get_gemini_client(settings_service)
                 service = GeminiVisionService(client, settings_service)
 
                 logger.info(f"Image Processing Started: {path.name}")

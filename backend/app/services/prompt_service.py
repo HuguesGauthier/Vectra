@@ -61,13 +61,14 @@ class PromptService:
     async def _get_llm_client(self) -> Any:
         """
         Initializes and returns an LLM client based on available settings.
-        Try providers in order: Gemini -> OpenAI -> Mistral -> Ollama.
+        Try providers in order: Gemini -> OpenAI -> Anthropic -> Mistral (Cloud) -> Ollama (Local) -> Local.
         """
         # 1. Try Gemini
         gemini_key = await self.settings_service.get_value("gemini_api_key")
         if gemini_key:
             model = await self.settings_service.get_value("gemini_chat_model")
-            return LLMFactory.create_llm("gemini", model, gemini_key)
+            if model:
+                return LLMFactory.create_llm("gemini", model, gemini_key)
 
         # 2. Try OpenAI
         openai_key = await self.settings_service.get_value("openai_api_key")
@@ -75,23 +76,32 @@ class PromptService:
             model = await self.settings_service.get_value("openai_chat_model", default="gpt-4o-mini")
             return LLMFactory.create_llm("openai", model, openai_key)
 
-        # 3. Try Mistral
-        mistral_key = await self.settings_service.get_value("mistral_api_key")
-        if mistral_key:
-            model = await self.settings_service.get_value("mistral_chat_model")
-            return LLMFactory.create_llm("mistral", model, mistral_key)
-
-        # 4. Try Anthropic Claude
+        # 3. Try Anthropic Claude
         anthropic_key = await self.settings_service.get_value("anthropic_api_key")
         if anthropic_key:
             model = await self.settings_service.get_value("anthropic_chat_model")
-            return LLMFactory.create_llm("anthropic", model, anthropic_key)
+            if model:
+                return LLMFactory.create_llm("anthropic", model, anthropic_key)
 
-        # 5. Fallback to Ollama (Always available if configured)
+        # 4. Try Mistral (Cloud)
+        mistral_key = await self.settings_service.get_value("mistral_api_key")
+        if mistral_key:
+            model = await self.settings_service.get_value("mistral_chat_model")
+            if model:
+                return LLMFactory.create_llm("mistral", model, mistral_key)
+
+        # 5. Fallback to Ollama (Local)
         ollama_url = await self.settings_service.get_value("ollama_base_url")
         if ollama_url:
             model = await self.settings_service.get_value("ollama_chat_model")
-            return LLMFactory.create_llm("ollama", model, api_key=ollama_url)
+            if model:
+                return LLMFactory.create_llm("ollama", model, api_key=ollama_url)
+
+        # 6. Fallback to Other Local (Generic OpenAI-Like / LM Studio)
+        local_url = await self.settings_service.get_value("local_extraction_url")
+        if local_url:
+            model = await self.settings_service.get_value("local_chat_model")
+            return LLMFactory.create_llm("local", model or "local-model", "not-needed", base_url=local_url)
 
         raise ConfigurationError(
             "No LLM provider is configured for prompt optimization. Please set an API key or configure Ollama."
