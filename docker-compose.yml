@@ -43,7 +43,7 @@ services:
       context: ./frontend
       target: production-stage
     ports:
-      - "80:80"
+      - "${VECTRA_FRONTEND_PORT:-9000}:80"
     depends_on:
       - vectra-api
     networks:
