@@ -62,7 +62,7 @@ class PdfProcessor(FileProcessor):
         """Helper for internal routing and backward compatibility with tests."""
         return get_settings().GEMINI_API_KEY is not None
 
-    async def process(self, file_path: str | Path) -> list[ProcessedDocument]:
+    async def process(self, file_path: str | Path, ai_provider: Optional[str] = None) -> list[ProcessedDocument]:
         """
         Process PDF with smart local-first routing.
 
@@ -85,7 +85,7 @@ class PdfProcessor(FileProcessor):
         logger.info("pdf_attempting_local_processing_first", extra={"processor": "pypdf", "cost": "$0"})
 
         try:
-            local_result = await self._local_processor.process(str(validated_path))
+            local_result = await self._local_processor.process(str(validated_path), ai_provider=ai_provider)
 
             # Check if local processing succeeded
             if local_result and local_result[0].success:
@@ -157,7 +157,7 @@ class PdfProcessor(FileProcessor):
         logger.info("pdf_attempting_cloud_processing", extra={"processor": "Gemini", "has_ocr": True})
 
         try:
-            cloud_result = await self._cloud_processor.process(str(validated_path))
+            cloud_result = await self._cloud_processor.process(str(validated_path), ai_provider=ai_provider)
 
             # Check if cloud processing succeeded
             if cloud_result and cloud_result[0].success:

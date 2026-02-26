@@ -162,7 +162,7 @@ class IngestionService:
                 extra={"connector_id": str(connector_id)},
             )
             await self.db.rollback()
-            await self.state_service.mark_connector_failed(connector_id, "Internal error - support notified")
+            await self.state_service.mark_connector_failed(connector_id, f"Internal error: {str(e)}")
             raise
 
     async def process_single_document(self, document_id: UUID, force: bool = False) -> None:
@@ -236,6 +236,7 @@ class IngestionService:
 
             # Ingest with transaction boundary
             connector_acl = connector.configuration.get("connector_acl", [])
+            ai_provider = connector.configuration.get("ai_provider")
             doc_id = doc.id
 
             try:
@@ -250,6 +251,7 @@ class IngestionService:
                         vector_store=vector_store,
                         connector_id=connector_id,
                         connector_acl=connector_acl,
+                        ai_provider=ai_provider,
                         batch_size=batch_size,
                         num_workers=num_workers,
                         docs_map={doc.file_path: doc},

@@ -4,8 +4,7 @@ File Processor Base - Abstract interface for file ingestion processors.
 Defines the contract for processing different file types.
 """
 
-from __future__ import \
-    annotations  # PEP 563 - Allows list[T] syntax in Python 3.8
+from __future__ import annotations  # PEP 563 - Allows list[T] syntax in Python 3.8
 
 import asyncio
 from abc import ABC, abstractmethod
@@ -93,7 +92,7 @@ class FileProcessor(ABC):
         self.max_file_size_bytes = max_file_size_bytes
 
     @abstractmethod
-    async def process(self, file_path: str) -> list[ProcessedDocument]:
+    async def process(self, file_path: str, ai_provider: Optional[str] = None) -> list[ProcessedDocument]:
         """
         Process a file and extract content.
 

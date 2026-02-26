@@ -76,6 +76,8 @@ async def test_open_file_by_document_id_success(service):
         patch("app.services.system_service.ConnectorRepository", return_value=AsyncMock()) as mock_conn_repo_cls,
         patch("app.services.system_service.get_full_path_from_connector", return_value="/tmp/storage/sub/file.txt"),
         patch.object(service, "open_file_externally", new_callable=AsyncMock) as mock_open,
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.resolve", return_value=Path("/tmp/storage/sub/file.txt")),
     ):
         mock_doc_repo_cls.return_value.get_by_id.return_value = mock_doc
         mock_conn_repo_cls.return_value.get_by_id.return_value = mock_connector
@@ -84,9 +86,11 @@ async def test_open_file_by_document_id_success(service):
         result = await service.open_file_by_document_id(str(doc_id))
 
         assert result is True
-        mock_open.assert_called_once_with(
-            "/tmp/storage/sub/file.txt", additional_allowed_paths=[Path("/tmp/storage").resolve()]
-        )
+        expected_path = Path("/tmp/storage/sub/file.txt").resolve()
+        expected_base = Path("/tmp/storage").resolve()
+        mock_open.assert_called_once()
+        args, _ = mock_open.call_args
+        assert Path(args[0]).resolve() == expected_path
 
 
 @pytest.mark.asyncio

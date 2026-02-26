@@ -88,7 +88,7 @@ class PdfCloudProcessor(FileProcessor):
         self.client = None
         logger.info("pdf_processor_initialized", extra={"provider": "gemini", "mode": "dynamic_settings"})
 
-    async def process(self, file_path: str | Path) -> list[ProcessedDocument]:
+    async def process(self, file_path: str | Path, ai_provider: Optional[str] = None) -> List[ProcessedDocument]:
         """
         Process PDF with full production hardening using Gemini.
 
@@ -301,13 +301,13 @@ class PdfCloudProcessor(FileProcessor):
             """
 
             response = await asyncio.to_thread(
-                    self.client.models.generate_content,
-                    model=model_name,
-                    contents=[prompt, gemini_file],
-                    config=types.GenerateContentConfig(
-                        temperature=0.0, max_output_tokens=8192, top_p=0.95, response_mime_type="application/json"
-                    ),
-                )
+                self.client.models.generate_content,
+                model=model_name,
+                contents=[prompt, gemini_file],
+                config=types.GenerateContentConfig(
+                    temperature=0.0, max_output_tokens=8192, top_p=0.95, response_mime_type="application/json"
+                ),
+            )
 
             import json
             import re

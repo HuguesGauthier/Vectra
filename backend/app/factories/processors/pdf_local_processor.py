@@ -61,7 +61,7 @@ class PdfLocalProcessor(FileProcessor):
     def __init__(self):
         super().__init__(max_file_size_bytes=self.MAX_FILE_SIZE_MB * 1024 * 1024)
 
-    async def process(self, file_path: Path | str) -> list[ProcessedDocument]:
+    async def process(self, file_path: str, ai_provider: Optional[str] = None) -> List[ProcessedDocument]:
         """
         Process PDF using pypdf.
         executes CPU-bound pypdf logic in a thread/executor to avoid blocking the event loop (P0 fix).

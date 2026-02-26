@@ -27,6 +27,8 @@ class Websocket:
     active_connections: Set[WebSocket] = set()
     active_listeners: Set[asyncio.Queue] = set()
     _worker_connection: Optional[WebSocket] = None
+    _worker_metadata: Dict[str, Any] = {}
+    _worker_last_seen: float = 0.0
     upstream_connection: Any = None
     _last_sse_log_time: float = 0.0
 
@@ -36,6 +38,8 @@ class Websocket:
             cls._instance.active_connections = set()
             cls._instance.active_listeners = set()
             cls._instance._worker_connection = None
+            cls._instance._worker_metadata = {}
+            cls._instance._worker_last_seen = 0.0
             cls._instance.upstream_connection = None
             cls._instance._last_sse_log_time = 0.0
         return cls._instance
@@ -100,12 +104,20 @@ class Websocket:
     def is_worker_online(self) -> bool:
         return self._worker_connection is not None
 
-    async def register_worker(self, websocket: WebSocket) -> None:
+    async def register_worker(self, websocket: WebSocket, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Registers a websocket connection as the dedicated worker connection."""
         conn_id = getattr(websocket, "conn_id", "unknown")
+
+        # P0 FIX: Detect multiple workers
+        hostname = (metadata or {}).get("hostname", "unknown")
+
         if self._worker_connection and self._worker_connection != websocket:
             old_id = getattr(self._worker_connection, "conn_id", "old")
-            logger.warning(f"Replacing existing worker connection (Old: {old_id}, New: {conn_id})")
+            old_host = self._worker_metadata.get("hostname", "unknown")
+
+            logger.warning(
+                f"Replacing existing worker connection. " f"Old: {old_id} ({old_host}), New: {conn_id} ({hostname})"
+            )
             # Close old worker connection to prevent zombie
             try:
                 await self._worker_connection.close()
@@ -113,11 +125,16 @@ class Websocket:
                 logger.warning(f"Failed to close old worker connection: {e}")
 
         self._worker_connection = websocket
-        logger.info(f"Worker registered successfully. ID: {conn_id}")
+        self._worker_metadata = metadata or {}
+        self._worker_last_seen = time.time()
+
+        logger.info(f"Worker registered successfully. ID: {conn_id} | Host: {hostname}")
         await self.emit_worker_status(True)
 
     def unregister_worker(self) -> None:
         self._worker_connection = None
+        self._worker_metadata = {}
+        self._worker_last_seen = 0.0
         logger.info("Worker unregistered.")
 
     async def handle_worker_disconnect(self) -> None:
@@ -266,7 +283,19 @@ class Websocket:
         await self.broadcast(payload)
 
     async def emit_worker_status(self, is_online: bool) -> None:
-        await self.broadcast({"type": "WORKER_STATUS", "status": "online" if is_online else "offline"})
+        """Broadcast worker status with metadata if online."""
+        status_data = {
+            "type": "WORKER_STATUS",
+            "status": "online" if is_online else "offline",
+            "metadata": self._worker_metadata if is_online else None,
+        }
+        await self.broadcast(status_data)
+
+    async def record_worker_heartbeat(self) -> None:
+        """Updates the last seen timestamp for the worker."""
+        if self._worker_connection:
+            self._worker_last_seen = time.time()
+            logger.debug("Worker heartbeat received.")
 
     async def send_to_worker(self, message: Dict[str, Any]) -> None:
         """Sends a direct message to the registered worker."""

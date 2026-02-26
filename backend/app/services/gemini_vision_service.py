@@ -35,17 +35,15 @@ class GeminiVisionService:
         """
         gemini_file = None
         try:
-            # 1. Get Model Configuration
-            model_name = await self.settings_service.get_value("gemini_vision_model")
-            if not model_name:
-                raise ConfigurationError("gemini_vision_model is not configured in settings")
+            # 1. Get Model Configuration (from settings or sensible default)
+            model_name = await self.settings_service.get_value("gemini_vision_model", default="gemini-1.5-flash")
 
             if callback:
-                callback("Analyzing image with Gemini Vision...")
+                callback(f"Analyzing image with {model_name}...")
 
             # 2. Upload File to Gemini Storage
             # We use the File API as it's more robust for multimodal input.
-            gemini_file = await asyncio.to_thread(self.client.files.upload, path=image_path)
+            gemini_file = await asyncio.to_thread(self.client.files.upload, file=image_path)
 
             # 3. Generate Content
             response = await asyncio.to_thread(

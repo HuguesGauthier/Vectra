@@ -478,6 +478,14 @@ export default {
   scheduleDaily: 'Quotidien',
   scheduleWeekly: 'Hebdomadaire',
   scheduleMonthly: 'Mensuel',
+  Sunday: 'Dimanche',
+  Monday: 'Lundi',
+  Tuesday: 'Mardi',
+  Wednesday: 'Mercredi',
+  Thursday: 'Jeudi',
+  Friday: 'Vendredi',
+  Saturday: 'Samedi',
+  Day: 'Jour',
   filePath: 'Chemin du fichier',
   folderPath: 'Chemin du dossier',
   labelSiteUrl: 'URL du site',
@@ -504,6 +512,8 @@ export default {
   recursive: 'Scan récursif',
   filePattern: 'Motif de fichier (ex. *.pdf)',
   fieldRequired: 'Champ requis',
+  fileRequired: 'Fichier requis',
+  fileAlreadyUploaded: 'Fichier déjà téléversé',
   connectorAcl: "Étiquettes de contrôle d'accès",
   connectorAclHint:
     "Étiquettes de contrôle d'accès qui déterminent quels assistants ont accès aux documents de cette source de données",
@@ -545,6 +555,8 @@ export default {
   scheduleDailyDesc: 'Synchro tous les jours à minuit.',
   scheduleWeeklyDesc: 'Synchro tous les dimanches à minuit.',
   scheduleMonthlyDesc: 'Synchro le 1er de chaque mois.',
+  Hourly: 'Toutes les heures',
+  'Every hour': 'Toutes les heures',
   manualOnlyForLocalFiles:
     'Seule la synchronisation manuelle est disponible pour les fichiers locaux.',
 
