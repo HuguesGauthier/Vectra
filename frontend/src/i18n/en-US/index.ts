@@ -27,6 +27,7 @@ export default {
   appDescription: 'RAG Management System',
   source: 'Source',
   sources: 'Sources',
+  visualization: 'Visualization',
   lastVectorized: 'Last Vectorized',
   recordsPerPage: 'Records per page:',
   excerpt: 'excerpt',

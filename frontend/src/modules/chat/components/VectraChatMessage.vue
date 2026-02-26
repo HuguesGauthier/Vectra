@@ -55,7 +55,8 @@
       <VectraVisualization
         v-if="message.visualization"
         :config="message.visualization"
-        class="q-mt-md"
+        :text-color="assistantThemeTextColor"
+        class="q-mt-sm"
       />
 
       <!-- Steps (Pipeline Reasoning) -->

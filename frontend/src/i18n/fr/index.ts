@@ -34,6 +34,7 @@ export default {
   appDescription: 'Système de gestion RAG',
   source: 'Source',
   sources: 'Sources',
+  visualization: 'Visualisation',
   lastVectorized: 'Dernière vectorisation',
   recordsPerPage: 'Lignes par page :',
   excerpt: 'extrait',
