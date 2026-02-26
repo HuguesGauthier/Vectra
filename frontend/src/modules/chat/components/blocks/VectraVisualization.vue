@@ -109,7 +109,18 @@ const chartOptions = computed<ApexOptions | null>(() => {
     chart: {
       type: chartType.value,
       background: 'transparent',
-      toolbar: { show: false },
+      toolbar: {
+        show: true,
+        tools: {
+          download: true,
+          selection: true,
+          zoom: true,
+          zoomin: true,
+          zoomout: true,
+          pan: true,
+          reset: true,
+        },
+      },
       fontFamily: 'inherit',
       animations: { enabled: true },
       ...(props.config.chart || {}),
@@ -220,5 +231,21 @@ const chartOptions = computed<ApexOptions | null>(() => {
 
 ::v-deep(.q-expansion-item__toggle-icon) {
   color: v-bind('textColor') !important;
+}
+
+/* ApexCharts Toolbar Styling */
+:deep(.apexcharts-toolbar svg) {
+  fill: v-bind('textColor') !important;
+}
+
+:deep(.apexcharts-menu) {
+  background: var(--q-secondary) !important;
+  border: 1px solid var(--q-sixth) !important;
+  color: v-bind('textColor') !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+}
+
+:deep(.apexcharts-menu-item:hover) {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 </style>
