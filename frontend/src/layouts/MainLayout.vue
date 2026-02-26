@@ -122,7 +122,14 @@
             </q-btn>
 
             <!-- Debug Button -->
-            <q-btn flat round dense icon="bug_report" @click="toggleRightDrawer('debug')">
+            <q-btn
+              v-if="isDebugVisible"
+              flat
+              round
+              dense
+              icon="bug_report"
+              @click="toggleRightDrawer('debug')"
+            >
               <AppTooltip>{{ $t('debug') }}</AppTooltip>
             </q-btn>
           </div>
@@ -337,7 +344,7 @@
               narrow-indicator
             >
               <q-tab name="notifications" icon="notifications" />
-              <q-tab name="debug" icon="bug_report" />
+              <q-tab v-if="isDebugVisible" name="debug" icon="bug_report" />
             </q-tabs>
             <q-btn flat round dense icon="close" size="sm" @click="rightDrawerOpen = false" />
           </div>
@@ -531,6 +538,8 @@ const themeIcon = computed(() => {
   if (themePreference.value === 'auto') return 'brightness_auto';
   return themePreference.value === 'dark' ? 'dark_mode' : 'light_mode';
 });
+
+const isDebugVisible = computed(() => !!process.env.DEV);
 
 // --- HEARTBEAT COMPUTED ---
 const apiStatus = computed(() => (socketStore.isConnected ? 'online' : 'offline'));
