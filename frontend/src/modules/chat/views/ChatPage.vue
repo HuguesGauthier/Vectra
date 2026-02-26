@@ -173,16 +173,27 @@ onUnmounted(() => {
 });
 
 const handleOpenFile = (event: CustomEvent) => {
-  const docId = event.detail;
-  if (docId) void openFile(docId as string);
+  const { documentId, fileName } = event.detail;
+  if (documentId) void openFile(documentId as string, fileName as string);
 };
 
-const openFile = async (documentId: string) => {
+const openFile = async (documentId: string, fileName?: string) => {
   try {
-    await api.post('/system/open-file', { document_id: documentId });
+    const response = await api.get(`/system/download-file/${documentId}`, {
+      responseType: 'blob',
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName || 'file');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   } catch (err) {
-    console.error('Failed to open file', err);
-    $q.notify({ type: 'negative', message: 'Failed to open file' });
+    console.error('Failed to download file', err);
+    $q.notify({ type: 'negative', message: 'Failed to download file' });
   }
 };
 

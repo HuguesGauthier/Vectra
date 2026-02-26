@@ -26,6 +26,7 @@ export default {
   unknown: 'Unknown',
   appDescription: 'RAG Management System',
   source: 'Source',
+  sources: 'Sources',
   lastVectorized: 'Last Vectorized',
   recordsPerPage: 'Records per page:',
   excerpt: 'excerpt',
@@ -37,6 +38,7 @@ export default {
   rows: 'rows',
   columns: 'columns',
   dataPreview: 'Data Preview',
+  openFile: 'Open File',
 
   // --- Auth & Profile ---
   loginTitle: 'Vectra Admin',

@@ -33,6 +33,7 @@ export default {
   unknown: 'Inconnu',
   appDescription: 'Système de gestion RAG',
   source: 'Source',
+  sources: 'Sources',
   lastVectorized: 'Dernière vectorisation',
   recordsPerPage: 'Lignes par page :',
   excerpt: 'extrait',

@@ -85,8 +85,6 @@ async def lifespan(app: FastAPI):
         # 3b. Validate Data Mount (Docker)
         validate_data_mount()
 
-
-
         # 5. Start Scheduler Service
         scheduler_service.start()
 
@@ -160,9 +158,20 @@ env_origins: Union[str, List[str]] = getattr(settings, "BACKEND_CORS_ORIGINS", [
 if isinstance(env_origins, str):
     env_origins = [o.strip() for o in env_origins.split(",") if o]
 
+# P0: For development, we must NOT use "*" if we use allow_credentials=True
+# We explicitly add common dev ports to ensure smooth local testing.
+if settings.ENV != "production" and not env_origins:
+    env_origins = [
+        "http://localhost:9000",  # Vite Dev Server (Quasar default)
+        "http://127.0.0.1:9000",
+        "http://localhost:9001",  # Alternative port
+        "http://127.0.0.1:9001",
+        "http://localhost:8000",  # Backend itself (rare but possible)
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=env_origins or ["*"] if settings.ENV != "production" else env_origins,
+    allow_origins=env_origins or ["*"],
     allow_origin_regex=lan_regex if settings.ENV != "production" else None,
     allow_credentials=True,
     allow_methods=["*"],

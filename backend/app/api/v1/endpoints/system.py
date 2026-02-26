@@ -74,6 +74,31 @@ async def open_file_external(
         raise e
 
 
+@router.get("/download-file/{document_id}")
+async def download_file(
+    document_id: str,
+    service: Annotated[SystemService, Depends(get_system_service)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """
+    Download a file based on document ID.
+    Safety checks are performed by SystemService.
+    """
+    from fastapi.responses import FileResponse
+    import os
+
+    try:
+        file_path = await service.get_resolved_path_by_document_id(document_id)
+        return FileResponse(
+            path=file_path,
+            filename=os.path.basename(file_path),
+            media_type="application/octet-stream",
+        )
+    except Exception as e:
+        logger.error(f"❌ FAIL | download_file | DocumentID: {document_id} | Error: {str(e)}", exc_info=True)
+        raise e
+
+
 @router.post("/upload", response_model=FilePathResponse)
 async def upload_file(
     service: Annotated[DocumentService, Depends(get_document_service)],
