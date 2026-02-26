@@ -1,0 +1,18 @@
+services:
+  vectra-ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+              count: ${VECTRA_GPU_COUNT:-1}
+              capabilities: [gpu]
+
+  vectra-whisper:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+              count: ${VECTRA_GPU_COUNT:-1}
+              capabilities: [gpu]

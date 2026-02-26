@@ -187,13 +187,7 @@ services:
       - ./scripts/start_ollama.sh:/start_ollama.sh
     ports:
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     environment:
       - OLLAMA_KEEP_ALIVE=-1
       - MODELS_TO_PULL=mistral,bge-m3
@@ -217,13 +211,7 @@ services:
       - "8003:8000"
     volumes:
       - whisper_data:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     networks:
       - vectra
 
