@@ -18,7 +18,7 @@
                 <div class="metric-item">
                   <div class="metric-label">
                     <q-icon name="speed" size="16px" class="q-mr-xs" />
-                    TTFT (p95)
+                    {{ $t('ttftP95') }}
                   </div>
                   <div class="metric-value metric-value--primary text-teal-4">
                     {{ store.stats?.ttft_percentiles?.p95.toFixed(2) || 'N/A' }}
@@ -46,7 +46,7 @@
                 <div class="metric-item">
                   <div class="metric-label">
                     <q-icon name="storage" size="16px" class="q-mr-xs" />
-                    Cache Hit Rate
+                    {{ $t('cacheHitRate') }}
                   </div>
                   <div class="metric-value metric-value--primary text-purple-4">
                     {{ store.stats?.cache_metrics?.hit_rate.toFixed(1) || '0' }}
@@ -54,7 +54,7 @@
                   </div>
                   <div class="metric-value metric-value--small q-mt-xs">
                     {{ store.stats?.cache_metrics?.cache_hits || 0 }} /
-                    {{ store.stats?.cache_metrics?.total_requests || 0 }} requests
+                    {{ store.stats?.cache_metrics?.total_requests || 0 }} {{ $t('requests') }}
                   </div>
                 </div>
               </div>
@@ -71,13 +71,13 @@
                 <div class="metric-item">
                   <div class="metric-label">
                     <q-icon name="attach_money" size="16px" class="q-mr-xs" />
-                    Daily LLM Cost
+                    {{ $t('dailyLlmCost') }}
                   </div>
                   <div class="metric-value metric-value--primary text-amber-4">
                     ${{ totalCost.toFixed(2) }}
                   </div>
                   <div class="metric-value metric-value--small q-mt-xs">
-                    {{ totalTokens.toLocaleString() }} tokens
+                    {{ totalTokens.toLocaleString() }} {{ $t('tokens') }}
                   </div>
                 </div>
               </div>
@@ -94,13 +94,17 @@
                 <div class="metric-item">
                   <div class="metric-label">
                     <q-icon name="compress" size="16px" class="q-mr-xs" />
-                    Reranking Impact
+                    {{ $t('rerankingImpact') }}
                   </div>
                   <div class="metric-value metric-value--primary text-red-4">
                     {{ (store.stats?.reranking_impact?.avg_score_improvement || 0).toFixed(3) }}
                   </div>
                   <div class="metric-value metric-value--small q-mt-xs">
-                    from {{ store.stats?.reranking_impact?.reranking_enabled_count || 0 }} sessions
+                    {{
+                      $t('fromSessions', {
+                        count: store.stats?.reranking_impact?.reranking_enabled_count || 0,
+                      })
+                    }}
                   </div>
                 </div>
               </div>
@@ -141,11 +145,12 @@
                   />
                   <!-- Token info if available -->
                   <div v-if="step.avg_tokens" class="row items-center justify-between q-mt-xs">
-                    <span class="text-caption text-grey-6">Tokens:</span>
+                    <span class="text-caption text-grey-6">{{ $t('tokenInput') }}:</span>
                     <span class="text-caption">
                       ↑{{ Math.round(step.avg_tokens.input) }} ↓{{
                         Math.round(step.avg_tokens.output)
                       }}
+                      ({{ $t('tokenOutput') }})
                     </span>
                   </div>
                 </div>
@@ -178,9 +183,9 @@
                   <q-item-section>
                     <q-item-label class="">{{ topic.canonical_text }}</q-item-label>
                     <q-item-label caption class="">
-                      {{ topic.frequency }}x asked
+                      {{ $t('xAsked', { count: topic.frequency }) }}
                       <span v-if="topic.variation_count > 1">
-                        ({{ topic.variation_count }} variations)
+                        {{ $t('variations', { count: topic.variation_count }) }}
                       </span>
                     </q-item-label>
                   </q-item-section>
@@ -216,7 +221,7 @@
                       cost.assistant_name
                     }}</q-item-label>
                     <q-item-label caption class="">
-                      {{ cost.total_tokens.toLocaleString() }} tokens
+                      {{ cost.total_tokens.toLocaleString() }} {{ $t('tokens') }}
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side>
@@ -240,7 +245,7 @@
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="group" size="28px" color="cyan-5" class="q-mr-sm" />
-                <div class="text-h6 text-weight-bold">Top Users (30d)</div>
+                <div class="text-h6 text-weight-bold">{{ $t('topUsers30d') }}</div>
               </div>
               <q-list dense padding class="cost-list">
                 <q-item
@@ -263,7 +268,7 @@
                       <q-tooltip v-if="user.full_name">{{ user.email }}</q-tooltip>
                     </q-item-label>
                     <q-item-label caption class="">
-                      {{ user.interaction_count }} interactions
+                      {{ user.interaction_count }} {{ $t('interactions') }}
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side>
@@ -271,13 +276,13 @@
                       {{ formatLargeNumber(user.total_tokens) }}
                     </q-item-label>
                     <q-item-label caption class="text-grey-6" style="font-size: 0.7em">
-                      tokens
+                      {{ $t('tokens') }}
                     </q-item-label>
                   </q-item-section>
                 </q-item>
               </q-list>
               <div v-if="!store.stats?.user_stats.length" class="text-center q-pa-md">
-                No user data
+                {{ $t('noUserData') }}
               </div>
             </q-card-section>
           </q-card>
@@ -309,7 +314,9 @@
                     </q-badge>
                   </div>
                   <div class="col-auto">
-                    {{ fresh.doc_count }} docs ({{ fresh.percentage.toFixed(1) }}%)
+                    {{ $t('docsCount', { count: fresh.doc_count }) }} ({{
+                      fresh.percentage.toFixed(1)
+                    }}%)
                   </div>
                 </div>
                 <q-linear-progress
@@ -321,7 +328,7 @@
                 />
               </div>
               <div v-if="!store.stats?.document_freshness.length" class="text-center q-pa-md">
-                No documents
+                {{ $t('noDocuments') }}
               </div>
             </q-card-section>
           </q-card>
@@ -337,7 +344,7 @@
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="insights" size="28px" color="green-5" class="q-mr-sm" />
-                <div class="text-h6 text-weight-bold">Top Utilized Documents</div>
+                <div class="text-h6 text-weight-bold">{{ $t('topUtilizedDocuments') }}</div>
               </div>
               <q-list dense padding class="cost-list">
                 <q-item
@@ -354,15 +361,15 @@
                       <q-badge :color="getDocStatusColor(doc.status)" class="q-mr-sm">
                         {{ doc.status.toUpperCase() }}
                       </q-badge>
-                      <q-item-label class="text-weight-bold"
-                        >{{ doc.retrieval_count }}x</q-item-label
-                      >
+                      <q-item-label class="text-weight-bold">
+                        {{ $t('retrievalCount', { count: doc.retrieval_count }) }}
+                      </q-item-label>
                     </div>
                   </q-item-section>
                 </q-item>
               </q-list>
               <div v-if="!store.stats?.document_utilization.length" class="text-center q-pa-md">
-                No utilization data
+                {{ $t('noUtilizationData') }}
               </div>
             </q-card-section>
           </q-card>
@@ -375,7 +382,7 @@
             <q-card-section>
               <div class="row items-center q-mb-md">
                 <q-icon name="sync" size="28px" color="orange-5" class="q-mr-sm" />
-                <div class="text-h6 text-weight-bold">Connector Sync Reliability</div>
+                <div class="text-h6 text-weight-bold">{{ $t('connectorSyncReliability') }}</div>
               </div>
               <q-list dense padding class="cost-list">
                 <q-item
@@ -388,7 +395,12 @@
                       sync.connector_name
                     }}</q-item-label>
                     <q-item-label caption>
-                      {{ sync.successful_syncs }}/{{ sync.total_syncs }} success
+                      {{
+                        $t('successCount', {
+                          success: sync.successful_syncs,
+                          total: sync.total_syncs,
+                        })
+                      }}
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side>
@@ -400,14 +412,14 @@
                         {{ sync.success_rate.toFixed(1) }}%
                       </div>
                       <div v-if="sync.avg_sync_duration" class="text-caption text-grey-6">
-                        {{ sync.avg_sync_duration.toFixed(1) }}s avg
+                        {{ $t('sAvg', { count: sync.avg_sync_duration.toFixed(1) }) }}
                       </div>
                     </div>
                   </q-item-section>
                 </q-item>
               </q-list>
               <div v-if="!store.stats?.connector_sync_rates.length" class="text-center q-pa-md">
-                No sync data
+                {{ $t('noSyncData') }}
               </div>
             </q-card-section>
           </q-card>
