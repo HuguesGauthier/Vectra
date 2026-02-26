@@ -145,25 +145,25 @@ async def correlation_id_middleware(request: Request, call_next: Callable[[Reque
 
 
 # Configure CORS
-# Use settings if available, else fallback to safe defaults plus localhost for dev
+# P0: Allow localhost, 127.0.0.1 and all private IP ranges (LAN) by default
+# This ensures plug-and-play experience for self-hosted LAN deployments.
+lan_regex = (
+    r"^https?://(localhost|127\.0\.0\.1"
+    r"|10\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+    r"|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}"
+    r"|192\.168\.\d{1,3}\.\d{1,3})"
+    r"(:\d+)?$"
+)
+
+# Explicit origins from .env
 env_origins: Union[str, List[str]] = getattr(settings, "BACKEND_CORS_ORIGINS", [])
 if isinstance(env_origins, str):
     env_origins = [o.strip() for o in env_origins.split(",") if o]
 
-default_dev_origins: List[str] = [
-    "http://localhost:9000",
-    "http://127.0.0.1:9000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:9300",
-    "http://127.0.0.1:9300",
-]
-
-origins: List[str] = list(set(list(env_origins) + default_dev_origins))
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=env_origins or ["*"] if settings.ENV != "production" else env_origins,
+    allow_origin_regex=lan_regex if settings.ENV != "production" else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
