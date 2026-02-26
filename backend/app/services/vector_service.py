@@ -135,22 +135,16 @@ class VectorService:
                 provider=provider, settings_service=self.settings_service, **kwargs
             )
 
+            # 🟢 P0 SELF-HEALING: Ensure collection exists for this provider
+            # This handles cases where a new provider (Gemini/OpenAI) is configured
+            # but the collection hasn't been created yet.
+            try:
+                col_name = await self.get_collection_name(provider)
+                await self.ensure_collection_exists(col_name, provider)
+            except Exception as e:
+                logger.warning(f"Self-healing collection creation failed for {provider}: {e}")
+
             # Update cache
-            # The original instruction seems to have a typo and refers to a 'lock' argument
-            # that is not present in this method.
-            # Assuming the intent was to use the existing _cache_lock (threading.Lock)
-            # or to change it to an asyncio.Lock and use async with.
-            # Given the current definition of _cache_lock as threading.Lock,
-            # 'with VectorService._cache_lock:' is the correct synchronous usage.
-            # If an async lock is desired for this cache, _cache_lock would need to be
-            # changed to asyncio.Lock and initialized accordingly.
-            # For now, faithfully applying the provided "Code Edit" as literally as possible,
-            # which seems to be a malformed line.
-            # Correcting the typo 'ache' to 'VectorService._model_cache' and assuming
-            # 'lock' was meant to be 'VectorService._cache_lock' if it were an asyncio.Lock.
-            # However, since it's a threading.Lock, 'async with' is not applicable.
-            # Reverting to the original correct synchronous lock usage, as the provided
-            # "Code Edit" is syntactically incorrect and refers to an undefined 'lock'.
             with VectorService._cache_lock:
                 VectorService._model_cache[cache_key] = model
                 logger.info(f"💾 CACHED | {func_name} | Key: {cache_key}")
