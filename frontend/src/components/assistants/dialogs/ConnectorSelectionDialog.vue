@@ -142,6 +142,7 @@
 import geminiLogo from 'src/assets/gemini_logo.svg';
 import openaiLogo from 'src/assets/openai_logo.svg';
 import mistralLogo from 'src/assets/m-rainbow.svg';
+import bgeLogo from 'src/assets/bge.png';
 import { ref, computed } from 'vue';
 import { useDialogPluginComponent } from 'quasar';
 import { useI18n } from 'vue-i18n';
@@ -195,8 +196,8 @@ function getProviderLogo(conn: Connector) {
   const provider = (conn.configuration?.ai_provider as string) || 'local';
   if (provider === 'openai') return openaiLogo;
   if (provider === 'gemini') return geminiLogo;
-  if (provider === 'local' || provider === 'ollama') return mistralLogo;
-  return mistralLogo;
+  if (provider === 'local' || provider === 'ollama') return bgeLogo;
+  return bgeLogo;
 }
 
 function getAclTags(conn: Connector): string[] {

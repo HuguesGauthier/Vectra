@@ -292,7 +292,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       openai: openaiLogo,
       mistral: mistralLogo,
       anthropic: anthropicLogo,
-      ollama: mistralLogo, // Default to Mistral for chat
+      ollama: bgeLogo, // Default to BGE for local/ollama
       local: bgeLogo, // Default to BGE for local/fastembed
       cohere: cohereLogo,
     };
