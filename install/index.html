@@ -385,6 +385,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#hardware-acceleration-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🚀 Hardware Acceleration (Optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#data-persistence-docker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1173,6 +1184,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#hardware-acceleration-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🚀 Hardware Acceleration (Optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#data-persistence-docker" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1300,6 +1322,11 @@
    <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>--profile<span class="w"> </span>dev<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div></li>
 </ol>
+<h3 id="hardware-acceleration-optional">🚀 Hardware Acceleration (Optional)</h3>
+<p>By default, Vectra runs in <strong>CPU-only mode</strong> for maximum compatibility.</p>
+<p>If you have an <strong>NVIDIA GPU</strong> and want to use it, you don't need to change your <code>.env</code>. Simply add the GPU extension file to your command:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose.gpu.yml<span class="w"> </span>--profile<span class="w"> </span>prod<span class="w"> </span>up<span class="w"> </span>-d
+</code></pre></div>
 <p>Access the UI at: <a href="http://localhost:9000">http://localhost:9000</a></p>
 <h3 id="data-persistence-docker">Data Persistence (Docker)</h3>
 <p>To allows Vectra to access your local files and folders in Docker:</p>

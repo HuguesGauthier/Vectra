@@ -1464,7 +1464,18 @@ Defaults to ClientType.CLIENT.</p>
 <span class="normal">149</span>
 <span class="normal">150</span>
 <span class="normal">151</span>
-<span class="normal">152</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws&quot;</span><span class="p">)</span>
+<span class="normal">152</span>
+<span class="normal">153</span>
+<span class="normal">154</span>
+<span class="normal">155</span>
+<span class="normal">156</span>
+<span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="nd">@router</span><span class="o">.</span><span class="n">websocket</span><span class="p">(</span><span class="s2">&quot;/ws&quot;</span><span class="p">)</span>
 <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">websocket_endpoint</span><span class="p">(</span>
     <span class="n">websocket</span><span class="p">:</span> <span class="n">WebSocket</span><span class="p">,</span>
     <span class="n">manager</span><span class="p">:</span> <span class="n">Websocket</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_websocket</span><span class="p">),</span>
@@ -1541,6 +1552,8 @@ Defaults to ClientType.CLIENT.</p>
 
             <span class="c1"># Heartbeat check</span>
             <span class="k">if</span> <span class="n">data</span> <span class="o">==</span> <span class="s2">&quot;ping&quot;</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">client_type</span> <span class="o">==</span> <span class="n">ClientType</span><span class="o">.</span><span class="n">WORKER</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">record_worker_heartbeat</span><span class="p">()</span>
                 <span class="k">await</span> <span class="n">websocket</span><span class="o">.</span><span class="n">send_text</span><span class="p">(</span><span class="s2">&quot;pong&quot;</span><span class="p">)</span>
                 <span class="k">continue</span>
 
@@ -1549,14 +1562,23 @@ Defaults to ClientType.CLIENT.</p>
                 <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">emit_worker_status</span><span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">is_worker_online</span><span class="p">)</span>
                 <span class="k">continue</span>
 
-            <span class="c1"># Worker Broadcast: Re-broadcast worker messages to all frontend clients</span>
+            <span class="c1"># Worker Messages</span>
             <span class="k">if</span> <span class="n">client_type</span> <span class="o">==</span> <span class="n">ClientType</span><span class="o">.</span><span class="n">WORKER</span><span class="p">:</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="n">payload</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-                        <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
-                    <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">payload</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: Worker sent non-dictionary JSON: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># Worker-specific messages</span>
+                    <span class="n">msg_type</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;type&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">msg_type</span> <span class="o">==</span> <span class="s2">&quot;REGISTER_WORKER&quot;</span><span class="p">:</span>
+                        <span class="n">metadata</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;metadata&quot;</span><span class="p">,</span> <span class="p">{})</span>
+                        <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">register_worker</span><span class="p">(</span><span class="n">websocket</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                    <span class="c1"># Standard broadcast</span>
+                    <span class="k">await</span> <span class="n">manager</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
                 <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
                     <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Context | </span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> | Msg: Invalid JSON from worker | Error: </span><span class="si">{</span><span class="n">e</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
