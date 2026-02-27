@@ -1,87 +1,49 @@
 """
-Ambiguity Guard Agent - Core Implementation
-============================================
-Pre-search agent that analyzes CSV queries for missing mandatory filters.
+Ambiguity Guard Agent
+=====================
+Schema-driven agent that collects required filters from the user
+before authorizing a search against Qdrant.
 """
 
-import asyncio
 import json
 import logging
-from enum import Enum
-from typing import Any, Dict, List, Optional, Union
-
-from jinja2 import Template
-# Core Imports
-from llama_index.core.llms import LLM
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+from enum import Enum
+from jinja2 import Template
 
-# Config
-from app.core.rag.csv.ambiguity_prompt import AMBIGUITY_GUARD_PROMPT_TEMPLATE
+from llama_index.core.llms import LLM
+from .ambiguity_prompt import AMBIGUITY_GUARD_PROMPT_TEMPLATE
 
 logger = logging.getLogger(__name__)
 
-# Constants (No Magic Numbers)
-TIMEOUT_LLM_ANALYSIS: float = 8.0  # Seconds - Strict budget for ambiguity check
-MAX_HISTORY_MESSAGES: int = 6
-MAX_MESSAGE_LENGTH: int = 200
-
-# --- Enums & Models ---
+# Constants
+MAX_HISTORY_MESSAGES = 10
+MAX_MESSAGE_LENGTH = 500
 
 
 class AmbiguityAction(str, Enum):
-    """
-    Possible actions decided by the agent.
-    Inherits from str for easy JSON serialization.
-    """
-
-    PROCEED = "PROCEED"  # Query is clear, search immediately
-    SUGGEST = "SUGGEST_FACETS"  # Query is vague, suggest specific options
-    CLARIFY = "CLARIFY"  # Query is nonsensical or needs user input
-
-
-class AmbiguityAnalysis(BaseModel):
-    """
-    Structured output expected from the LLM.
-    Strictly typed for validation.
-    """
-
-    action: Union[str, AmbiguityAction] = Field(
-        ..., description="Decision code (SEARCH_PROCEED, SUGGEST_FACETS, CLARIFY)"
-    )
-    filters: Dict[str, str] = Field(default_factory=dict, description="Extracted key-value pairs for filtering.")
-    message: Optional[str] = Field(None, description="Clarification message or suggestion context.")
+    PROCEED = "SEARCH_PROCEED"
+    CLARIFY = "CLARIFY"
+    # Legacy — kept for backward compat but no longer generated
+    SUGGEST = "SUGGEST_FACETS"
 
 
 class AmbiguityDecision(BaseModel):
-    """
-    Internal decision object passed to the Processor.
-    """
-
     action: AmbiguityAction
-    extracted_filters: Dict[str, str] = Field(default_factory=dict)
+    extracted_filters: Dict[str, Any] = Field(default_factory=dict)
     message: Optional[str] = None
-
-    @property
-    def should_search(self) -> bool:
-        return self.action == AmbiguityAction.PROCEED
-
-
-# --- Main Service ---
 
 
 class AmbiguityGuardAgent:
     """
-    Pre-search agent for detecting ambiguous CSV queries.
+    Schema-driven agent that collects required filters one by one.
 
-    Responsibilities (SRP):
-    1. Context Preparation (Schema & History Normalization).
-    2. LLM Execution (Prompting & Parsing).
-    3. Decision Mapping (Raw LLM output -> Domain Decision).
-
-    Security & Resilience (Audit P0/P1):
-    - Circuit Breaker: Enforced timeouts on LLM calls.
-    - Defensive Parsing: Handles malformed JSON gracefully.
-    - Safe Defaults: Fails open (PROCEED) on error to avoid blocking user flow.
+    Decision logic:
+    - If all filter_exact_cols are present → SEARCH_PROCEED
+    - If any are missing → CLARIFY (ask for the next missing one)
+    
+    Filters are accumulated across conversation turns by the caller.
     """
 
     def __init__(self, llm: LLM):
@@ -94,153 +56,177 @@ class AmbiguityGuardAgent:
         ai_schema: Dict[str, Any],
         chat_history: Optional[List[Any]] = None,
         facets: Optional[Dict[str, List[str]]] = None,
+        accumulated_filters: Optional[Dict[str, Any]] = None,
     ) -> AmbiguityDecision:
         """
-        Main entry point for query analysis.
+        Main entry point. Determines what filters are still needed.
+
+        Args:
+            query: Current user message.
+            ai_schema: The CSV's ai_schema (contains filter_exact_cols, filter_range_cols).
+            chat_history: Full conversation history.
+            facets: Available values per filter column (from Qdrant).
+            accumulated_filters: Filters already collected in previous turns.
         """
         try:
-            # 1. Validation & Preprocessing (Guard Clause)
-            filter_cols = self._extract_filter_columns(ai_schema)
-            if not filter_cols:
-                logger.info("ℹ️ Guard bypassed: No mandatory filters defined in schema.")
-                return self._create_safe_decision()
+            exact_cols = ai_schema.get("filter_exact_cols", [])
+            range_cols = ai_schema.get("filter_range_cols", [])
 
-            # 2. Context Construction
-            prompt = self._build_prompt(query, ai_schema, filter_cols, chat_history, facets)
+            if not exact_cols and not range_cols:
+                logger.info("ℹ️ Guard bypassed: No filters defined in schema.")
+                return self._proceed(accumulated_filters or {})
 
-            # 3. Execution (With Circuit Breaker)
-            logger.info("🔍 AmbiguityGuard: Analyzing Query...")
+            acc = dict(accumulated_filters or {})
+
+            # Build prompt with full context
+            prompt = self._build_prompt(query, ai_schema, acc, facets, chat_history)
+
+            logger.info("🔍 AmbiguityGuard: Analyzing query...")
             response_text = await self._execute_llm_safe(prompt)
 
-            # 4. Parsing & Mapping
-            return self._parse_llm_result(response_text)
+            # Parse LLM response
+            decision = self._parse_llm_result(response_text)
+
+            # Normalize keys and values using schema + facets
+            self._normalize_filters_and_keys(decision.extracted_filters, exact_cols + range_cols, facets)
+
+            # Override action: deterministically check if all required filters are present
+            all_filters = {**acc, **decision.extracted_filters}
+            missing = self._get_missing_exact_filters(exact_cols, all_filters)
+
+            if missing:
+                decision.action = AmbiguityAction.CLARIFY
+                # Ensure message is set (LLM should have set it, but be safe)
+                if not decision.message:
+                    next_missing = missing[0]
+                    facet_hint = ""
+                    if facets and next_missing in facets:
+                        facet_hint = f" (ex: {', '.join(facets[next_missing][:5])})"
+                    decision.message = f"Could you specify the **{next_missing}**?{facet_hint}"
+            else:
+                decision.action = AmbiguityAction.PROCEED
+
+            # Always return full accumulated filters
+            decision.extracted_filters = all_filters
+
+            return decision
 
         except Exception as e:
-            # P2: Structured Error Logging
-            logger.error(f"❌ Ambiguity analysis critical failure: {e}", exc_info=True)
-            return self._create_safe_decision()
+            logger.error(f"❌ Ambiguity analysis failed: {e}", exc_info=True)
+            # Fail open: let the retrieval happen with whatever we have
+            return self._proceed(accumulated_filters or {})
 
-    # --- Private Methods: Logic Atomization ---
+    # --- Private: Core Logic ---
 
-    def _extract_filter_columns(self, schema: Dict[str, Any]) -> List[str]:
-        """Merges exact and range filters from schema."""
-        exact = schema.get("filter_exact_cols", [])
-        ranges = schema.get("filter_range_cols", [])
-        return exact + ranges
+    def _get_missing_exact_filters(self, exact_cols: List[str], filters: Dict[str, Any]) -> List[str]:
+        """Returns list of required exact filter columns that haven't been provided yet."""
+        filters_lower = {k.lower() for k in filters.keys()}
+        return [col for col in exact_cols if col.lower() not in filters_lower]
+
+    def _normalize_filters_and_keys(
+        self,
+        extracted: Dict[str, Any],
+        all_schema_cols: List[str],
+        facets: Optional[Dict[str, List[str]]],
+    ) -> None:
+        """
+        Normalizes:
+        1. Keys: maps lowercase keys to canonical schema column names.
+        2. Values: maps user values to canonical facet values (case-insensitive).
+        """
+        canonical_keys = {col.lower(): col for col in all_schema_cols}
+
+        normalized = {}
+        for key, val in extracted.items():
+            canonical_key = canonical_keys.get(key.lower(), key)
+
+            # Value normalization
+            if facets and canonical_key in facets and val:
+                val_lower = str(val).strip().lower()
+                for facet_val in facets[canonical_key]:
+                    if str(facet_val).strip().lower() == val_lower:
+                        val = facet_val
+                        break
+
+            normalized[canonical_key] = val
+
+        extracted.clear()
+        extracted.update(normalized)
 
     def _build_prompt(
         self,
         query: str,
         schema: Dict[str, Any],
-        params: List[str],
-        history: Optional[List[Any]],
+        accumulated_filters: Dict[str, Any],
         facets: Optional[Dict],
+        history: Optional[List[Any]],
     ) -> str:
-        """Constructs the analysis prompt with history context."""
-
-        # Format History
+        """Renders the Jinja2 prompt with all context."""
+        exact_cols = schema.get("filter_exact_cols", [])
+        range_cols = schema.get("filter_range_cols", [])
+        missing_exact = self._get_missing_exact_filters(exact_cols, accumulated_filters)
         history_text = self._format_chat_history(history)
-
-        # Build Reverse Map safely
-        renaming = schema.get("renaming_map", {})
-        reverse_map = {v: k for k, v in renaming.items()}
 
         return self.template.render(
             query=query,
-            exact_filters=schema.get("filter_exact_cols", []),
-            range_filters=schema.get("filter_range_cols", []),
-            all_filters=params,
-            original_names=reverse_map,
-            conversation_history=history_text,
+            exact_filters=exact_cols,
+            range_filters=range_cols,
+            accumulated_filters=accumulated_filters,
+            missing_exact=missing_exact,
             facets=facets or {},
+            conversation_history=history_text,
         )
 
-    async def _execute_llm_safe(self, prompt: str) -> str:
-        """
-        Executes LLM call with Circuit Breaker (Timeout Protection).
-        """
-        try:
-            # P0: Async Timeout Protection
-            response = await asyncio.wait_for(self.llm.acomplete(prompt), timeout=TIMEOUT_LLM_ANALYSIS)
-            return response.text
-
-        except asyncio.TimeoutError:
-            logger.warning(f"⚠️ Ambiguity Guard Timed Out after {TIMEOUT_LLM_ANALYSIS}s - Defaulting to PROCEED")
-            return "{}"  # Return empty JSON to trigger safe default parsing
-
-        except Exception as e:
-            logger.warning(f"⚠️ LLM Execution Failed: {e}")
-            return "{}"
-
-    def _parse_llm_result(self, text: str) -> AmbiguityDecision:
-        """Parses JSON output and maps to internal Decision model."""
-        clean_text = self._sanitize_json_text(text)
-
-        if not clean_text or clean_text == "{}":
-            return self._create_safe_decision()
-
-        try:
-            data = json.loads(clean_text)
-            analysis = AmbiguityAnalysis(**data)
-
-            # Map raw string action to Enum
-            action_map = {
-                "SEARCH_PROCEED": AmbiguityAction.PROCEED,
-                "SUGGEST_FACETS": AmbiguityAction.SUGGEST,
-                "CLARIFY": AmbiguityAction.CLARIFY,
-                "PROCEED": AmbiguityAction.PROCEED,  # Fallback
-            }
-
-            # Default to PROCEED if unknown action
-            raw_action = str(analysis.action).upper()
-            final_action = action_map.get(raw_action, AmbiguityAction.PROCEED)
-
-            logger.info(f"✅ Decision: {final_action.value} | Filters: {len(analysis.filters)}")
-
-            return AmbiguityDecision(action=final_action, extracted_filters=analysis.filters, message=analysis.message)
-
-        except (json.JSONDecodeError, ValueError) as e:
-            # P2: Improve error logging with head of invalid text
-            preview = clean_text[:100].replace("\n", " ")
-            logger.warning(f"⚠️ Failed to parse Ambiguity JSON: {e}. Text: '{preview}...' -> Defaulting to PROCEED.")
-            return self._create_safe_decision()
-
     def _format_chat_history(self, history: Optional[List[Any]]) -> str:
-        """Extracts and formats recent user messages."""
+        """Formats recent user and assistant messages for context."""
         if not history:
             return ""
 
-        # Take last N messages (Token Efficiency)
         recent = history[-MAX_HISTORY_MESSAGES:]
-        user_msgs = []
-
+        lines = []
         for msg in recent:
-            # Handle both dicts and Objects (LlamaIndex types)
             role = getattr(msg, "role", None) or msg.get("role")
             content = getattr(msg, "content", None) or msg.get("content")
+            if role in ("user", "assistant") and content:
+                prefix = "User" if role == "user" else "Assistant"
+                lines.append(f"{prefix}: {str(content)[:MAX_MESSAGE_LENGTH]}")
 
-            if role == "user" and content:
-                # Truncate for token efficiency
-                user_msgs.append(f"- {str(content)[:MAX_MESSAGE_LENGTH]}")
-
-        if not user_msgs:
-            return ""
-
-        return "Previous user messages:\n" + "\n".join(user_msgs)
+        return "\n".join(lines)
 
     def _sanitize_json_text(self, text: str) -> str:
-        """Removes markdown fences if present."""
+        """Strips markdown code fences."""
         text = text.strip()
         if text.startswith("```"):
-            # Remove first line (```json) and last line (```)
-            lines = text.split("\n")
-            if len(lines) >= 2:
-                # Defensive check: sometimes it's just ``` without json
-                # Also handle cases where ``` is inline? Less likely for full response
-                return "\n".join(lines[1:-1]).strip()
-        return text
+            lines = text.splitlines()
+            if len(lines) > 2:
+                text = "\n".join(lines[1:-1])
+        return text.strip()
 
-    def _create_safe_decision(self) -> AmbiguityDecision:
-        """Returns a fail-safe 'Proceed' decision."""
-        # Fail Open Strategy: Assume we should search rather than block the user if agent fails
-        return AmbiguityDecision(action=AmbiguityAction.PROCEED, extracted_filters={})
+    def _parse_llm_result(self, text: str) -> AmbiguityDecision:
+        """Parses LLM JSON response into AmbiguityDecision."""
+        clean = self._sanitize_json_text(text)
+        try:
+            data = json.loads(clean)
+            action_val = data.get("action", "CLARIFY")
+            try:
+                data["action"] = AmbiguityAction(action_val)
+            except ValueError:
+                data["action"] = AmbiguityAction.CLARIFY
+
+            # The prompt uses "filters" not "extracted_filters"
+            if "filters" in data and "extracted_filters" not in data:
+                data["extracted_filters"] = data.pop("filters")
+
+            return AmbiguityDecision(**{k: v for k, v in data.items() if k in AmbiguityDecision.model_fields})
+        except Exception as e:
+            logger.warning(f"⚠️ Ambiguity parse failed: {e}. Raw: {text[:150]}")
+            return AmbiguityDecision(action=AmbiguityAction.CLARIFY, extracted_filters={})
+
+    async def _execute_llm_safe(self, prompt: str) -> str:
+        """Calls LLM safely."""
+        response = await self.llm.acomplete(prompt)
+        return response.text.strip()
+
+    def _proceed(self, filters: Dict[str, Any]) -> AmbiguityDecision:
+        """Helper: create a PROCEED decision."""
+        return AmbiguityDecision(action=AmbiguityAction.PROCEED, extracted_filters=filters)

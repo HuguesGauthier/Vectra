@@ -43,6 +43,7 @@ class VectorService:
     _client_lock: Optional[asyncio.Lock] = None
     _aclient_lock: Optional[asyncio.Lock] = None
     _cache_lock: threading.Lock = threading.Lock()
+    _dimension_cache: Dict[str, int] = {}
 
     @classmethod
     def _is_loop_alive(cls, lock: Optional[asyncio.Lock]) -> bool:
@@ -84,6 +85,7 @@ class VectorService:
                 # gRPC channels bound to the old loop — clear them so they are
                 # re-created on the current running loop.
                 cls._model_cache.clear()
+                cls._dimension_cache.clear()
 
     @classmethod
     def _get_lock(cls, is_async_client: bool) -> asyncio.Lock:
@@ -281,8 +283,9 @@ class VectorService:
             if exists:
                 return
 
-            dimension = self._determine_dimension(provider)
-            logger.info(f"Creating collection '{collection_name}' with dim={dimension}")
+            # Dynamic Dimension Detection (Probe Embedding)
+            dimension = await self._detect_dimension(provider)
+            logger.info(f"Creating collection '{collection_name}' with detected dim={dimension}")
 
             from qdrant_client.http import models as qmodels
 
@@ -294,19 +297,31 @@ class VectorService:
             logger.error(f"Failed to ensure collection {collection_name} exists: {e}", exc_info=True)
             raise TechnicalError(f"Vector database collection initialization failed: {e}")
 
-    def _determine_dimension(self, provider: str) -> int:
+    async def _detect_dimension(self, provider: str) -> int:
+        """Dynamically detects the dimension of an embedding model using a probe."""
         provider = provider.lower().strip()
-        if "openai" in provider:
-            # We default to 1536 (v3-small), but users might use 3072 (v3-large).
-            # Recreating the collection with the wrong dimension is a common P0 issue.
-            return 1536
-        if "ollama" in provider:
-            return 1024  # Standard for bge-m3
-        if "gemini" in provider:
-            # Gemini models like text-embedding-004 can be 768 or 3072.
-            # Host setup shows 3072 is in use for documents_gemini.
-            return 3072
-        return 768  # Default fallback
+        
+        # Check cache
+        if provider in VectorService._dimension_cache:
+            return VectorService._dimension_cache[provider]
+
+        try:
+            logger.info(f"Probe | Detecting dimension for provider: {provider}")
+            model = await self.get_embedding_model(provider=provider)
+            
+            # Use a dummy string to get a real vector
+            probe_vector = await model.aget_text_embedding("probe")
+            dim = len(probe_vector)
+            
+            with VectorService._cache_lock:
+                VectorService._dimension_cache[provider] = dim
+                
+            logger.info(f"Probe | Detected dimension: {dim} for {provider}")
+            return dim
+        except Exception as e:
+            logger.error(f"❌ Probe Failed for {provider}: {e}")
+            # Fallback based on typical standards if probe fails
+            return 1024 if "ollama" in provider else (1536 if "openai" in provider else 768)
 
     async def get_collection_name(self, provider: Optional[str] = None) -> str:
         """Returns the collection name for a given provider."""

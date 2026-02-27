@@ -178,8 +178,40 @@ class CsvRetriever:
 
     def _is_precise_enough(self, nodes: List[NodeWithScore], count: int) -> bool:
         """Determines if the result set is focused enough."""
-        if count == 0 or count > 5:
+        if count == 0:
+            return False
+            
+        # P0: If many results across different entities, too broad
+        if count > 5:
             return False
 
-        unique_models = {n.node.metadata.get(KEY_MODEL, "unknown") for n in nodes}
-        return len(unique_models) <= 1 or count == 1
+        # If we have only 1 or 2 results, we consider it precise enough even if they differ slightly
+        if count <= 2:
+            return True
+
+        # Check Variance across identifying fields
+        # If we have 3-5 results, they should all refer to the same Model/Position/Type
+        identifying_keys = {KEY_MODEL, "Position", "ProductType", "Note", KEY_YEAR_START}
+        
+        for key in identifying_keys:
+            # Robust lookup: check exact, then lowercase
+            unique_vals = set()
+            for n in nodes:
+                meta = n.node.metadata or {}
+                # Try finding the key in a case-insensitive way if not direct
+                val = meta.get(key)
+                if val is None:
+                    # Search keys for a case-insensitive match
+                    for m_key in meta.keys():
+                        if m_key.lower() == key.lower():
+                            val = meta[m_key]
+                            break
+                
+                unique_vals.add(str(val if val is not None else "unknown"))
+
+            if len(unique_vals) > 1:
+                # If even ONE identifying field varies across results, it's ambiguous
+                logger.info(f"Ambiguity detected: {key} varies across {len(unique_vals)} values")
+                return False
+            
+        return True
