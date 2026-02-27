@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <q-card-section class="q-pt-none q-px-lg relative-position info-section">
+    <q-card-section class="q-pt-none q-px-lg relative-position info-section col">
       <!-- Avatar with Ring -->
       <div class="avatar-wrapper">
         <div

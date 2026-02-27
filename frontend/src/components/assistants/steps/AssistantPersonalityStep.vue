@@ -63,6 +63,34 @@
         </div>
       </div>
 
+      <!-- Confirmation Dialog for AI Optimization -->
+      <q-dialog v-model="showConfirmOptimize" persistent>
+        <q-card class="bg-primary text-grey-5 border-all" style="max-width: 400px">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6 text-accent">Optimiser avec l'IA</div>
+            <q-space />
+            <q-btn icon="close" flat round dense v-close-popup />
+          </q-card-section>
+
+          <q-card-section class="q-pt-md">
+            {{
+              $t('optimizeConfirmationMessage') ||
+              "L'IA va analyser et reformuler vos instructions pour les rendre plus efficaces. Votre texte actuel sera remplacé. Souhaitez-vous continuer ?"
+            }}
+          </q-card-section>
+
+          <q-card-actions align="right" class="q-pa-md">
+            <q-btn flat :label="$t('cancel') || 'Annuler'" color="grey-7" v-close-popup />
+            <q-btn
+              unelevated
+              :label="$t('confirm') || 'Optimiser'"
+              color="accent"
+              @click="executeOptimization"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
       <!-- Wizard Dialog -->
       <q-dialog v-model="showWizard">
         <q-card style="min-width: 800px" class="bg-primary text-grey-5">
@@ -83,7 +111,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-// import { useI18n } from 'vue-i18n'; // Automatically imported in Quasar usually or via composables, but best to import if explicit. Check existing files.
 import { useAssistantForm, type WizardData } from 'src/composables/useAssistantForm';
 import CreateAssistantStepper from '../CreateAssistantStepper.vue';
 import type { Assistant } from 'src/services/assistantService';
@@ -105,6 +132,7 @@ const emit = defineEmits<{
 const { optimizeInstructions, generatePromptFromWizard } = useAssistantForm();
 
 const showWizard = ref(false);
+const showConfirmOptimize = ref(false);
 const isOptimizing = ref(false);
 
 const localData = computed({
@@ -112,17 +140,25 @@ const localData = computed({
   set: (val) => emit('update:modelValue', val),
 });
 
-async function handleOptimizeInstructions() {
+function handleOptimizeInstructions() {
   if (!localData.value.instructions) return;
+  showConfirmOptimize.value = true;
+}
+
+function executeOptimization() {
+  showConfirmOptimize.value = false;
   isOptimizing.value = true;
-  try {
-    const optimized = await optimizeInstructions(localData.value.instructions);
-    localData.value.instructions = optimized;
-  } catch {
-    // Error handled in composable
-  } finally {
-    isOptimizing.value = false;
-  }
+
+  optimizeInstructions(localData.value.instructions as string)
+    .then((optimized) => {
+      localData.value.instructions = optimized;
+    })
+    .catch(() => {
+      // Error handled in composable or UI
+    })
+    .finally(() => {
+      isOptimizing.value = false;
+    });
 }
 
 function handleWizardSubmit(data: WizardData) {
@@ -140,51 +176,63 @@ function handleWizardSubmit(data: WizardData) {
 
 .flow-step-card {
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--q-sixth);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   position: relative;
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .flow-step-card:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   border-color: var(--q-accent);
-  transform: translateY(-2px);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(var(--q-accent-rgb), 0.2);
 }
 
 .flow-step-card.disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   pointer-events: none;
-  filter: grayscale(0.8);
+  filter: grayscale(1);
 }
 
 .step-indicator {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(var(--q-accent-rgb), 0.2);
-  color: var(--q-accent);
+  background: linear-gradient(135deg, var(--q-accent), #6e2cf2);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 800;
   font-size: 14px;
+  box-shadow: 0 2px 8px rgba(var(--q-accent-rgb), 0.4);
 }
+
+.step-generate:hover {
+  border-color: var(--q-accent);
+}
+
+.step-optimize:hover:not(.disabled) {
+  border-color: var(--q-accent);
+}
+
 :deep(.q-field--outlined .q-field__control):before {
-  border-color: var(--q-sixth) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
   border-width: 1px !important;
 }
 
 :deep(.q-field--outlined .q-field__control):after {
-  border-color: var(--q-sixth) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
   border-width: 1px !important;
 }
 
 :deep(.q-field--outlined.q-field--focused .q-field__control):after {
   border-color: var(--q-accent) !important;
-  border-width: 1px !important;
+  border-width: 2px !important;
 }
 </style>

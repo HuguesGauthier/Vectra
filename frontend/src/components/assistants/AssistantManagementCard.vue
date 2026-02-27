@@ -67,7 +67,7 @@
     </div>
 
     <q-card-section
-      class="q-pt-none q-px-lg relative-position info-section flex-grow cursor-pointer"
+      class="q-pt-none q-px-lg relative-position info-section col cursor-pointer"
       v-ripple
     >
       <!-- Overlapping Avatar -->
