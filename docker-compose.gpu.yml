@@ -9,6 +9,9 @@ services:
               capabilities: [gpu]
 
   vectra-whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    environment:
+      - WHISPER__DEVICE=cuda
     deploy:
       resources:
         reservations:
