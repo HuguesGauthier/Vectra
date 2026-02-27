@@ -68,14 +68,27 @@ const routes: RouteRecordRaw[] = [
     ],
   },
 
-  // Legacy share route
+  // Standalone/Embed Routes
+  {
+    path: '/embed',
+    component: () => import('layouts/StandaloneLayout.vue'),
+    children: [
+      {
+        path: 'chat/:assistant_id',
+        name: 'EmbedChat',
+        component: () => import('src/modules/chat/views/ChatPage.vue'),
+      },
+    ],
+  },
+
+  // Legacy share route - now redirects to embed view
   {
     path: '/share/:assistant_id',
     redirect: (to) => {
       const id = Array.isArray(to.params.assistant_id)
         ? to.params.assistant_id[0]
         : to.params.assistant_id;
-      return `/chat/${id}`;
+      return `/embed/chat/${id}`;
     },
   },
 
