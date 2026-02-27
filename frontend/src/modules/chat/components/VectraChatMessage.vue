@@ -1,5 +1,5 @@
 <template>
-  <div class="message-row row q-mb-md items-end" :class="isUser ? 'justify-end' : 'justify-start'">
+  <div class="message-row row q-mb-xs items-end" :class="isUser ? 'justify-end' : 'justify-start'">
     <!-- AI Avatar -->
     <q-avatar
       v-if="!isUser"

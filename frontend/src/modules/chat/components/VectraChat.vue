@@ -6,7 +6,7 @@
       class="messages-container col overflow-auto q-px-md q-pt-md"
       @scroll="handleScroll"
     >
-      <div class="messages-list column q-gutter-y-md q-pb-xl">
+      <div class="messages-list column q-gutter-y-sm q-pb-xl">
         <!-- Welcome Message -->
         <transition appear name="fade-in-up">
           <div

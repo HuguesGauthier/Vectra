@@ -26,18 +26,18 @@
     <q-card class="transparent-bg shadow-none">
       <q-card-section class="q-pa-none">
         <div class="table-container">
-            <q-table
-              flat
-              dense
-              dark
-              :rows="rows"
-              :columns="columns"
-              row-key="id"
-              :rows-per-page-options="[10, 25, 50, 0]"
-              class="transparent-bg no-border-radius"
-              table-header-class="table-header text-weight-bold"
-              :style="{ color: textColor }"
-            />
+          <q-table
+            flat
+            dense
+            dark
+            :rows="rows"
+            :columns="columns"
+            row-key="id"
+            :rows-per-page-options="[10, 25, 50, 0]"
+            class="transparent-bg no-border-radius"
+            table-header-class="table-header text-weight-bold"
+            :style="{ color: textColor }"
+          />
         </div>
       </q-card-section>
     </q-card>
@@ -94,6 +94,8 @@ const columns = computed(() => {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
+  width: 100%;
+  max-width: 100%;
 }
 
 .header-bg {
@@ -107,6 +109,9 @@ const columns = computed(() => {
 
 .table-container {
   max-height: 400px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
   overflow-y: auto;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -138,6 +143,10 @@ const columns = computed(() => {
   background: transparent;
 }
 
+::v-deep(.q-table) {
+  width: 100%;
+}
+
 ::v-deep(.table-header) {
   background-color: rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid v-bind('`${textColor}4D`');
@@ -159,5 +168,8 @@ const columns = computed(() => {
 ::v-deep(.q-table td) {
   color: v-bind('textColor') !important;
   opacity: 0.8;
+  max-width: 300px;
+  white-space: normal;
+  word-break: break-word;
 }
 </style>
