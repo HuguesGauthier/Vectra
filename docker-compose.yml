@@ -2,13 +2,7 @@ services:
   vectra-api:
     profiles: ["prod"]
     build: ./backend
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     ports:
       - "8000:8000"
     environment:
@@ -36,6 +30,8 @@ services:
         condition: service_healthy
       vectra-whisper:
         condition: service_started
+      vectra-ollama:
+        condition: service_healthy
     networks:
       - vectra
     volumes:
@@ -47,7 +43,7 @@ services:
       context: ./frontend
       target: production-stage
     ports:
-      - "80:80"
+      - "${VECTRA_FRONTEND_PORT:-9000}:80"
     depends_on:
       - vectra-api
     networks:
@@ -60,13 +56,7 @@ services:
     build: ./backend
     # Override the default command to run the scheduler
     command: python worker.py
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     environment:
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=postgresql+asyncpg://vectra:vectra@vectra-postgres:5432/vectra
@@ -86,9 +76,14 @@ services:
       - FIRST_SUPERUSER=${FIRST_SUPERUSER:-admin@vectra.ai}
       - FIRST_SUPERUSER_PASSWORD=${FIRST_SUPERUSER_PASSWORD:-vectra123!}
     depends_on:
-      - vectra-postgres
-      - vectra-qdrant
-      - vectra-redis
+      vectra-postgres:
+        condition: service_healthy
+      vectra-qdrant:
+        condition: service_started
+      vectra-redis:
+        condition: service_healthy
+      vectra-ollama:
+        condition: service_healthy
     networks:
       - vectra
     volumes:
@@ -188,26 +183,20 @@ services:
     image: ollama/ollama:latest
     restart: always
     volumes:
-      - ollama_data:/root/.ollama # Persistance des modèles (pour ne pas re-télécharger à chaque reboot)
+      - ollama_data:/root/.ollama
       - ./scripts/start_ollama.sh:/start_ollama.sh
     ports:
       - "11434:11434"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     environment:
       - OLLAMA_KEEP_ALIVE=-1
-      - OLLAMA_MODELS=mistral,bge-m3
+      - MODELS_TO_PULL=mistral,bge-m3
     entrypoint: ["/bin/bash", "/start_ollama.sh"]
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: ["CMD-SHELL", "ollama list && [ -f /tmp/ready ]"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 120
       start_period: 30s
     networks:
       - vectra
@@ -222,13 +211,7 @@ services:
       - "8003:8000"
     volumes:
       - whisper_data:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
-              count: ${VECTRA_GPU_COUNT:-0}
-              capabilities: [gpu]
+
     networks:
       - vectra
 

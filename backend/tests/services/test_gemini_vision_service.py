@@ -18,7 +18,16 @@ def mock_client():
 @pytest.fixture
 def mock_settings_service():
     service = AsyncMock()
-    service.get_value.return_value = "gemini-1.5-flash"
+
+    # Handle the 'default' argument in get_value
+    async def side_effect(key, default=None):
+        if key == "gemini_vision_model":
+            # Return configured model if not explicitly marked as missing
+            if not getattr(service, "_config_missing", False):
+                return "gemini-1.5-flash"
+        return default
+
+    service.get_value.side_effect = side_effect
     return service
 
 
@@ -43,19 +52,31 @@ async def test_analyze_image_success(vision_service, mock_client):
 
     # Assert
     assert result == "A beautiful sunset."
-    mock_client.files.upload.assert_called_once_with(path="path/to/image.jpg")
+    mock_client.files.upload.assert_called_once_with(file="path/to/image.jpg")
     mock_client.models.generate_content.assert_called_once()
     mock_client.files.delete.assert_called_once_with(name="files/test-file-id")
 
 
 @pytest.mark.asyncio
-async def test_analyze_image_config_error(vision_service, mock_settings_service):
-    # Setup
-    mock_settings_service.get_value.return_value = None
+async def test_analyze_image_uses_default_when_not_configured(vision_service, mock_settings_service, mock_client):
+    # Setup - mark config as missing to trigger default
+    mock_settings_service._config_missing = True
 
-    # Execute & Assert
-    with pytest.raises(ConfigurationError, match="gemini_vision_model is not configured"):
-        await vision_service.analyze_image("path/to/image.jpg")
+    mock_file = MagicMock()
+    mock_file.name = "files/default-file-id"
+    mock_client.files.upload.return_value = mock_file
+
+    mock_response = MagicMock()
+    mock_response.text = "Success"
+    mock_client.models.generate_content.return_value = mock_response
+
+    # Execute
+    await vision_service.analyze_image("path/to/image.jpg")
+
+    # Assert
+    mock_client.models.generate_content.assert_called_once()
+    _, kwargs = mock_client.models.generate_content.call_args
+    assert kwargs["model"] == "gemini-1.5-flash"
 
 
 @pytest.mark.asyncio

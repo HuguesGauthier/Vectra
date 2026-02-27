@@ -13,9 +13,9 @@ until ollama list > /dev/null 2>&1; do
 done
 echo "Ollama service is ready!"
 
-# Pull models from OLLAMA_MODELS environment variable
-if [ -n "$OLLAMA_MODELS" ]; then
-    IFS=',' read -ra MODELS <<< "$OLLAMA_MODELS"
+# Pull models from MODELS_TO_PULL environment variable
+if [ -n "$MODELS_TO_PULL" ]; then
+    IFS=',' read -ra MODELS <<< "$MODELS_TO_PULL"
     for model in "${MODELS[@]}"; do
         echo "Retrieving model: $model..."
         ollama pull "$model"
@@ -29,6 +29,9 @@ if [ -n "$OLLAMA_MODELS" ]; then
 else
     echo "No models specified in OLLAMA_MODELS. Skipping pulls."
 fi
+
+# Create a flag file to signal healthcheck that we are ready
+touch /tmp/ready
 
 echo "All specified models are ready!"
 

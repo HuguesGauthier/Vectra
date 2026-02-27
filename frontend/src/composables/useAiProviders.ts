@@ -8,6 +8,7 @@ import localLogo from 'src/assets/local_logo.svg';
 import cohereLogo from 'src/assets/cohere.png';
 import mistralLogo from 'src/assets/m-rainbow.svg';
 import anthropicLogo from 'src/assets/claude.svg';
+import bgeLogo from 'src/assets/bge.png';
 import type { ProviderOption, ModelInfo } from 'src/models/ProviderOption';
 
 export interface ProviderInfo {
@@ -63,7 +64,7 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
         let logo = localLogo;
         if (p.id === 'gemini') logo = geminiLogo;
         if (p.id === 'openai') logo = openaiLogo;
-        if (p.id === 'ollama' || p.id === 'local') logo = mistralLogo; // Use Mistral logo for Ollama and local
+        if (p.id === 'ollama' || p.id === 'local') logo = bgeLogo; // Use BGE logo for local embedding
         if (p.id === 'mistral') logo = mistralLogo;
 
         let modelInfo = '';
@@ -275,15 +276,23 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
   };
 
   /**
-   * Get the logo for a provider by ID
+   * Get the logo for a provider by ID and context type
    */
-  const getProviderLogo = (providerId: string | undefined): string | undefined => {
+  const getProviderLogo = (
+    providerId: string | undefined,
+    type: 'chat' | 'embedding' = 'chat',
+  ): string | undefined => {
     if (!providerId) return undefined;
     const pid = providerId.toLowerCase();
 
-    // Check chat options first as it's the most common
-    const chatOpt = chatProviderOptions.value.find((o) => o.id === pid);
-    if (chatOpt) return chatOpt.logo;
+    // Context-specific lookup
+    if (type === 'chat') {
+      const chatOpt = chatProviderOptions.value.find((o) => o.id === pid);
+      if (chatOpt) return chatOpt.logo;
+    } else if (type === 'embedding') {
+      const embedOpt = embeddingProviderOptions.value.find((o) => o.id === pid);
+      if (embedOpt) return embedOpt.logo;
+    }
 
     // Fallback to manual mapping for cases where providers haven't loaded yet or are special
     const logos: Record<string, string> = {
@@ -291,8 +300,8 @@ export function useAiProviders(settings?: Ref<Record<string, string>> | Record<s
       openai: openaiLogo,
       mistral: mistralLogo,
       anthropic: anthropicLogo,
-      ollama: mistralLogo,
-      local: mistralLogo,
+      ollama: type === 'embedding' ? bgeLogo : mistralLogo,
+      local: type === 'embedding' ? bgeLogo : mistralLogo,
       cohere: cohereLogo,
     };
     return logos[pid];

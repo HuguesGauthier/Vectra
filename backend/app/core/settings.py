@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
+    # CORS Configuration
+    # Comma-separated list of origins to allow (e.g. "http://localhost:9000,http://192.168.1.10:9000")
+    BACKEND_CORS_ORIGINS: str = ""
+
     # Embedding Configuration
     EMBEDDING_PROVIDER: Literal["local", "openai", "gemini", "ollama"] = "ollama"
     GEMINI_EMBEDDING_MODEL: str = "models/text-embedding-004"

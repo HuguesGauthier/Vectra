@@ -110,6 +110,8 @@ async def websocket_endpoint(
 
             # Heartbeat check
             if data == "ping":
+                if client_type == ClientType.WORKER:
+                    await manager.record_worker_heartbeat()
                 await websocket.send_text("pong")
                 continue
 
@@ -118,14 +120,23 @@ async def websocket_endpoint(
                 await manager.emit_worker_status(manager.is_worker_online)
                 continue
 
-            # Worker Broadcast: Re-broadcast worker messages to all frontend clients
+            # Worker Messages
             if client_type == ClientType.WORKER:
                 try:
                     payload: Any = json.loads(data)
-                    if isinstance(payload, dict):
-                        await manager.broadcast(payload)
-                    else:
+                    if not isinstance(payload, dict):
                         logger.warning(f"Context | {func_name} | Msg: Worker sent non-dictionary JSON: {type(payload)}")
+                        continue
+
+                    # Worker-specific messages
+                    msg_type = payload.get("type")
+                    if msg_type == "REGISTER_WORKER":
+                        metadata = payload.get("metadata", {})
+                        await manager.register_worker(websocket, metadata)
+                        continue
+
+                    # Standard broadcast
+                    await manager.broadcast(payload)
                 except json.JSONDecodeError as e:
                     logger.warning(f"Context | {func_name} | Msg: Invalid JSON from worker | Error: {e!r}")
                 except Exception as e:

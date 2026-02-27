@@ -237,7 +237,13 @@ class VisualizationService:
                 continue
 
             if isinstance(val, str):
-                clean = val.replace("$", "").replace("€", "").replace(" ", "").replace(",", "")
+                # Robust cleaning for currency and international numbers
+                clean = val.replace("$", "").replace("€", "").replace(" ", "").replace("\xa0", "").replace(",", "")
+                if "." in val and "," not in val:  # US style 1,000.00 -> 1000.00
+                    pass
+                elif "," in val and "." not in val:  # FR style 1 000,00 -> 1000.00
+                    clean = val.replace(" ", "").replace("\xa0", "").replace(",", ".")
+
                 try:
                     float(clean)
                     numeric_rows += 1
@@ -505,9 +511,19 @@ Respond with ONLY the chart type name.
         values = []
         for r in data.sample_data[:15]:
             if len(r) >= 2:
-                try:
-                    values.append(float(r[1]))
-                except (ValueError, TypeError):
+                val = r[1]
+                if isinstance(val, (int, float)):
+                    values.append(float(val))
+                elif isinstance(val, str):
+                    # Robust cleaning
+                    clean = val.replace("$", "").replace("€", "").replace(" ", "").replace("\xa0", "").replace(",", "")
+                    if "," in val and "." not in val:
+                        clean = val.replace(" ", "").replace("\xa0", "").replace(",", ".")
+                    try:
+                        values.append(float(clean))
+                    except (ValueError, TypeError):
+                        values.append(0)
+                else:
                     values.append(0)
         return {
             "viz_type": viz_type,

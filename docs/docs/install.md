@@ -34,6 +34,16 @@ Get Vectra running in 2 minutes:
    docker compose --profile dev up -d
    ```
 
+### 🚀 Hardware Acceleration (Optional)
+
+By default, Vectra runs in **CPU-only mode** for maximum compatibility.
+
+If you have an **NVIDIA GPU** and want to use it, you don't need to change your `.env`. Simply add the GPU extension file to your command:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml --profile prod up -d
+```
+
 Access the UI at: [http://localhost:9000](http://localhost:9000)
 
 ### Data Persistence (Docker)

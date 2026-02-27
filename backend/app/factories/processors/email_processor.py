@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from app.core.exceptions import TechnicalError
-from app.factories.processors.base import (DocumentMetadata, FileProcessor,
-                                           ProcessedDocument)
+from app.factories.processors.base import DocumentMetadata, FileProcessor, ProcessedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ class EmailProcessor(FileProcessor):
     def get_supported_extensions(self) -> List[str]:
         return ["eml", "msg"]
 
-    async def process(self, file_path: str) -> List[ProcessedDocument]:
+    async def process(self, file_path: str, ai_provider: Optional[str] = None) -> List[ProcessedDocument]:
         """
         Parse email and extract content/metadata.
         """

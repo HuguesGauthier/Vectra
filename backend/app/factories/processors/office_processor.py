@@ -18,8 +18,7 @@ from pydantic import BaseModel, Field
 
 from app.core.exceptions import TechnicalError
 from app.core.settings import get_settings
-from app.factories.processors.base import (DocumentMetadata, FileProcessor,
-                                           ProcessedDocument)
+from app.factories.processors.base import DocumentMetadata, FileProcessor, ProcessedDocument
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ class OfficeProcessor(FileProcessor):
         """Initialize processor with inherited file size validation."""
         super().__init__(max_file_size_bytes=self.MAX_FILE_SIZE_MB * 1024 * 1024)
 
-    async def process(self, file_path: Path | str) -> list[ProcessedDocument]:
+    async def process(self, file_path: str, ai_provider: Optional[str] = None) -> List[ProcessedDocument]:
         """
         Process Office document with full security hardening.
 

@@ -9,6 +9,7 @@ from app.core.prompts import RAG_ANSWER_PROMPT
 from app.core.rag.processors.base import BaseProcessor
 from app.core.rag.types import PipelineContext, PipelineEvent
 from app.core.rag.utils import estimate_tokens
+from app.core.utils.stream_parser import StreamBlockParser
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +76,39 @@ class SynthesisProcessor(BaseProcessor):
 
             # Use Chat API with Tools
             stream_response = await ctx.llm.astream_chat(messages, tools=ctx.tools)
-            yield PipelineEvent(type="response_stream", payload=stream_response)
+
+            parser = StreamBlockParser()
+            output_tokens = 0
+
+            async for chunk in stream_response:
+                token = getattr(chunk, "delta", None)
+                if token is None:
+                    # Fallback for non-delta streaming objects
+                    token = str(chunk)
+
+                if not token:
+                    continue
+
+                for event in parser.feed(token):
+                    if event.type == "token":
+                        output_tokens += 1
+                        yield PipelineEvent(type="token", payload=event.content)
+                    elif event.type == "block":
+                        yield PipelineEvent(
+                            type="content_block", payload={"block_type": "table", "data": event.content}
+                        )
+
+            # Flush any remaining buffer
+            for event in parser.flush():
+                if event.type == "token":
+                    output_tokens += 1
+                    yield PipelineEvent(type="token", payload=event.content)
 
             yield PipelineEvent(
                 type="step",
                 step_type="synthesis",
                 status="completed",
-                payload={"tokens": {"input": input_tokens, "output": 0}},
+                payload={"tokens": {"input": input_tokens, "output": output_tokens}},
             )
         except Exception as e:
             logger.error(f"Synthesis failed: {e}", exc_info=True)

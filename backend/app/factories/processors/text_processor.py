@@ -61,7 +61,7 @@ class TextProcessor(FileProcessor):
         """Initialize with file size verification."""
         super().__init__(max_file_size_bytes=self.MAX_FILE_SIZE_MB * 1024 * 1024)
 
-    async def process(self, file_path: str | Path) -> list[ProcessedDocument]:
+    async def process(self, file_path: str | Path, ai_provider: Optional[str] = None) -> list[ProcessedDocument]:
         """Process text file with security hardening."""
         file_hash: Optional[str] = None
 

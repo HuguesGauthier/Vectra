@@ -9,7 +9,8 @@ export interface WizardData {
   identity?: { name?: string; role?: string; targetUser?: string };
   mission?: { objective?: string; ragBehavior?: string };
   style?: { tone?: string; language?: string; format?: string };
-  safety?: { securityRules?: string; taboos?: string[] };
+  safety?: { securityRules?: string[]; taboos?: string[] };
+  examples?: { examples?: string };
 }
 
 export function useAssistantForm(initialData?: Partial<Assistant>) {
@@ -116,7 +117,7 @@ export function useAssistantForm(initialData?: Partial<Assistant>) {
 
     isOptimizing.value = true;
     try {
-      const response = await api.post('/prompts/optimize/', {
+      const response = await api.post('/prompts/optimize', {
         instruction: instructionText,
         connector_ids: formData.value.linked_connector_ids,
       });
@@ -174,10 +175,19 @@ export function useAssistantForm(initialData?: Partial<Assistant>) {
     // Safety
     if (data.safety) {
       prompt += `# SAFETY\n`;
-      if (data.safety.securityRules) prompt += `Rules: ${data.safety.securityRules}\n`;
+      if (data.safety.securityRules && data.safety.securityRules.length) {
+        prompt += `Rules:\n- ${data.safety.securityRules.join('\n- ')}\n`;
+      }
       if (data.safety.taboos && data.safety.taboos.length) {
         prompt += `Taboos: ${data.safety.taboos.join(', ')}\n`;
       }
+      prompt += '\n';
+    }
+
+    // Examples
+    if (data.examples && data.examples.examples) {
+      prompt += `# EXAMPLES\n`;
+      prompt += `${data.examples.examples}\n`;
     }
 
     notifySuccess(t('promptGenerated') || 'Prompt generated from wizard!');

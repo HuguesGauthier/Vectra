@@ -6,7 +6,7 @@
   >
     <div class="assistant-card-banner">
       <div class="glow-overlay" :style="glowStyle"></div>
-      
+
       <!-- Top Right Header Badges & Actions -->
       <div class="header-badges-vertical">
         <!-- Model Pill -->
@@ -19,17 +19,20 @@
             class="q-mr-xs provider-logo"
             fit="contain"
           />
-          <q-icon 
-            v-else
-            name="bolt" 
-            size="12px" 
-            class="q-mr-xs" 
-          />
+          <q-icon v-else name="bolt" size="12px" class="q-mr-xs" />
           {{ displayModelName }}
         </div>
 
         <!-- Actions Menu -->
-        <q-btn round flat dense icon="more_vert" color="white" class="glass-btn q-mt-xs" @click.stop>
+        <q-btn
+          round
+          flat
+          dense
+          icon="more_vert"
+          color="white"
+          class="glass-btn q-mt-xs"
+          @click.stop
+        >
           <q-menu auto-close class="bg-primary text-white border-sixth">
             <q-list style="min-width: 150px">
               <q-item clickable @click.stop="$emit('chat')">
@@ -63,13 +66,16 @@
       </div>
     </div>
 
-    <q-card-section 
-      class="q-pt-none q-px-lg relative-position info-section flex-grow cursor-pointer"
+    <q-card-section
+      class="q-pt-none q-px-lg relative-position info-section col cursor-pointer"
       v-ripple
     >
       <!-- Overlapping Avatar -->
       <div class="avatar-wrapper">
-        <div class="avatar-ring" :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }">
+        <div
+          class="avatar-ring"
+          :style="{ borderColor: assistant.avatar_bg_color || 'var(--q-accent)' }"
+        >
           <AssistantAvatar
             :assistant="assistant"
             size="80px"
@@ -81,12 +87,10 @@
 
       <!-- Assistant Info -->
       <div class="column q-mt-sm">
-        <div 
-          class="text-h6 text-weight-bolder assistant-name q-mb-xs ellipsis"
-        >
+        <div class="text-h6 text-weight-bolder assistant-name q-mb-xs ellipsis">
           {{ assistant.name }}
         </div>
-        
+
         <div class="description-text q-mb-md">
           {{ assistant.description || '...' }}
           <AppTooltip v-if="assistant.description && assistant.description.length > 60">
@@ -98,17 +102,10 @@
         <div class="section-label q-mb-xs">{{ $t('dataSources') }}</div>
         <div class="row q-gutter-xs q-mb-md min-h-24">
           <template v-if="connectors.length > 0">
-            <q-badge
-              v-for="source in connectors.slice(0, 2)"
-              :key="source.id"
-              class="source-badge"
-            >
+            <q-badge v-for="source in connectors.slice(0, 2)" :key="source.id" class="source-badge">
               {{ source.name }}
             </q-badge>
-            <q-badge
-              v-if="connectors.length > 2"
-              class="source-badge more"
-            >
+            <q-badge v-if="connectors.length > 2" class="source-badge more">
               +{{ connectors.length - 2 }}
             </q-badge>
           </template>
@@ -119,17 +116,10 @@
         <div class="section-label q-mb-xs">{{ $t('acl') }}</div>
         <div class="row q-gutter-xs min-h-24">
           <template v-if="tags.length > 0">
-            <q-badge
-              v-for="tag in tags.slice(0, 3)"
-              :key="tag"
-              class="tag-badge"
-            >
+            <q-badge v-for="tag in tags.slice(0, 3)" :key="tag" class="tag-badge">
               {{ tag }}
             </q-badge>
-            <q-badge
-              v-if="tags.length > 3"
-              class="tag-badge more"
-            >
+            <q-badge v-if="tags.length > 3" class="tag-badge more">
               +{{ tags.length - 3 }}
             </q-badge>
           </template>
@@ -137,13 +127,29 @@
         </div>
       </div>
     </q-card-section>
-    
+
     <!-- Quick Actions Footer -->
     <q-card-actions align="around" class="assistant-card-footer q-pb-md q-px-md">
-      <q-btn flat round dense icon="chat_bubble_outline" size="sm" class="action-btn" @click.stop="$emit('chat')">
+      <q-btn
+        flat
+        round
+        dense
+        icon="chat_bubble_outline"
+        size="sm"
+        class="action-btn"
+        @click.stop="$emit('chat')"
+      >
         <AppTooltip>{{ $t('talk') }}</AppTooltip>
       </q-btn>
-      <q-btn flat round dense icon="share" size="sm" class="action-btn" @click.stop="$emit('share')">
+      <q-btn
+        flat
+        round
+        dense
+        icon="share"
+        size="sm"
+        class="action-btn"
+        @click.stop="$emit('share')"
+      >
         <AppTooltip>{{ $t('share') }}</AppTooltip>
       </q-btn>
     </q-card-actions>
@@ -167,7 +173,7 @@ defineEmits(['edit', 'delete', 'share', 'chat', 'purge']);
 
 const { getProviderLogo, getProviderColor } = useAiProviders();
 
-const providerLogo = computed(() => getProviderLogo(props.assistant.model_provider));
+const providerLogo = computed(() => getProviderLogo(props.assistant.model_provider, 'chat'));
 const providerColor = computed(() => getProviderColor(props.assistant.model_provider));
 
 const displayModelName = computed(() => {
@@ -187,14 +193,14 @@ const pillStyle = computed(() => {
     backgroundColor: `rgba(var(--q-${color}-rgb, 100, 100, 100), 0.12)`,
     backdropFilter: 'blur(8px)',
     border: `1px solid rgba(var(--q-${color}-rgb, 100, 100, 100), 0.25)`,
-    color: `var(--q-${color})`
+    color: `var(--q-${color})`,
   };
 });
 
 const glowStyle = computed(() => {
   const color = providerColor.value || 'grey-7';
   return {
-    background: `radial-gradient(circle at 50% 0%, var(--q-${color})20 0%, transparent 70%)`
+    background: `radial-gradient(circle at 50% 0%, var(--q-${color})20 0%, transparent 70%)`,
   };
 });
 </script>
@@ -348,7 +354,8 @@ const glowStyle = computed(() => {
   font-weight: 600;
 }
 
-.source-badge.more, .tag-badge.more {
+.source-badge.more,
+.tag-badge.more {
   border-style: dashed;
   opacity: 0.6;
 }

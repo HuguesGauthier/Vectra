@@ -31,7 +31,7 @@ class ArchiveProcessor(FileProcessor):
     def get_supported_extensions(self) -> List[str]:
         return ["zip"]
 
-    async def process(self, file_path: str) -> List[ProcessedDocument]:
+    async def process(self, file_path: str, ai_provider: Optional[str] = None) -> List[ProcessedDocument]:
         """
         Extract zip and process contained files.
         """

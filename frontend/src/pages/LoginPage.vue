@@ -1,6 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf" class="bg-transparent">
-    <NeuralMeshBackground />
+    <AnimatedGradientBackground />
     <q-header class="bg-transparent" style="color: var(--q-icon-color); box-shadow: none">
       <q-toolbar>
         <q-space />
@@ -107,7 +107,7 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useNotification } from 'src/composables/useNotification';
 import VectraLogo from 'src/components/home/VectraLogo.vue';
-import NeuralMeshBackground from 'src/components/login/NeuralMeshBackground.vue';
+import AnimatedGradientBackground from 'src/components/common/AnimatedGradientBackground.vue';
 import { useTheme } from 'src/composables/useTheme';
 
 // --- DEFINITIONS ---
@@ -193,45 +193,12 @@ function toggleTheme() {
 </script>
 
 <style scoped>
-.mesh-bg {
-  position: relative;
-  background-color: var(--q-secondary);
-  background-image:
-    radial-gradient(ellipse 60% 80% at 0% 0%, var(--q-primary) 0%, transparent 100%),
-    radial-gradient(
-      ellipse 160% 120% at 40% -10%,
-      transparent 44%,
-      var(--q-secondary) 44.5%,
-      var(--q-secondary) 100%
-    ),
-    radial-gradient(ellipse 100% 100% at 30% 0%, var(--q-primary) 0%, transparent 100%),
-    radial-gradient(ellipse 80% 80% at 80% 100%, var(--q-primary) 0%, transparent 100%);
-  background-attachment: fixed;
-  background-size: cover;
-}
-
 :deep(.q-layout),
 :deep(.q-layout__container),
 :deep(.q-layout__section--main),
 :deep(.q-page-container),
 :deep(.q-page) {
   background: transparent !important;
-}
-
-body.body--light .mesh-bg {
-  background-color: #e0e5ec;
-  background-image:
-    radial-gradient(ellipse 60% 80% at 0% 0%, rgba(255, 255, 255, 0.8) 0%, transparent 100%),
-    radial-gradient(
-      ellipse 160% 120% at 40% -10%,
-      transparent 44%,
-      rgba(0, 0, 0, 0.1) 44.5%,
-      rgba(0, 0, 0, 0.2) 100%
-    ),
-    radial-gradient(ellipse 100% 100% at 30% 0%, var(--q-primary) 0%, transparent 100%),
-    radial-gradient(ellipse 80% 80% at 80% 100%, var(--q-secondary) 0%, transparent 100%);
-  background-attachment: fixed;
-  background-size: cover;
 }
 
 .my_card {

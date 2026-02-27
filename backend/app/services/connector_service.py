@@ -539,10 +539,12 @@ class ConnectorService:
         exists = await cls._run_blocking_io(os.path.isfile, path)
         if not exists:
             error_msg = f"File not found: {path}"
-            from app.core.utils.storage import get_storage_status
+            from app.core.utils.storage import get_storage_status, is_storage_empty
 
             if not get_storage_status():
                 error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            elif is_storage_empty():
+                error_msg += ". Note: Your data directory (/data) is empty. Please verify your drive sharing settings in Docker Desktop."
             raise FunctionalError(error_msg, error_code="FILE_NOT_FOUND", status_code=400)
 
         # ARCHITECT FIX: Validate extension for CSV connectors
@@ -559,10 +561,12 @@ class ConnectorService:
         exists = await cls._run_blocking_io(os.path.isdir, path)
         if not exists:
             error_msg = f"Path not found: {path}"
-            from app.core.utils.storage import get_storage_status
+            from app.core.utils.storage import get_storage_status, is_storage_empty
 
             if not get_storage_status():
                 error_msg += ". Note: Virtual/Network drives (G:, OneDrive) are not accessible via Docker."
+            elif is_storage_empty():
+                error_msg += ". Note: Your data directory (/data) is empty. Please verify your drive sharing settings (H:) in Docker Desktop."
             raise FunctionalError(error_msg, error_code="PATH_NOT_FOUND", status_code=400)
 
     @classmethod

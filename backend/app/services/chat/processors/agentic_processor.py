@@ -610,7 +610,13 @@ class AgenticProcessor(BaseChatProcessor):
         async def process_token_stream(token_gen):
             nonlocal full_text, output_tokens
             async for token in token_gen:
-                token_str = str(token)
+                token_str = getattr(token, "delta", None)
+                if token_str is None:
+                    # Fallback for non-delta streaming objects (Ollama specific)
+                    token_str = str(token)
+
+                if not token_str:
+                    continue
 
                 # feed parser
                 for event in parser.feed(token_str):

@@ -1,0 +1,21 @@
+services:
+  vectra-ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+              count: ${VECTRA_GPU_COUNT:-1}
+              capabilities: [gpu]
+
+  vectra-whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    environment:
+      - WHISPER__DEVICE=cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: ${VECTRA_GPU_DRIVER:-nvidia}
+              count: ${VECTRA_GPU_COUNT:-1}
+              capabilities: [gpu]

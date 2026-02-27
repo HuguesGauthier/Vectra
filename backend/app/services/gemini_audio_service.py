@@ -105,12 +105,10 @@ class GeminiAudioService:
                 raise TechnicalError("Gemini failed to process audio", error_code="GEMINI_PROCESSING_FAILED")
 
             # 3. Generate Transcription (JSON Mode)
-            if callback:
-                callback("Generating transcription...")
+            model_name = await self.settings_service.get_value("gemini_transcription_model", default="gemini-1.5-flash")
 
-            model_name = await self.settings_service.get_value("gemini_transcription_model")
-            if not model_name:
-                raise ConfigurationError("gemini_transcription_model is not configured in settings")
+            if callback:
+                callback(f"Generating transcription with {model_name}...")
 
             response = await asyncio.to_thread(
                 self.client.models.generate_content,

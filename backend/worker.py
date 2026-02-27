@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import socket
 import sys
 from datetime import datetime, timezone
 
@@ -61,10 +62,23 @@ async def maintain_socket_connection():
             async with websockets.connect(
                 uri, ping_timeout=60, additional_headers={"x-worker-secret": settings.WORKER_SECRET}
             ) as websocket:
-                logger.info("Connected to API via WebSocket.")
-
                 # Register this connection as upstream for broadcast
                 manager.set_upstream(websocket)
+
+                # Identify this worker to the server
+                hostname = socket.gethostname()
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "REGISTER_WORKER",
+                            "metadata": {
+                                "hostname": hostname,
+                                "version": "1.0.0",  # Placeholder for versioning
+                                "os": sys.platform,
+                            },
+                        }
+                    )
+                )
 
                 try:
                     # Create tasks for reading and writing (heartbeat)
@@ -140,6 +154,7 @@ from app.services.sql_discovery_service import SQLDiscoveryService
 async def process_connector_wrapper(connector_id: UUID):
     async with SessionLocal() as db:
         try:
+            logger.info(f"🚀 Worker starting sync for connector {connector_id}")
             state_service = ConnectorStateService(db, SystemClock())
             settings_service = SettingsService(db)
             sql_service = SQLDiscoveryService(db, settings_service)
@@ -152,13 +167,15 @@ async def process_connector_wrapper(connector_id: UUID):
                 clock=SystemClock(),
             )
             await service.process_connector(connector_id)
+            logger.info(f"✅ Worker finished sync for connector {connector_id}")
         except Exception as e:
-            logger.error(f"Wrapper failed for connector {connector_id}: {e}")
+            logger.error(f"❌ Wrapper failed for connector {connector_id}: {e}", exc_info=True)
 
 
 async def process_single_document_wrapper(doc_id: UUID):
     async with SessionLocal() as db:
         try:
+            logger.info(f"📄 Worker starting sync for document {doc_id}")
             state_service = ConnectorStateService(db, SystemClock())
             settings_service = SettingsService(db)
             sql_service = SQLDiscoveryService(db, settings_service)
@@ -171,8 +188,9 @@ async def process_single_document_wrapper(doc_id: UUID):
                 clock=SystemClock(),
             )
             await service.process_single_document(doc_id, force=True)
+            logger.info(f"✅ Worker finished sync for document {doc_id}")
         except Exception as e:
-            logger.error(f"Wrapper failed for doc {doc_id}: {e}")
+            logger.error(f"❌ Wrapper failed for doc {doc_id}: {e}", exc_info=True)
 
 
 async def check_triggers():
@@ -316,8 +334,6 @@ if __name__ == "__main__":
             logger.info("=" * 50)
 
             logger.info("Settings cache loaded in worker.")
-
-
 
     loop.run_until_complete(startup())
 

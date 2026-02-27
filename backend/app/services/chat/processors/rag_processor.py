@@ -49,12 +49,13 @@ class RAGGenerationProcessor(BaseChatProcessor):
     Supports both Standard RAG and specialized CSV pipelines.
     Hardened with Timeouts and Circuit Breakers.
     """
+
     async def process(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
         """Orchestrates the RAG pipeline with SSE event streaming."""
         if ctx.should_stop:
             logger.debug("[RAGGenerationProcessor] Skipping: ctx.should_stop is True")
             return
-            
+
         self._ensure_metrics(ctx)
 
         # 1. Initialize & Dependencies (Connection check)
@@ -192,13 +193,11 @@ class RAGGenerationProcessor(BaseChatProcessor):
                     context=connector_rag_ctx,
                     processors=[RetrievalProcessor()],
                 )
-                async for event in self._consume_with_timeout(
-                    retrieval_pipeline.run(ctx.message), TIMEOUT_RETRIEVAL
-                ):
+                async for event in self._consume_with_timeout(retrieval_pipeline.run(ctx.message), TIMEOUT_RETRIEVAL):
                     pass  # consume events; nodes stored on connector_rag_ctx
 
                 # Merge nodes (deduplicate)
-                for node in (connector_rag_ctx.retrieved_nodes or []):
+                for node in connector_rag_ctx.retrieved_nodes or []:
                     node_id = getattr(node, "node_id", None) or id(node)
                     if node_id not in seen_ids:
                         seen_ids.add(node_id)
@@ -245,9 +244,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
         # --- Parent RETRIEVAL: COMPLETED ---
         retrieval_dur = round(time.time() - retrieval_t0, 3)
         ctx.metrics.end_span(retrieval_id)
-        yield EventFormatter.format(
-            STEP_RETRIEVAL, StepStatus.COMPLETED, retrieval_id, duration=retrieval_dur
-        )
+        yield EventFormatter.format(STEP_RETRIEVAL, StepStatus.COMPLETED, retrieval_id, duration=retrieval_dur)
 
     async def _execute_reranking(self, rag_ctx: PipelineContext, ctx: ChatContext) -> AsyncGenerator[str, None]:
         """Runs the reranking step on the merged nodes."""
@@ -273,14 +270,35 @@ class RAGGenerationProcessor(BaseChatProcessor):
                 if event.type == "step":
                     yield self._format_from_event(event, ctx)
 
+                elif event.type == "token":
+                    if not ttft_recorded:
+                        ctx.metrics.ttft = round(time.time() - start_gen, 3)
+                        ttft_recorded = True
+
+                    token = event.payload
+                    ctx.full_response_text += token
+                    ctx.metrics.total_output_tokens += 1
+                    yield json.dumps({"type": "token", "content": token, "text": token}, default=str) + "\n"
+
+                elif event.type == "content_block":
+                    block_type = event.payload.get("block_type")
+                    data = event.payload.get("data")
+                    if "content_blocks" not in ctx.metadata:
+                        ctx.metadata["content_blocks"] = []
+                    ctx.metadata["content_blocks"].append({"type": block_type, "data": data})
+                    yield json.dumps(
+                        {"type": "content_block", "block_type": block_type, "data": data}, default=str
+                    ) + "\n"
+
                 elif event.type == "response_stream":
+                    # Backward compatibility for any older synthesis yielding raw stream
                     async for chunk in event.payload:
                         if not ttft_recorded:
                             ctx.metrics.ttft = round(time.time() - start_gen, 3)
                             ttft_recorded = True
 
                         # Capture Content
-                        token = chunk.delta
+                        token = getattr(chunk, "delta", None) or str(chunk)
                         if token:
                             ctx.full_response_text += token
                             ctx.metrics.total_output_tokens += 1
@@ -407,9 +425,14 @@ class RAGGenerationProcessor(BaseChatProcessor):
                 output_tokens=int(tokens.get(KEY_OUTPUT, 0)),
                 payload=payload,
             )
-            
+
             return EventFormatter.format(
-                event.step_type, "completed", span_id, payload=payload, duration=step_metric.duration, label=getattr(event, "label", None)
+                event.step_type,
+                "completed",
+                span_id,
+                payload=payload,
+                duration=step_metric.duration,
+                label=getattr(event, "label", None),
             )
 
         elif event.status == "failed":

@@ -66,7 +66,7 @@
                 border: `1px solid ${textColor}66`,
                 color: textColor,
               }"
-              @click="openFile(group.documentId)"
+              @click="openFile(group.documentId, group.fileName)"
             />
           </div>
 
@@ -104,7 +104,10 @@
                 >
                   {{ $t('page') }} {{ getPageLabel(source) }}
                 </div>
-                <div class="source-content text-caption" :style="{ color: textColor, opacity: 0.8 }">
+                <div
+                  class="source-content text-caption"
+                  :style="{ color: textColor, opacity: 0.8 }"
+                >
                   {{ truncateContent(source.content, 200) }}
                 </div>
               </template>
@@ -167,8 +170,8 @@ const groupedSources = computed(() => {
 
 const fileCount = computed(() => Object.keys(groupedSources.value).length);
 
-const openFile = (documentId: string) => {
-  window.dispatchEvent(new CustomEvent('vectra-open-file', { detail: documentId }));
+const openFile = (documentId: string, fileName: string) => {
+  window.dispatchEvent(new CustomEvent('vectra-open-file', { detail: { documentId, fileName } }));
 };
 
 const getAudioUrl = (source: Source) => {

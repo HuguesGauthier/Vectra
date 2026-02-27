@@ -117,15 +117,11 @@ class CSVRAGProcessor(BaseChatProcessor):
                 return
 
             elif action == ACTION_SUGGEST:
-                suggestion_nodes = await components.retrieval_service.suggest(
-                    query=ctx.message, extracted_filters=decision.get("extracted_filters", {})
-                )
-
-                if suggestion_nodes:
-                    ctx.metadata["csv_retrieved_nodes"] = suggestion_nodes
-                else:
-                    self._mark_executed(ctx)
-                    return
+                # Legacy path: treat as CLARIFY - always yield message and stop
+                msg = decision.get("message", "Could you provide more details?")
+                yield self._yield_token_message(ctx, msg)
+                self._mark_executed(ctx)
+                return
 
             # 3. Retrieval Phase
             if "csv_retrieved_nodes" not in ctx.metadata:
@@ -214,6 +210,7 @@ class CSVRAGProcessor(BaseChatProcessor):
             qdrant_client = await ctx.vector_service.get_qdrant_client()
             facet_service = FacetRepository(qdrant_client)
 
+            # Logic: Fetch Facets for exact filter cols
             facets = {}
             for col in ai_schema.get("filter_exact_cols", []):
                 values = await facet_service.get_facet_values(
@@ -228,9 +225,23 @@ class CSVRAGProcessor(BaseChatProcessor):
                 ctx.message = rewritten_query
                 logger.info(f"🔄 Rewritten Query: {rewritten_query}")
 
-            # Logic: Agent Analysis
+            # Logic: Load accumulated filters from previous turns (Redis-persisted)
+            accumulated_filters = await self._load_session_filters(ctx)
+            logger.info(f"📚 Accumulated filters from previous turns: {accumulated_filters}")
+
+            # Logic: Agent Analysis (schema-driven)
             agent = AmbiguityGuardAgent(llm=llm)
-            decision = await agent.analyze_query(ctx.message, ai_schema, ctx.history, facets)
+            decision = await agent.analyze_query(
+                ctx.message,
+                ai_schema,
+                ctx.history,
+                facets,
+                accumulated_filters=accumulated_filters,
+            )
+
+            # Persist updated accumulated filters to Redis (cumulative across turns)
+            await self._save_session_filters(ctx, decision.extracted_filters)
+            logger.info(f"💾 Saved accumulated filters: {decision.extracted_filters}")
 
             # Side Effect: Store Decision
             ctx.metadata["ambiguity_decision"] = {
@@ -238,6 +249,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 "extracted_filters": decision.extracted_filters,
                 "message": decision.message,
             }
+            logger.info(f"🧠 Ambiguity Decision: {decision.action} | Filters: {decision.extracted_filters}")
 
             dur = round(time.time() - t0, 3)
             ctx.metrics.end_span(sid, payload={"decision": decision.action, "is_substep": True})
@@ -466,7 +478,7 @@ class CSVRAGProcessor(BaseChatProcessor):
 
         # Fallback Embedding Strategy
         try:
-            embed = await ctx.vector_service.get_embedding_model()
+            embed = await ctx.vector_service.get_embedding_model(provider=embedding_provider)
         except Exception:
             logger.warning("Falling back to local embeddings")
             embed = await ctx.vector_service.get_embedding_model(
@@ -508,3 +520,29 @@ class CSVRAGProcessor(BaseChatProcessor):
                 break
             except asyncio.TimeoutError:
                 raise
+    async def _load_session_filters(self, ctx: ChatContext) -> Dict[str, Any]:
+        """
+        Load accumulated CSV filters for this session from Redis.
+        Filters survive across conversation turns within the same session.
+        """
+        try:
+            redis = ctx.chat_history_service.repository.redis
+            key = f"csv_filters:{ctx.session_id}"
+            raw = await redis.get(key)
+            if raw:
+                return json.loads(raw)
+        except Exception as e:
+            logger.warning(f"Failed to load session filters: {e}")
+        return {}
+
+    async def _save_session_filters(self, ctx: ChatContext, filters: Dict[str, Any]) -> None:
+        """
+        Persist accumulated CSV filters for this session to Redis.
+        TTL matches chat history (1 hour).
+        """
+        try:
+            redis = ctx.chat_history_service.repository.redis
+            key = f"csv_filters:{ctx.session_id}"
+            await redis.set(key, json.dumps(filters), ex=3600)
+        except Exception as e:
+            logger.warning(f"Failed to save session filters: {e}")

@@ -132,6 +132,7 @@ class IngestionOrchestrator:
                 vector_store=vector_store,
                 connector_id=connector.id,
                 connector_acl=connector.configuration.get("connector_acl", []),
+                ai_provider=connector.configuration.get("ai_provider"),
                 batch_size=batch_size,
                 num_workers=workers,
                 docs_map={doc.file_path: doc},
@@ -195,6 +196,7 @@ class IngestionOrchestrator:
                 vector_store=vector_store,
                 connector_id=connector_id,
                 connector_acl=connector.configuration.get("connector_acl", []),
+                ai_provider=connector.configuration.get("ai_provider"),
                 batch_size=batch_size,
                 num_workers=workers,
                 docs_map=docs_map,
@@ -383,6 +385,7 @@ class IngestionOrchestrator:
         vector_store: QdrantVectorStore,
         connector_id: UUID,
         connector_acl: List[str],
+        ai_provider: Optional[str],
         batch_size: int,
         num_workers: int,
         docs_map: Dict[str, ConnectorDocument],
@@ -423,7 +426,7 @@ class IngestionOrchestrator:
                 # Load document using factory
                 file_extension = Path(path).suffix
                 processor = IngestionFactory.get_processor(file_extension)
-                processed_docs = await processor.process(Path(path))
+                processed_docs = await processor.process(str(path), ai_provider=ai_provider)
 
                 from llama_index.core import Document as LlamaDocument
 

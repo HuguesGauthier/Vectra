@@ -30,7 +30,10 @@ async def test_synthesis_happy_path(mock_ctx):
     processor = SynthesisProcessor()
 
     # Mock LLM streaming response
+    mock_chunk = MagicMock()
+    mock_chunk.delta = "Hello"
     mock_stream = AsyncMock()
+    mock_stream.__aiter__.return_value = [mock_chunk]
     mock_ctx.llm.astream_chat.return_value = mock_stream
 
     events = []
@@ -39,10 +42,14 @@ async def test_synthesis_happy_path(mock_ctx):
 
     assert events[0].type == "step"
     assert events[0].status == "running"
-    assert events[1].type == "response_stream"
-    assert events[2].type == "step"
-    assert events[2].status == "completed"
-    assert "tokens" in events[2].payload
+
+    # Synthesis now yields tokens char-by-char through StreamBlockParser
+    tokens = [e.payload for e in events if e.type == "token"]
+    assert "".join(tokens) == "Hello"
+
+    assert events[-1].type == "step"
+    assert events[-1].status == "completed"
+    assert "tokens" in events[-1].payload
 
 
 @pytest.mark.asyncio
