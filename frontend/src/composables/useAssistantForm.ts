@@ -116,7 +116,7 @@ export function useAssistantForm(initialData?: Partial<Assistant>) {
 
     isOptimizing.value = true;
     try {
-      const response = await api.post('/prompts/optimize/', {
+      const response = await api.post('/prompts/optimize', {
         instruction: instructionText,
         connector_ids: formData.value.linked_connector_ids,
       });

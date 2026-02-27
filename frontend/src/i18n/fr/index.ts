@@ -185,6 +185,7 @@ export default {
   openaiTagline: 'Haute Performance',
   openaiDesc:
     'Reconnu pour son raisonnement logique et sa capacité à suivre des instructions complexes. Idéal pour des réponses précises et structurées.',
+  promptGenerated: "Invite générée à partir de l'assistant !",
   mistral: 'Mistral AI',
   mistralTagline: "L'IA européenne performante",
   mistralLocal: 'Mistral AI (Local via Ollama)',

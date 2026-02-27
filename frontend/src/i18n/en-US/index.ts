@@ -187,6 +187,7 @@ export default {
   openaiTagline: 'High Performance',
   openaiDesc:
     'Renowned for its logical reasoning and ability to follow complex instructions. Best for structured outputs and precise answers.',
+  promptGenerated: 'Prompt generated from wizard!',
   mistral: 'Mistral AI',
   mistralTagline: 'High-performance European AI',
   mistralLocal: 'Mistral AI (Local via Ollama)',
