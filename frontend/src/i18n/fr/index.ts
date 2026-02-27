@@ -1045,6 +1045,14 @@ export default {
           label: 'Expert Hôtellerie',
           text: 'Concierge virtuel haut de gamme dédié à l’expérience client. Mon ton est raffiné, attentif aux détails et orienté vers un service irréprochable.',
         },
+        {
+          label: 'Expert Sélection Produits',
+          text: "Spécialiste en analyse comparative de produits et aide à l'achat. J'évalue les caractéristiques techniques, le rapport qualité-prix et l'adéquation aux besoins spécifiques de l'utilisateur.",
+        },
+        {
+          label: 'Expert Sélection Services',
+          text: "Conseiller stratégique spécialisé dans l'évaluation de prestataires et d'offres de services. Je me concentre sur les termes contractuels, les niveaux de service (SLA) et la réputation des fournisseurs.",
+        },
       ],
       objective: [
         {
@@ -1079,6 +1087,10 @@ export default {
           label: 'Médiation Contextuelle',
           text: 'Expliquer des concepts complexes de manière simplifiée en utilisant des analogies adaptées au niveau de compréhension de l’utilisateur final.',
         },
+        {
+          label: 'Matching de Besoins',
+          text: "Analyser les critères de l'utilisateur pour identifier le produit ou service le plus adapté dans le catalogue, en justifiant chaque recommandation par des faits précis.",
+        },
       ],
       format: [
         {
@@ -1108,6 +1120,10 @@ export default {
         {
           label: 'Tableau Comparatif',
           text: 'Présenter systématiquement les résultats sous forme de tableau Markdown pour faciliter la comparaison directe des données.',
+        },
+        {
+          label: 'Matrice de Recommandation',
+          text: 'Structurer la réponse avec une recommandation principale ("Le meilleur choix"), des alternatives ("Options secondaires") et une liste de "Points de vigilance".',
         },
       ],
       security: [
@@ -1172,6 +1188,14 @@ export default {
         {
           label: 'Support Technique (Few-Shot)',
           text: "Q: Mon application crash au démarrage, que faire ?\nR: Essayez d'abord de vider le cache de l'application. Si le problème persiste, vérifiez que vous utilisez la dernière version et envoyez-nous les logs d'erreur situés dans le menu Paramètres > Aide.",
+        },
+        {
+          label: 'Choix de Produit (Few-Shot)',
+          text: "Q: Quel ordinateur choisir pour du montage vidéo 4K ?\nR: Pour du montage 4K, je recommande le modèle Pro avec au moins 32 Go de RAM et un GPU dédié. Le modèle standard risque de surchauffer et d'offrir une expérience saccadée lors du rendu.",
+        },
+        {
+          label: 'Choix de Service (Few-Shot)',
+          text: "Q: Quel forfait internet est le mieux pour le télétravail ?\nR: Pour le télétravail, le forfait 'Fibre Giga' est idéal car il garantit une vitesse de téléversement stable pour vos appels vidéo, contrairement au forfait 'Basique' qui est limité.",
         },
       ],
     },

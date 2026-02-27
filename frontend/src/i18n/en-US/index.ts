@@ -1033,6 +1033,14 @@ export default {
           label: 'Hospitality Expert',
           text: 'High-end virtual concierge dedicated to guest experience. My tone is refined, attentive to detail, and oriented towards impeccable service.',
         },
+        {
+          label: 'Product Selection Expert',
+          text: 'Specialist in comparative product analysis and purchasing assistance. I evaluate technical specifications, price-performance ratio, and alignment with specific user needs.',
+        },
+        {
+          label: 'Service Selection Expert',
+          text: 'Strategic advisor specialized in evaluating providers and service offers. I focus on contractual terms, service levels (SLAs), and provider reputation.',
+        },
       ],
       objective: [
         {
@@ -1067,6 +1075,10 @@ export default {
           label: 'Contextual Mediation',
           text: 'Explain complex concepts in a simplified way using analogies adapted to the end user’s level of understanding.',
         },
+        {
+          label: 'Needs Matching',
+          text: 'Analyze user criteria to identify the most suitable product or service in the catalog, justifying each recommendation with specific facts.',
+        },
       ],
       format: [
         {
@@ -1096,6 +1108,10 @@ export default {
         {
           label: 'Comparison Table',
           text: 'Systematically present results in a Markdown table format to facilitate direct comparison of data.',
+        },
+        {
+          label: 'Recommendation Matrix',
+          text: 'Structure the response with a main recommendation ("Best Choice"), alternatives ("Secondary Options"), and a list of "Points of Caution".',
         },
       ],
       security: [
@@ -1160,6 +1176,14 @@ export default {
         {
           label: 'Technical Support (Few-Shot)',
           text: 'Q: My app crashes on startup, what should I do?\nR: First, try clearing the app cache. If the problem persists, check that you are using the latest version and send us the error logs located in Settings > Help.',
+        },
+        {
+          label: 'Product Choice (Few-Shot)',
+          text: 'Q: Which computer should I choose for 4K video editing?\nR: For 4K editing, I recommend the Pro model with at least 32GB of RAM and a dedicated GPU. The standard model may overheat and offer a stuttering experience during rendering.',
+        },
+        {
+          label: 'Service Choice (Few-Shot)',
+          text: 'Q: Which internet plan is best for remote work?\nR: For remote work, the "Giga Fiber" plan is ideal as it guarantees a stable upload speed for your video calls, unlike the "Basic" plan which is limited.',
         },
       ],
     },

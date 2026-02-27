@@ -91,9 +91,8 @@
         </q-card>
       </q-dialog>
 
-      <!-- Wizard Dialog -->
       <q-dialog v-model="showWizard">
-        <q-card style="min-width: 800px" class="bg-primary text-grey-5">
+        <q-card style="min-width: 1000px; max-width: 95vw" class="bg-primary text-grey-5">
           <q-card-section class="row items-center q-pb-none">
             <div class="text-h6">{{ $t('assistantWizard') }}</div>
             <q-space />
