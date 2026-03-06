@@ -46,7 +46,27 @@ class SynthesisProcessor(BaseProcessor):
 
             cleaned_contexts.append(final_text)
 
+        graph_contexts = []
+        for t in ctx.graph_context:
+            source_labels = t.get("source_labels", [])
+            target_labels = t.get("target_labels", [])
+
+            src_props = {k: v for k, v in t.get("source_props", {}).items() if k.lower() not in ("id", "name", "label")}
+            tgt_props = {k: v for k, v in t.get("target_props", {}).items() if k.lower() not in ("id", "name", "label")}
+            rel_props = {k: v for k, v in t.get("rel_props", {}).items() if k.lower() not in ("id", "name", "label")}
+
+            src_p_str = f" {json.dumps(src_props, ensure_ascii=False)}" if src_props else ""
+            tgt_p_str = f" {json.dumps(tgt_props, ensure_ascii=False)}" if tgt_props else ""
+            rel_p_str = f" {json.dumps(rel_props, ensure_ascii=False)}" if rel_props else ""
+
+            source = f"{t['source']} [{', '.join(source_labels)}]{src_p_str}"
+            target = f"{t['target']} [{', '.join(target_labels)}]{tgt_p_str}"
+            graph_contexts.append(f"- {source} --[{t['relationship']}{rel_p_str}]--> {target}")
+
         context_str = "\n\n".join(cleaned_contexts)
+        if graph_contexts:
+            graph_str = "\n".join(graph_contexts)
+            context_str += f"\n\n### KNOWLEDGE GRAPH RELATIONS ###\n{graph_str}\n### END KNOWLEDGE GRAPH ###"
 
         # Format Chat History explicitly
         messages = []

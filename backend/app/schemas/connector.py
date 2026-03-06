@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlmodel import Field, SQLModel
 
 from app.schemas.enums import ConnectorStatus, ConnectorType, ScheduleType
@@ -23,17 +23,19 @@ MAX_ERROR_MESSAGE_LENGTH = 2000
 MAX_CRON_LENGTH = 100
 
 
-class IndexingConfig(SQLModel):
-    """
-    Configuration for smart metadata extraction during ingestion.
-    Uses combo strategy: single LLM call extracts Title + Summary + Questions.
-    """
+class IndexingConfig(BaseModel):
+    """Configuration for smart indexing strategies."""
+
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
 
     use_smart_extraction: bool = Field(
         default=False, description="Enable AI-powered metadata extraction (Title, Summary, Questions)"
     )
-    extraction_model: str = Field(
-        default="gemini-flash", description="LLM model for extraction. gemini-flash recommended for speed/cost."
+    enable_graph_extraction: bool = Field(
+        default=False, description="Enable AI-powered graph extraction (Nodes, Relationships) into Neo4j"
+    )
+    extraction_model: Optional[str] = Field(
+        default=None, description="LLM model for extraction. gemini-flash recommended for speed/cost."
     )
 
 

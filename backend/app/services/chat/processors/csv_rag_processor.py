@@ -57,7 +57,7 @@ class CSVRAGProcessor(BaseChatProcessor):
     4. Tech Sheet Synthesis
     """
 
-    async def process(self, ctx: ChatContext) -> AsyncGenerator[str, None]:
+    async def process(self, ctx: ChatContext, parent_id: Optional[str] = None) -> AsyncGenerator[str, None]:
         """
         Executes the CSV RAG pipeline with strict phase isolation and service delegation.
         """
@@ -71,7 +71,9 @@ class CSVRAGProcessor(BaseChatProcessor):
 
             # 1. Initialization
             conn_id = ctx.metrics.start_span(STEP_CONNECTION)
-            yield EventFormatter.format(STEP_CONNECTION, "running", conn_id, payload={"is_substep": True})
+            yield EventFormatter.format(
+                STEP_CONNECTION, "running", conn_id, parent_id=parent_id, payload={"is_substep": True}
+            )
             t0 = time.time()
             try:
                 # Pure Async Call (No Yields)
@@ -79,7 +81,12 @@ class CSVRAGProcessor(BaseChatProcessor):
                 dur = round(time.time() - t0, 3)
                 ctx.metrics.end_span(conn_id)
                 yield EventFormatter.format(
-                    STEP_CONNECTION, "completed", conn_id, duration=dur, payload={"is_substep": True}
+                    STEP_CONNECTION,
+                    "completed",
+                    conn_id,
+                    parent_id=parent_id,
+                    duration=dur,
+                    payload={"is_substep": True},
                 )
             except asyncio.TimeoutError:
                 ctx.metrics.end_span(conn_id)
@@ -87,6 +94,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                     STEP_CONNECTION,
                     StepStatus.FAILED,
                     conn_id,
+                    parent_id=parent_id,
                     label="CSV Setup Timeout",
                     payload={"is_substep": True},
                 )
@@ -95,7 +103,12 @@ class CSVRAGProcessor(BaseChatProcessor):
                 logger.error(f"Setup failed: {e}")
                 ctx.metrics.end_span(conn_id)
                 yield EventFormatter.format(
-                    STEP_CONNECTION, StepStatus.FAILED, conn_id, label="Setup Error", payload={"is_substep": True}
+                    STEP_CONNECTION,
+                    StepStatus.FAILED,
+                    conn_id,
+                    parent_id=parent_id,
+                    label="Setup Error",
+                    payload={"is_substep": True},
                 )
                 return
 
@@ -104,7 +117,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 return
 
             # 2. Ambiguity & Rewrite Phase
-            async for event in self._run_ambiguity_phase(ctx, components, ai_schema):
+            async for event in self._run_ambiguity_phase(ctx, components, ai_schema, parent_id=parent_id):
                 yield event
 
             # Retrieve decision from Side-Effect
@@ -136,13 +149,14 @@ class CSVRAGProcessor(BaseChatProcessor):
 
                 connector_id = connector.id
                 async for event in self._consume_with_timeout(
-                    self._process_csv_retrieval(ctx, components, decision, connector_id), TIMEOUT_RETRIEVAL
+                    self._process_csv_retrieval(ctx, components, decision, connector_id, parent_id=parent_id),
+                    TIMEOUT_RETRIEVAL,
                 ):
                     yield event
 
             # 4. Synthesis Phase
             async for event in self._consume_with_timeout(
-                self._process_csv_synthesis(ctx, components.llm, ai_schema), TIMEOUT_SYNTHESIS
+                self._process_csv_synthesis(ctx, components.llm, ai_schema, parent_id=parent_id), TIMEOUT_SYNTHESIS
             ):
                 yield event
 
@@ -162,21 +176,21 @@ class CSVRAGProcessor(BaseChatProcessor):
     # --- Phase 2: Ambiguity & Logic ---
 
     async def _run_ambiguity_phase(
-        self, ctx: ChatContext, components: CSVComponents, ai_schema: Dict
+        self, ctx: ChatContext, components: CSVComponents, ai_schema: Dict, parent_id: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """Runs the ambiguity guard and rewrite logic."""
         async for event in self._consume_with_timeout(
-            self._process_csv_ambiguity_guard(ctx, components.llm, ai_schema), TIMEOUT_CSV_STEP
+            self._process_csv_ambiguity_guard(ctx, components.llm, ai_schema, parent_id=parent_id), TIMEOUT_CSV_STEP
         ):
             yield event
 
     async def _process_csv_ambiguity_guard(
-        self, ctx: ChatContext, llm: Any, ai_schema: Dict[str, Any]
+        self, ctx: ChatContext, llm: Any, ai_schema: Dict[str, Any], parent_id: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         t0 = time.time()
         sid = ctx.metrics.start_span(PipelineStepType.AMBIGUITY_GUARD)
         yield EventFormatter.format(
-            PipelineStepType.AMBIGUITY_GUARD, "running", sid, payload={"is_substep": True}
+            PipelineStepType.AMBIGUITY_GUARD, "running", sid, parent_id=parent_id, payload={"is_substep": True}
         )
 
         try:
@@ -191,6 +205,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                     PipelineStepType.AMBIGUITY_GUARD,
                     "failed",
                     ctx.language,
+                    parent_id=parent_id,
                     label="No Connector",
                     payload={"is_substep": True},
                 )
@@ -257,6 +272,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 PipelineStepType.AMBIGUITY_GUARD,
                 "completed",
                 sid,
+                parent_id=parent_id,
                 payload={"decision": decision.action, "is_substep": True},
                 duration=dur,
             )
@@ -269,6 +285,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 PipelineStepType.AMBIGUITY_GUARD,
                 "completed",
                 sid,
+                parent_id=parent_id,
                 duration=round(time.time() - t0, 3),
                 payload={"is_substep": True},
             )
@@ -296,11 +313,16 @@ class CSVRAGProcessor(BaseChatProcessor):
     # --- Phase 3: Retrieval ---
 
     async def _process_csv_retrieval(
-        self, ctx: ChatContext, components: CSVComponents, decision: Dict, connector_id: UUID
+        self,
+        ctx: ChatContext,
+        components: CSVComponents,
+        decision: Dict,
+        connector_id: UUID,
+        parent_id: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         t0 = time.time()
         sid = ctx.metrics.start_span(STEP_RETRIEVAL)
-        yield EventFormatter.format(STEP_RETRIEVAL, "running", sid, payload={"is_substep": True})
+        yield EventFormatter.format(STEP_RETRIEVAL, "running", sid, parent_id=parent_id, payload={"is_substep": True})
 
         try:
             filters = decision.get("extracted_filters", {})
@@ -326,6 +348,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 STEP_RETRIEVAL,
                 "completed",
                 sid,
+                parent_id=parent_id,
                 payload={"count": len(nodes), "is_substep": True},
                 duration=dur,
             )
@@ -333,15 +356,19 @@ class CSVRAGProcessor(BaseChatProcessor):
         except Exception as e:
             logger.error(f"Retrieval failed: {e}", exc_info=True)
             ctx.metrics.end_span(sid, payload={"is_substep": True})
-            yield EventFormatter.format(STEP_RETRIEVAL, "failed", sid, payload={"is_substep": True})
+            yield EventFormatter.format(
+                STEP_RETRIEVAL, "failed", sid, parent_id=parent_id, payload={"is_substep": True}
+            )
 
     # --- Phase 4: Synthesis ---
 
-    async def _process_csv_synthesis(self, ctx: ChatContext, llm: Any, ai_schema: Dict) -> AsyncGenerator[str, None]:
+    async def _process_csv_synthesis(
+        self, ctx: ChatContext, llm: Any, ai_schema: Dict, parent_id: Optional[str] = None
+    ) -> AsyncGenerator[str, None]:
         t0 = time.time()
         sid = ctx.metrics.start_span(PipelineStepType.CSV_SYNTHESIS)
         yield EventFormatter.format(
-            PipelineStepType.CSV_SYNTHESIS, "running", sid, payload={"is_substep": True}
+            PipelineStepType.CSV_SYNTHESIS, "running", sid, parent_id=parent_id, payload={"is_substep": True}
         )
 
         try:
@@ -354,6 +381,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 ai_schema=ai_schema,
                 use_simple_format=False,
                 instructions=ctx.assistant.instructions if ctx.assistant else None,
+                graph_context=ctx.metadata.get("graph_context"),
             )
 
             # Derive human-readable text for history/storage (avoid raw JSON in DB)
@@ -368,7 +396,12 @@ class CSVRAGProcessor(BaseChatProcessor):
             dur = round(time.time() - t0, 3)
             ctx.metrics.end_span(sid, payload={"is_substep": True})
             yield EventFormatter.format(
-                PipelineStepType.CSV_SYNTHESIS, "completed", sid, duration=dur, payload={"is_substep": True}
+                PipelineStepType.CSV_SYNTHESIS,
+                "completed",
+                sid,
+                parent_id=parent_id,
+                duration=dur,
+                payload={"is_substep": True},
             )
 
             # Stream Outputs using the standard protocol
@@ -379,7 +412,7 @@ class CSVRAGProcessor(BaseChatProcessor):
             logger.error(f"Synthesis failed: {e}", exc_info=True)
             ctx.metrics.end_span(sid, payload={"is_substep": True})
             yield EventFormatter.format(
-                PipelineStepType.CSV_SYNTHESIS, "failed", sid, payload={"is_substep": True}
+                PipelineStepType.CSV_SYNTHESIS, "failed", sid, parent_id=parent_id, payload={"is_substep": True}
             )
 
     async def _stream_synthesis_content(self, ctx: ChatContext, data: Dict) -> AsyncGenerator[str, None]:
@@ -520,6 +553,7 @@ class CSVRAGProcessor(BaseChatProcessor):
                 break
             except asyncio.TimeoutError:
                 raise
+
     async def _load_session_filters(self, ctx: ChatContext) -> Dict[str, Any]:
         """
         Load accumulated CSV filters for this session from Redis.

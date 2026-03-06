@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.services.vector_service import VectorService
     from app.services.chat.chat_metrics_manager import ChatMetricsManager
     from app.services.visualization_service import VisualizationService
+    from app.services.graph_service import GraphService
 
 
 class PipelineStepType(str, Enum):
@@ -51,6 +52,7 @@ class PipelineStepType(str, Enum):
     CSV_SCHEMA_RETRIEVAL = "csv_schema_retrieval"
     CSV_SYNTHESIS = "csv_synthesis"
     FACET_QUERY = "facet_query"
+    GRAPH_RETRIEVAL = "graph_retrieval"
 
 
 class StepStatus(str, Enum):
@@ -83,6 +85,7 @@ class ChatContext:
     vector_service: "VectorService"
     chat_history_service: "ChatHistoryService"
     cache_service: Optional["SemanticCacheService"]
+    graph_service: Optional["GraphService"] = None
     query_engine_factory: Optional["UnifiedQueryEngineFactory"] = None
 
     # State flags

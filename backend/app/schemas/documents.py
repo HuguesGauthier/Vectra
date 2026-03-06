@@ -57,8 +57,8 @@ class ConnectorDocumentBase(SQLModel):
     )
     error_message: Optional[str] = Field(default=None, max_length=MAX_ERROR_MESSAGE_LENGTH)
 
-    file_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-    configuration: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    file_metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, sa_column=Column(JSONB))
+    configuration: Optional[Dict[str, Any]] = Field(default_factory=dict, sa_column=Column(JSONB))
     mime_type: Optional[str] = Field(default=None, max_length=MAX_MIME_TYPE_LENGTH)
 
     doc_token_count: Optional[int] = Field(default=None, ge=0)
@@ -74,8 +74,10 @@ class ConnectorDocumentBase(SQLModel):
 
     @field_validator("file_metadata", "configuration")
     @classmethod
-    def validate_metadata_size(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+    def validate_metadata_size(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Prevent DoS via huge metadata objects."""
+        if v is None:
+            return {}  # Coerce None to empty dict for consistency
         try:
             txt = json.dumps(v)
             if len(txt) > 100_000:  # 100KB

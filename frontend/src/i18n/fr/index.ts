@@ -390,6 +390,19 @@ export default {
   smartExtractionTradeoffDesc:
     "L'ingestion sera plus lente (~2-3s par segment), mais la précision de la recherche s'améliore considérablement.",
 
+  // --- Graph Extraction ---
+  graph_retrieval: 'Récupération Graphe (Neo4j)',
+  graphExtractionTitle: 'Graphisation (Neo4j)',
+  enableGraphExtraction: "Activer l'extraction de graphe de connaissances",
+  graphExtractionIntro: "L'IA construira un graphe de relations :",
+  graphExtractionEntitiesLabel: 'Entités',
+  graphExtractionEntitiesDesc: 'Identification des objets clés (Produits, Personnes, Lieux)',
+  graphExtractionRelationshipsLabel: 'Relations',
+  graphExtractionRelationshipsDesc: 'Liens sémantiques entre les entités',
+  graphExtractionTradeoff: 'Performance',
+  graphExtractionTradeoffDesc:
+    "L'extraction est lente car elle demande un raisonnement approfondi par l'IA.",
+
   // --- Stratégie de Récupération ---
   retrievalStrategy: 'Stratégie de Récupération',
   retrievalStrategyDesc: "Configurez comment l'assistant trouve et classe les informations.",

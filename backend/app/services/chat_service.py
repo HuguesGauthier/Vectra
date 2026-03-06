@@ -31,6 +31,7 @@ from app.services.chat_history_service import ChatHistoryService, get_chat_histo
 from app.factories.query_engine_factory import UnifiedQueryEngineFactory, get_query_engine_factory
 from app.services.settings_service import SettingsService, get_settings_service
 from app.services.vector_service import VectorService, get_vector_service
+from app.services.graph_service import GraphService, get_graph_service
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,7 @@ class ChatService:
         chat_history_service: ChatHistoryService,
         query_engine_factory: UnifiedQueryEngineFactory,
         chat_repository: ChatPostgresRepository,
+        graph_service: GraphService,
         cache_service: Optional[SemanticCacheService] = None,
         trending_service_enabled: bool = False,
     ):
@@ -86,6 +88,7 @@ class ChatService:
         self.chat_history_service = chat_history_service
         self.query_engine_factory = query_engine_factory
         self.chat_repository = chat_repository
+        self.graph_service = graph_service
         self.cache_service = cache_service
         self.trending_service_enabled = trending_service_enabled
 
@@ -265,6 +268,7 @@ class ChatService:
             language=language,
             db=self.db,
             settings_service=self.settings_service,
+            graph_service=self.graph_service,
             vector_service=self.vector_service,
             chat_history_service=self.chat_history_service,
             query_engine_factory=self.query_engine_factory,
@@ -370,6 +374,7 @@ async def get_chat_service(
     query_engine_factory: Annotated[UnifiedQueryEngineFactory, Depends(get_query_engine_factory)],
     chat_history_service: Annotated[ChatHistoryService, Depends(get_chat_history_service)],
     chat_repository: Annotated[ChatPostgresRepository, Depends(get_chat_postgres_repository)],
+    graph_service: Annotated[GraphService, Depends(get_graph_service)],
     cache_service: Annotated[Optional[SemanticCacheService], Depends(get_cache_service)],
 ) -> ChatService:
     """Dependency Provider for ChatService."""
@@ -380,6 +385,7 @@ async def get_chat_service(
         chat_history_service=chat_history_service,
         query_engine_factory=query_engine_factory,
         chat_repository=chat_repository,
+        graph_service=graph_service,
         cache_service=cache_service,
         trending_service_enabled=settings.ENABLE_TRENDING,
     )

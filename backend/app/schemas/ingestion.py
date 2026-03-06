@@ -102,3 +102,6 @@ class IndexingStrategy(BaseModel):
     end_year_col: Optional[str] = None
 
     primary_id_col: Optional[str] = None
+
+    # Graph Extraction
+    enable_graph_extraction: bool = Field(default=False, description="Whether to extract relationships into Neo4j")

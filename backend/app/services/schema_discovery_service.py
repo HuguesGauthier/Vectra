@@ -30,11 +30,14 @@ Goal:
 1. RENAME headers to clean snake_case.
 2. CLASSIFY columns into 3 types:
     - SEMANTIC: Contains descriptive text, specs, notes (Best for Embedding).
-    - FILTER_EXACT: Categorical data (Make, Model, Position, ID, Color) (Best for exact match filtering).
+    - FILTER_EXACT: Categorical data (Make, Model, Position, Color) (Best for exact match filtering).
+    - IMPORTANT: NEVER include a Primary Key or any "ID" column (e.g., product_id, sku, uuid) in FILTER_EXACT. These are unique per row and make poor filters.
     - FILTER_RANGE: Numerical or Date data (Year, Price, Dimensions) - MUST include year columns if present.
 3. DETECT SPECIAL LOGIC:
     - Identify if there are "Start Year" and "End Year" columns (e.g. 'year_start', 'year_end').
     - IMPORTANT: If year columns exist, they MUST be included in BOTH 'start_year_col'/'end_year_col' AND 'filter_range_cols'.
+4. DETECT GRAPH POTENTIAL:
+    - If the CSV contains relationships between entities (e.g., Person -> Company, Product -> Category), set `enable_graph_extraction` to true. Otherwise, false.
 
 Input CSV Header and Data:
 {csv_preview}
@@ -47,7 +50,8 @@ Output JSON format ONLY (matches IndexingStrategy schema):
   "filter_range_cols": ["price", "year_start", "year_end"],  // MUST include year columns
   "start_year_col": "year_start",  // or null
   "end_year_col": "year_end",      // or null
-  "primary_id_col": "sku"          // or null
+  "primary_id_col": "sku",         // or null
+  "enable_graph_extraction": true  // or false based on step 4
 }
 """
 
@@ -97,19 +101,8 @@ class SchemaDiscoveryService:
 
             await self._validate_csv_file(full_path)
             csv_preview = await self._read_csv_preview(full_path)
-
-            api_key = await self.settings_service.get_value("gemini_api_key")
-
-            # P0: Allow fallback to Local/Ollama if Gemini key is missing
-            local_extraction_model = await self.settings_service.get_value("local_extraction_model")
-
-            if not api_key and not local_extraction_model:
-                raise ConfigurationError("GEMINI_API_KEY missing and no Local Extraction model configured")
-
-            if not api_key:
-                api_key = "ollama"  # Signal to use local
-
-            schema_json = await self._discover_schema_with_llm(api_key, csv_preview)
+            provider = connector.configuration.get("ai_provider", "ollama")
+            schema_json = await self._discover_schema_with_llm(provider, csv_preview)
 
             # Save schema to document metadata
             metadata = dict(doc.file_metadata) if doc.file_metadata else {}
@@ -160,70 +153,71 @@ class SchemaDiscoveryService:
 
         return "".join(lines)
 
-    async def _discover_schema_with_llm(self, api_key: str, csv_preview: str) -> dict:
-        gemini_model = await self.settings_service.get_value("gemini_extraction_model")
-        local_model = await self.settings_service.get_value("local_extraction_model")
-
-        provider = "gemini"
-        model_name = gemini_model
-        base_url = None
-
-        # P0: Logic to choose provider
-        # If API key is for Gemini (starts with AI...), use Gemini.
-        # If API key is "ollama" or empty (handled below), use Local.
-        # Ideally, we should pass the provider explicitely.
-        # But here `api_key` argument comes from `analyze_and_map_csv` which fetches `gemini_api_key`.
-        # We need to refactor `analyze_and_map_csv` to be provider-aware.
-
-        # Quick fix within this method for now, but better to refactor caller.
-        # However, let's look at `analyze_and_map_csv`.
-
-        # REFACTORING CALLER LOGIC INLINE HERE FOR SAFETY (Detecting provider from key presence)
-        # If the passed `api_key` looks like a Gemini key, use Gemini.
-        # If it's missing or we prefer local, use local settings.
-
-        display_key = api_key[:5] if api_key else "None"
-
-        if not api_key or api_key == "ollama":
-            provider = "ollama"
-            model_name = local_model
-            base_url = await self.settings_service.get_value("local_extraction_url")
-            api_key = "ollama"  # Dummy for factory
-
-        if not model_name:
-            raise ConfigurationError("Extraction model not configured")
-
+    async def _discover_schema_with_llm(self, provider: str, csv_preview: str) -> dict:
         from app.factories.llm_factory import LLMFactory
 
-        llm = LLMFactory.create_llm(
-            provider=provider, model_name=model_name, api_key=api_key, temperature=0.0, base_url=base_url
-        )
+        async def _get_llm(prov_name: str):
+            extraction_model = None
+            api_key = None
+            base_url = None
+
+            if prov_name == "gemini":
+                extraction_model = await self.settings_service.get_value("gemini_extraction_model")
+                api_key = await self.settings_service.get_value("gemini_api_key")
+            elif prov_name in ["ollama", "local"]:
+                extraction_model = await self.settings_service.get_value("local_extraction_model")
+                base_url = await self.settings_service.get_value("local_extraction_url")
+                api_key = "ollama"
+
+            if not extraction_model:
+                raise ConfigurationError(f"Extraction model not configured for provider {prov_name}")
+
+            return LLMFactory.create_llm(
+                provider=prov_name, model_name=extraction_model, api_key=api_key, base_url=base_url, temperature=0.0
+            )
+
+        try:
+            llm = await _get_llm(provider)
+        except Exception as e:
+            if provider != "ollama":
+                logger.warning(f"Failed to setup {provider}: {e}. Falling back to ollama.")
+                llm = await _get_llm("ollama")
+            else:
+                raise
 
         prompt = PROMPT_SCHEMA_DISCOVERY.replace("{csv_preview}", csv_preview)
 
-        # P0 Fix: Move TransientIngestionError detection into retry decorator
         @retry(
             stop=stop_after_attempt(self.llm_retry_attempts),
             wait=wait_exponential(multiplier=1, min=2, max=10),
             retry=retry_if_exception_type((asyncio.TimeoutError, TransientIngestionError)),
             reraise=True,
         )
-        async def _call_with_retry():
+        async def _call_with_retry(llm_instance):
             try:
-                response = await asyncio.wait_for(llm.acomplete(prompt), timeout=self.llm_timeout_seconds)
+                response = await asyncio.wait_for(llm_instance.acomplete(prompt), timeout=self.llm_timeout_seconds)
                 return response.text
             except asyncio.TimeoutError as e:
                 logger.warning("LLM_TIMEOUT | External call timed out")
                 raise TransientIngestionError(f"LLM request timed out after {self.llm_timeout_seconds}s") from e
 
         try:
-            response_text = await _call_with_retry()
+            response_text = await _call_with_retry(llm)
             return self._parse_llm_response(response_text)
         except TransientIngestionError:
             raise
         except Exception as e:
-            logger.error(f"LLM_ERROR | {e}", exc_info=True)
-            raise TransientIngestionError(f"LLM API error: {e}") from e
+            logger.error(f"LLM_ERROR with {provider} | {e}", exc_info=True)
+            if provider != "ollama":
+                logger.warning(f"LLM API error with {provider}. Falling back to ollama.")
+                fallback_llm = await _get_llm("ollama")
+                try:
+                    response_text = await _call_with_retry(fallback_llm)
+                    return self._parse_llm_response(response_text)
+                except Exception as ex:
+                    raise TransientIngestionError(f"Fallback LLM API error: {ex}") from ex
+            else:
+                raise TransientIngestionError(f"LLM API error: {e}") from e
 
     def _parse_llm_response(self, text: str) -> dict:
         cleaned = text.replace(self.json_marker, "").replace("```", "").strip()
@@ -238,6 +232,14 @@ class SchemaDiscoveryService:
 
         if missing:
             raise TechnicalError(f"LLM response missing required keys: {missing}")
+
+        # P0 FIX: Programmatically exclude IDs from filter_exact_cols
+        # Unique identifiers like IDs create too much noise in the Ambiguity Guard.
+        if "filter_exact_cols" in schema:
+            id_keywords = {"id", "uuid", "guid", "pk", "primary", "sku"}
+            schema["filter_exact_cols"] = [
+                col for col in schema["filter_exact_cols"] if not any(kw in col.lower() for kw in id_keywords)
+            ]
 
         return schema
 

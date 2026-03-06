@@ -656,27 +656,91 @@ class IngestionOrchestrator:
             # Instantiate Transformer
             transformer = SmartRowTransformer(strategy)
 
+            # --- GRAPH EXTRACTION SETUP ---
+            from app.core.settings import settings
+            from app.services.graph_service import GraphService
+            from app.services.ingestion.transformers.graph_transformer import GraphTransformer
+            from app.factories.llm_factory import LLMFactory
+
+            graph_service = None
+            graph_transformer = None
+
+            if getattr(strategy, "enable_graph_extraction", False):
+                try:
+                    logger.info("🕸️ Graph extraction enabled! Initializing components...")
+                    uri = await self.settings_service.get_value("neo4j_uri", settings.NEO4J_URI)
+                    user = await self.settings_service.get_value("neo4j_user", settings.NEO4J_USER)
+                    password = await self.settings_service.get_value("neo4j_password", settings.NEO4J_PASSWORD)
+
+                    graph_service = GraphService(uri=uri, user=user, password=password)
+                    await graph_service.connect()
+
+                    # Instantiate LLM for Graph (use same logic as combo extractor)
+                    extraction_model = await self.settings_service.get_value("gemini_extraction_model")
+                    extraction_provider = "gemini"
+                    api_key = await self.settings_service.get_value("gemini_api_key")
+                    base_url = None
+
+                    if not api_key:
+                        local_model = await self.settings_service.get_value("local_extraction_model")
+                        if local_model:
+                            extraction_model = local_model
+                            extraction_provider = "ollama"
+                            base_url = await self.settings_service.get_value("local_extraction_url")
+                            logger.info(f"Using Local Extraction (Ollama) for Graph | Model: {extraction_model}")
+                        else:
+                            logger.warning("⚠️ No valid extraction configuration found for Graph. Skipping.")
+                            extraction_model = None
+
+                    if extraction_model:
+                        llm = LLMFactory.create_llm(
+                            provider=extraction_provider,
+                            model_name=extraction_model,
+                            api_key=api_key or "ollama",
+                            base_url=base_url,
+                            temperature=0.0,
+                        )
+                        graph_transformer = GraphTransformer(llm=llm)
+                        logger.info(f"✅ GraphTransformer ready using {extraction_provider}/{extraction_model}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to initialize Graph components: {e}")
+                    graph_service = None
+                    graph_transformer = None
+
             # Config
             provider = connector.configuration.get("ai_provider")
             collection_name = await self.vector_service.get_collection_name(provider=provider)
             embed_model = await self.vector_service.get_embedding_model(provider=provider)
 
-            # P0 FIX: Ensure Collection Exists (was missing in CSV flow)
-            client = await self.vector_service.get_qdrant_client()
-            if not client.collection_exists(collection_name):
-                logger.info(f"Creating collection {collection_name}")
-                from qdrant_client.http import models as qmodels
-
-                client.create_collection(
-                    collection_name=collection_name,
-                    vectors_config=qmodels.VectorParams(
-                        size=len(embed_model.get_text_embedding("test")), distance=qmodels.Distance.COSINE
-                    ),
-                )
+            # Define Graph Flow closure for reuse
+            async def _graph_flow(b_meta):
+                if not graph_transformer or not graph_service:
+                    return 0, 0
+                try:
+                    res = await graph_transformer.extract_graph_from_batch(b_meta)
+                    if res.nodes or res.relationships:
+                        n_list = [n.model_dump() for n in res.nodes]
+                        r_list = [r.model_dump() for r in res.relationships]
+                        await graph_service.create_nodes_and_relationships(n_list, r_list, document_id=str(doc.id))
+                        return len(n_list), len(r_list)
+                    return 0, 0
+                except Exception as ge:
+                    logger.error(f"❌ Graph batch failed: {ge}")
+                    return 0, 0
 
             # 2.5 CLEANUP (Fix Re-vectorization append bug)
             try:
                 await self.vector_repo.delete_by_document_id(collection_name, doc.id)
+                # Cleanup Neo4j if enabled
+                if getattr(strategy, "enable_graph_extraction", False):
+                    uri = await self.settings_service.get_value("neo4j_uri", settings.NEO4J_URI)
+                    user = await self.settings_service.get_value("neo4j_user", settings.NEO4J_USER)
+                    password = await self.settings_service.get_value("neo4j_password", settings.NEO4J_PASSWORD)
+                    from app.services.graph_service import GraphService
+
+                    temp_graph_service = GraphService(uri=uri, user=user, password=password)
+                    await temp_graph_service.delete_by_document_id(str(doc.id))
+                    await temp_graph_service.close()
             except Exception as e:
                 logger.warning(f"Pre-ingestion cleanup failed for CSV doc {doc.id}: {e}")
 
@@ -700,12 +764,15 @@ class IngestionOrchestrator:
             # Batch Buffers
             batch_texts = []
             batch_metadatas = []
-            BATCH_SIZE = 50
+            BATCH_SIZE = 30  # Reduced for more frequent progress and LLM stability
 
             # Transformer is lightweight enough to run in loop,
             # or could be moved inside _process_stream if very heavy.
             # Given it's just dict manipulation, main loop is OK providing we await I/O.
 
+            total_records = len(records_with_lines)
+            total_nodes = 0
+            total_rels = 0
             for line_idx, record in records_with_lines:
                 # --- TRANSFORM ROW ---
                 try:
@@ -716,17 +783,47 @@ class IngestionOrchestrator:
 
                     # --- PROCESS BATCH (Async I/O) ---
                     if len(batch_texts) >= BATCH_SIZE:
-                        batch_tokens = await self._process_smart_batch(
-                            batch_texts,
-                            batch_metadatas,
-                            doc,
-                            connector,
-                            embed_model,
-                            collection_name,
+                        # PROGRESS UPDATE
+                        await manager.emit_document_update(
+                            str(doc.id),
+                            DocStatus.PROCESSING,
+                            f"Graph Extraction: {total_processed + len(batch_texts)}/{total_records} records...",
+                        )
+
+                        # P0: Run Graph Extraction and Vectorization in Parallel to avoid blocking
+                        tasks = []
+
+                        # Task 1: Vectorization (Usually fast)
+                        v_task = self._process_smart_batch(
+                            texts=batch_texts,
+                            metadatas=batch_metadatas,
+                            doc=doc,
+                            connector=connector,
+                            embed_model=embed_model,
+                            collection_name=collection_name,
                             connector_acl=connector.configuration.get("connector_acl", []),
                         )
+                        tasks.append(v_task)
+
+                        # Task 2: Graph Extraction (Slow)
+                        g_task = None
+                        if graph_transformer and graph_service:
+                            g_task = _graph_flow(list(batch_metadatas))  # Use copy to avoid race
+                            tasks.append(g_task)
+
+                        # Wait for both
+                        results = await asyncio.gather(*tasks)
+
+                        # Update stats
+                        batch_tokens = results[0]
                         total_processed += len(batch_texts)
                         total_tokens += batch_tokens
+
+                        if g_task and len(results) > 1:
+                            n_count, r_count = results[1]
+                            total_nodes += n_count
+                            total_rels += r_count
+
                         batch_texts = []
                         batch_metadatas = []
                 except Exception as e:
@@ -735,17 +832,40 @@ class IngestionOrchestrator:
 
             # Final Batch
             if batch_texts:
-                batch_tokens = await self._process_smart_batch(
-                    batch_texts,
-                    batch_metadatas,
-                    doc,
-                    connector,
-                    embed_model,
-                    collection_name,
+                await manager.emit_document_update(
+                    str(doc.id),
+                    DocStatus.PROCESSING,
+                    f"Finalizing: {total_processed + len(batch_texts)}/{total_records} records...",
+                )
+
+                # P0: Run Graph Extraction and Vectorization in Parallel
+                tasks = []
+                v_task = self._process_smart_batch(
+                    texts=batch_texts,
+                    metadatas=batch_metadatas,
+                    doc=doc,
+                    connector=connector,
+                    embed_model=embed_model,
+                    collection_name=collection_name,
                     connector_acl=connector.configuration.get("connector_acl", []),
                 )
+                tasks.append(v_task)
+
+                g_task = None
+                if graph_transformer and graph_service:
+                    g_task = _graph_flow(list(batch_metadatas))
+                    tasks.append(g_task)
+
+                results = await asyncio.gather(*tasks)
+                batch_tokens = results[0]
                 total_processed += len(batch_texts)
                 total_tokens += batch_tokens
+                if g_task and len(results) > 1:
+                    n_count, r_count = results[1]
+                    total_nodes += n_count
+                    total_rels += r_count
+
+            logger.info(f"🕸️ Graph extraction complete: {total_nodes} nodes, {total_rels} relationships created.")
 
             # 4. Success State
             elapsed_ms = (time.time() - start_time) * 1000
@@ -766,7 +886,7 @@ class IngestionOrchestrator:
             await manager.emit_document_update(
                 str(doc.id),
                 DocStatus.INDEXED,
-                f"Indexed {total_processed} smart records",
+                f"Indexed {total_processed} smart records and extracted graph",
                 vector_point_count=total_processed,
                 doc_token_count=total_tokens,
                 last_vectorized_at=now,
@@ -785,6 +905,15 @@ class IngestionOrchestrator:
                 except Exception as ex:
                     logger.warning(f"Failed to record failure for {doc_id}: {ex}")
             raise e
+        finally:
+            # We explicitly don't use the enclosing scope fallback since Python
+            # doesn't let us guarantee `graph_service` exists unless defined up top,
+            # but we can try to find it in locals.
+            if "graph_service" in locals() and graph_service is not None:
+                try:
+                    await graph_service.close()
+                except Exception as ce:
+                    logger.warning(f"Failed to close GraphService cleanly: {ce}")
 
     # --- SQL SPECIALIZED INGESTION ---
 

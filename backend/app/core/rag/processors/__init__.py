@@ -4,6 +4,7 @@ from .retrieval import RetrievalProcessor
 from .rewriter import QueryRewriterProcessor
 from .synthesis import SynthesisProcessor
 from .vectorization import VectorizationProcessor
+from .graph_retrieval import GraphRetrievalProcessor
 
 __all__ = [
     "BaseProcessor",
@@ -12,4 +13,5 @@ __all__ = [
     "RetrievalProcessor",
     "RerankingProcessor",
     "SynthesisProcessor",
+    "GraphRetrievalProcessor",
 ]

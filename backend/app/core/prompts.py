@@ -82,3 +82,11 @@ AGENTIC_RESPONSE_PROMPT_FR = (
     "Question: {query_str}\n"
     "Réponse:"
 )
+
+GRAPH_ENTITY_EXTRACTION_PROMPT = (
+    "Extract the most important entities (nouns, names, places, products) from the following user query. "
+    "Focus on entities that would be useful for a graph database search.\n"
+    "Respond ONLY with a comma-separated list of entities.\n"
+    "Query: {query}\n"
+    "Entities:"
+)

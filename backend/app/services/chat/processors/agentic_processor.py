@@ -346,7 +346,7 @@ class AgenticProcessor(BaseChatProcessor):
                 logger.info(LOG_CSV_ACTIVATED)
 
                 # We yield the CSV events as sub-steps of the ROUTER
-                async for event in csv_proc.process(ctx):
+                async for event in csv_proc.process(ctx, parent_id=agentic_span_id):
                     yield event
 
                 # NOW we close the Router span and yield completion

@@ -16,6 +16,7 @@
   ![NVIDIA](https://img.shields.io/badge/NVIDIA-CUDA%20Ready-76B900?style=flat&logo=nvidia&logoColor=white)
   ![LlamaIndex](https://img.shields.io/badge/Orchestrator-LlamaIndex%200.14-black?style=flat)
   ![Qdrant](https://img.shields.io/badge/Vector%20DB-Qdrant%201.16-red?style=flat)
+  ![Neo4j](https://img.shields.io/badge/Graph%20DB-Neo4j%205.20-blue?style=flat&logo=neo4j&logoColor=white)
 
 </div>
 
@@ -27,7 +28,8 @@ Vectra relies on a powerful **Hybrid Architecture**:
 
 1.  **AI Analyst (Vanna.ai):** An intelligent agent that generates SQL on-the-fly to answer ad-hoc questions and explore databases in real-time.
 2.  **Vector Search (RAG):** Neural retrieval from internal wikis and documents, supporting **PDFs and the entire Microsoft Office suite** (Word, Excel, PowerPoint) via Qdrant.
-3.  **Knowledge Centralization:** Specifically built to solve the "Knowledge Silo" problem by making specialized expertise accessible to everyone, 24/7.
+3.  **Graph RAG (Neo4j):** Advanced relationship extraction using LLMs to model complex connections between entities, enabling deep non-linear knowledge discovery.
+4.  **Knowledge Centralization:** Specifically built to solve the "Knowledge Silo" problem by making specialized expertise accessible to everyone, 24/7.
 
 ---
 
@@ -41,6 +43,7 @@ Vectra relies on a powerful **Hybrid Architecture**:
 ## Key Features
 
 - **Smart Intent Routing:** Automatically detects whether to query SQL databases or document vector stores.
+- **AI Graph Extraction:** Automatically transforms unstructured CSV data into a structured property graph (Nodes & Relationships) using LLMs.
 - **Interactive Analytics:** Real-time chart rendering (ApexCharts) for SQL query results.
 - **Live Voice Input:** Integrated **Web Speech API** for real-time hands-free chat interaction.
 - **Audio Transcription:** High-performance neural processing for audio files and recordings via **Whisper**.
@@ -78,6 +81,7 @@ Vectra relies on a powerful **Hybrid Architecture**:
 - **Web Speech API:** Native browser integration for real-time voice-to-text input.
 - **Multi-Provider Support:** Native integration for **Gemini, Claude, OpenAI, Mistral, and Cohere**.
 - **Qdrant:** High-scale vector database for neural search.
+- **Neo4j:** The world's leading graph database for relationship-driven RAG.
 
 ### Infrastructure & Storage
 
@@ -95,6 +99,7 @@ Vectra relies on a powerful **Hybrid Architecture**:
 | **Worker**               | `vectra-worker`                | Async processing (Ingestion, Sync)       |
 | **Database**             | `vectra-postgres`              | Metadata & Persistent storage            |
 | **Vector Store**         | `vectra-qdrant`                | Neural search & Embeddings               |
+| **Graph Database**       | `vectra-neo4j`                 | Relationship modeling & Graph RAG        |
 | **Cache/Queue**          | `vectra-redis`                 | Redis broker & Performance caching       |
 | **LLM Engine**           | `vectra-ollama`                | Local model inference (Mistral, etc.)    |
 | **Transcription Engine** | `vectra-whisper`               | Faster-Whisper for audio file processing |

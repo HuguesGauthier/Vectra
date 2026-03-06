@@ -11,6 +11,7 @@ from app.core.rag.processors import (
     RetrievalProcessor,
     SynthesisProcessor,
     VectorizationProcessor,
+    GraphRetrievalProcessor,
 )
 from app.core.rag.types import PipelineContext, PipelineEvent
 from app.repositories import ConnectorRepository, DocumentRepository, VectorRepository
@@ -85,7 +86,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
 
         # 3. Multi-Connector Retrieval Phase (parent step wrapping per-connector sub-steps)
         all_nodes: list = []
-        async for event in self._execute_multi_connector_retrieval(ctx, rag_ctx, connectors, all_nodes):
+        async for event in self._execute_multi_connector_retrieval(ctx, connectors, all_nodes, rag_ctx):
             yield event
 
         # 4. Reranking (on merged nodes)
@@ -118,6 +119,7 @@ class RAGGenerationProcessor(BaseChatProcessor):
             embed_model=components["embed_model"],
             search_strategy=components["search_strategy"],
             settings_service=ctx.settings_service,
+            graph_service=ctx.graph_service,
             tools=[],
         )
 
@@ -143,9 +145,9 @@ class RAGGenerationProcessor(BaseChatProcessor):
     async def _execute_multi_connector_retrieval(
         self,
         ctx: ChatContext,
-        base_rag_ctx: PipelineContext,
         connectors: list,
         all_nodes: list,
+        base_rag_ctx: PipelineContext,
     ) -> AsyncGenerator[str, None]:
         """
         Emits a parent RETRIEVAL step, then one VECTORIZATION sub-step per connector.
@@ -160,6 +162,23 @@ class RAGGenerationProcessor(BaseChatProcessor):
         yield EventFormatter.format(STEP_RETRIEVAL, StepStatus.RUNNING, retrieval_id)
 
         seen_ids: Set[str] = set()
+
+        # --- Graph Retrieval (Optional) ---
+        enable_graph = any(
+            c.indexing_config.enable_graph_extraction
+            for c in effective_connectors
+            if c and hasattr(c, "indexing_config")
+        )
+
+        if enable_graph:
+            graph_pipeline = RAGPipeline(
+                context=base_rag_ctx,
+                processors=[GraphRetrievalProcessor()],
+            )
+            async for event in self._consume_with_timeout(graph_pipeline.run(ctx.message), TIMEOUT_RETRIEVAL):
+                chunk = self._format_from_event(event, ctx)
+                if chunk:
+                    yield chunk
 
         for connector in effective_connectors:
             provider = connector.configuration.get("ai_provider") if connector else None

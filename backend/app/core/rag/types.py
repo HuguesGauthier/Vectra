@@ -20,6 +20,7 @@ class PipelineContext:
     embed_model: Any
     search_strategy: Any
     settings_service: Any = None
+    graph_service: Any = None
     tools: List[Any] = field(default_factory=list)
 
     # Intermediate State
@@ -27,6 +28,7 @@ class PipelineContext:
     query_bundle: Optional[QueryBundle] = None
     question_embedding: Optional[List[float]] = None  # Pre-computed embedding (shared across connectors)
     retrieved_nodes: List[NodeWithScore] = field(default_factory=list)
+    graph_context: List[Any] = field(default_factory=list)  # Extracted triplets/subgraphs from Neo4j
     response_stream: Any = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 

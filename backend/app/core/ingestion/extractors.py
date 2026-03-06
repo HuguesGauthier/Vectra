@@ -82,13 +82,13 @@ class ComboMetadataExtractor(TransformComponent):
     """
 
     llm: Any = Field(description="The LLM to use for extraction")
-    extraction_model: str = Field(default="gemini-flash", description="Model identifier for logging")
+    extraction_model: Optional[str] = Field(default=None, description="Model identifier for logging")
     language: str = Field(default="fr", description="Language for extraction prompts (fr/en)")
     extraction_program: Optional[Any] = Field(default=None, description="Compiled LLM program")
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __init__(self, llm, extraction_model: str = "gemini-flash", language: str = "fr", **kwargs):
+    def __init__(self, llm, extraction_model: str, language: str = "fr", **kwargs):
         super().__init__(llm=llm, extraction_model=extraction_model, language=language, **kwargs)
 
         # Select prompt based on language

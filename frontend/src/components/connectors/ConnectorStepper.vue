@@ -111,6 +111,11 @@
             >
               <SmartExtractionConfig v-model="smartExtractionEnabled" />
             </q-step>
+
+            <!-- Sub-Step 3: Graph Extraction -->
+            <q-step :name="3" :title="$t('graphExtractionTitle')" icon="hub" :done="subStep > 3">
+              <GraphExtractionConfig v-model="graphExtractionEnabled" />
+            </q-step>
           </q-stepper>
 
           <!-- Advanced Settings Dialog -->
@@ -256,6 +261,7 @@ import FolderForm from './forms/FolderForm.vue';
 import SqlForm from './forms/SqlForm.vue';
 import ConnectorFileForm from './forms/ConnectorFileForm.vue';
 import SmartExtractionConfig from './fields/SmartExtractionConfig.vue';
+import GraphExtractionConfig from './fields/GraphExtractionConfig.vue';
 import AdvancedIndexingSettings from './dialogs/AdvancedIndexingSettings.vue';
 import { useDialog } from 'src/composables/useDialog';
 import { connectorService } from 'src/services/connectorService';
@@ -296,6 +302,7 @@ const connectorData = ref<Connector>(new Connector()); // Active connector being
 
 // Smart Metadata Extraction
 const smartExtractionEnabled = ref(false);
+const graphExtractionEnabled = ref(false);
 const showAdvancedSettings = ref(false);
 
 const settingsMap = ref<Record<string, string>>({});
@@ -423,6 +430,7 @@ function resetState() {
   selectedProvider.value = '';
   aclMode.value = 'public';
   smartExtractionEnabled.value = false;
+  graphExtractionEnabled.value = false;
   connectorData.value = new Connector();
 }
 
@@ -452,6 +460,8 @@ function initializeEditMode() {
   // Smart Extraction
   smartExtractionEnabled.value =
     connectorData.value.configuration?.indexing_config?.use_smart_extraction || false;
+  graphExtractionEnabled.value =
+    connectorData.value.configuration?.indexing_config?.enable_graph_extraction || false;
 
   // Skip to step 2 directly? Or stay at 1?
   // User requested "header navigable", and presumably we start at step 1 (Type) or Step 2 (Config).
@@ -525,8 +535,8 @@ function handleBack() {
   }
 
   // Handle sub-step back navigation for Step 3
-  if (step.value === 3 && subStep.value === 2) {
-    subStep.value = 1;
+  if (step.value === 3 && subStep.value > 1) {
+    subStep.value--;
     return;
   }
 
@@ -548,11 +558,11 @@ async function handleNext() {
 
   // Handle sub-step navigation for Step 3
   if (step.value === 3) {
-    if (subStep.value === 1) {
-      subStep.value = 2;
+    if (subStep.value < 3) {
+      subStep.value++;
       return;
     }
-    // If subStep is 2, proceed to next main step
+    // If subStep is 3, proceed to next main step
   }
 
   step.value++;
@@ -587,6 +597,7 @@ async function handleSave() {
   // Smart Metadata Extraction Config
   connectorData.value.configuration.indexing_config = {
     use_smart_extraction: smartExtractionEnabled.value,
+    enable_graph_extraction: graphExtractionEnabled.value,
   };
 
   // Ensure Schedule

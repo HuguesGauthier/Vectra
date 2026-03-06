@@ -46,13 +46,18 @@ class Settings(BaseSettings):
     QDRANT_HOST: str = "localhost"
     QDRANT_API_KEY: Optional[str] = "vectra-local-dev-qdrant-key-2026"
 
-    # REDIS (Semantic Caching)
+    # Redis (Semantic Caching)
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_PASSWORD: Optional[str] = None
     REDIS_DB: int = 0
     REDIS_CACHE_TTL: int = 86400  # 24 hours default
     SEMANTIC_CACHE_SIMILARITY_THRESHOLD: float = 0.90  # Balanced threshold (was 0.95)
+
+    # Neo4j
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: Optional[str] = "vectra_neo4j_2026"
 
     # External APIs
     GEMINI_API_KEY: Optional[str] = None
@@ -169,7 +174,7 @@ class Settings(BaseSettings):
             logger.warning("⚠️  Config: QDRANT_API_KEY is empty or not set!")
         return v
 
-    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST", "WHISPER_BASE_URL")
+    @field_validator("OLLAMA_BASE_URL", "LOCAL_EXTRACTION_URL", "REDIS_HOST", "WHISPER_BASE_URL", "NEO4J_URI")
     @classmethod
     def fix_ollama_host_for_windows(cls, v: str) -> str:
         """Fix Windows/Docker localhost issues for Ollama and Redis."""

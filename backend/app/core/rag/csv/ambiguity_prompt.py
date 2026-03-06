@@ -55,17 +55,14 @@ Range Filters (numerical — user provides a number or range):
 ---
 
 **YOUR TASK:**
-1. Extract any filter values from the CURRENT MESSAGE (and history if needed).
-2. Add them to the ALREADY COLLECTED filters.
-3. If any MISSING FILTERS remain → ask for the next missing one.
-4. If ALL required filters are collected → proceed to search.
+1. Extract any filter values from the CURRENT MESSAGE.
+2. If any mandatory filters remain missing → ask for the next missing one.
+3. If ALL required filters are collected → proceed to search.
 
 **RULES:**
-- Extract values ONLY for filters listed in the schema (exact or range).
-- Match user values to "Available values" case-insensitively. Use the canonical value.
-- If the user provides a value not in the list, trust the user and use it as-is.
-- Ask for ONE missing filter at a time. Be conversational and concise.
-- Never ask for a filter already in ALREADY COLLECTED.
+- Extract values ONLY for filters listed in the schema.
+- Ask for ONE missing filter at a time.
+- If the user provides a value that doesn't match the available values (facets), inform them of the correct options.
 
 **OUTPUT FORMAT (strict JSON, no markdown):**
 {
@@ -74,9 +71,5 @@ Range Filters (numerical — user provides a number or range):
   "message": "<question to user, or null if SEARCH_PROCEED>"
 }
 
-- `filters`: ALL collected filters so far (ALREADY COLLECTED + newly extracted from current message).
-- `action = SEARCH_PROCEED`: only when ALL required exact filters are present in `filters`.
-- `action = CLARIFY`: when at least one required exact filter is still missing. Include a question in `message`.
-
-Now analyze the current message and respond with JSON only:
+Now respond with JSON only:
 """

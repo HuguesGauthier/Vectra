@@ -14,8 +14,7 @@ from llama_index.core.llms import LLM
 from llama_index.core.schema import NodeWithScore
 
 # Config / Prompts
-from app.core.rag.csv.response_synthesis_prompt import (
-    DYNAMIC_TECH_SHEET_SYSTEM_PROMPT, SIMPLE_TECH_SHEET_PROMPT)
+from app.core.rag.csv.response_synthesis_prompt import DYNAMIC_TECH_SHEET_SYSTEM_PROMPT, SIMPLE_TECH_SHEET_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +50,7 @@ class CsvResponseSynthesizer:
         ai_schema: Dict[str, Any],
         use_simple_format: bool = False,
         instructions: Optional[str] = None,
+        graph_context: Optional[List[Any]] = None,
     ) -> Dict[str, Any]:
         """
         Orchestrates the generation of the technical sheet.
@@ -67,6 +67,7 @@ class CsvResponseSynthesizer:
                 reverse_map=reverse_map,
                 context=context_str,
                 instructions=instructions,
+                graph_context=graph_context,
             )
 
             # 3. Execute LLM (With Timeout)
@@ -94,6 +95,7 @@ class CsvResponseSynthesizer:
         reverse_map: Dict[str, str],
         context: str,
         instructions: Optional[str],
+        graph_context: Optional[List[Any]] = None,
     ) -> str:
         """Renders the Jinja2 template."""
         system_prompt = self.template.render(
@@ -104,7 +106,14 @@ class CsvResponseSynthesizer:
             has_years_covered=ai_schema.get(SCHEMA_START_YEAR) is not None,
             assistant_instructions=instructions,
         )
-        return f"{system_prompt}\n\n**CONTEXT:**\n{context}"
+
+        full_context = f"**PRODUCT DATA (CSV):**\n{context}\n\n(Use the CSV data above to generate the structured product sheets with full details.)"
+
+        if graph_context:
+            graph_str = self._build_graph_context_str(graph_context)
+            full_context += f"\n\n**GRAPH KNOWLEDGE (NEO4J):**\n{graph_str}\n\n(Use the graph knowledge above ONLY to enrich your understanding of relationships. Never replace the detailed product data with these raw IDs.)"
+
+        return f"{system_prompt}\n\n**CONTEXT:**\n{full_context}"
 
     async def _execute_llm(self, prompt: str) -> str:
         """Executes LLM with Timeout Protection."""
@@ -159,6 +168,48 @@ class CsvResponseSynthesizer:
                 return f"{min(value)}-{max(value)}"
             return str(value[0])
         return str(value)
+
+    def _build_graph_context_str(self, triplets: List[Any]) -> str:
+        """Formats Neo4j triplets for the LLM context."""
+        if not triplets:
+            return ""
+
+        lines = []
+        for triplet in triplets:
+            # Handle list of lists [source, relationship, target] or dicts
+            if isinstance(triplet, (list, tuple)) and len(triplet) >= 3:
+                lines.append(f"- ({triplet[0]}) --[{triplet[1]}]--> ({triplet[2]})")
+            elif isinstance(triplet, dict):
+                src = triplet.get("source", "Unknown")
+                rel = triplet.get("relationship", "RELATED_TO")
+                tgt = triplet.get("target", "Unknown")
+                src_labels = triplet.get("source_labels", [])
+                tgt_labels = triplet.get("target_labels", [])
+
+                # Format properties
+                src_props = triplet.get("source_props", {})
+                tgt_props = triplet.get("target_props", {})
+                rel_props = triplet.get("rel_props", {})
+
+                # Clean system properties (id, name, etc. that might be redundant)
+                def clean_props(p):
+                    return {k: v for k, v in p.items() if k.lower() not in ("id", "name", "label")}
+
+                src_p_str = (
+                    f" {json.dumps(clean_props(src_props), ensure_ascii=False)}" if clean_props(src_props) else ""
+                )
+                tgt_p_str = (
+                    f" {json.dumps(clean_props(tgt_props), ensure_ascii=False)}" if clean_props(tgt_props) else ""
+                )
+                rel_p_str = (
+                    f" {json.dumps(clean_props(rel_props), ensure_ascii=False)}" if clean_props(rel_props) else ""
+                )
+
+                src_str = f"{src} [{', '.join(src_labels)}]{src_p_str}" if src_labels else f"{src}{src_p_str}"
+                tgt_str = f"{tgt} [{', '.join(tgt_labels)}]{tgt_p_str}" if tgt_labels else f"{tgt}{tgt_p_str}"
+
+                lines.append(f"- ({src_str}) --[{rel}{rel_p_str}]--> ({tgt_str})")
+        return "\n".join(lines)
 
     def _parse_json_response(self, text: str) -> Dict[str, Any]:
         """Cleans and extracts JSON from LLM response."""

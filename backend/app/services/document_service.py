@@ -131,9 +131,12 @@ class DocumentService:
                     self._safe_delete_vectors(document_id, collection), name=f"vector-cleanup-{document_id}"
                 )
 
-                c_type = str(connector.connector_type).strip().lower()
-                if c_type in ["file", "folder"] and doc.file_path:
+                c_type = connector.connector_type
+                if c_type in ["file", "folder", "local_file"] and doc.file_path:
                     asyncio.create_task(self._safe_delete_file(doc.file_path), name=f"file-cleanup-{document_id}")
+
+                # 🟢 P1: Graph Cleanup
+                asyncio.create_task(self._safe_delete_graph(document_id), name=f"graph-cleanup-{document_id}")
 
             # 3. Database Removals
             connector_id = doc.connector_id
@@ -270,7 +273,9 @@ class DocumentService:
                 await self._run_blocking_io(os.makedirs, upload_dir, exist_ok=True)
             except Exception as e:
                 logger.error(f"❌ PERMISSION DENIED | Could not create {upload_dir}: {e}")
-                raise TechnicalError(f"Storage error: Cannot create upload directory at {upload_dir}", error_code="UPLOAD_DIR_ERROR")
+                raise TechnicalError(
+                    f"Storage error: Cannot create upload directory at {upload_dir}", error_code="UPLOAD_DIR_ERROR"
+                )
 
             # os.path.join is purely string manipulation, safe in async.
             file_path = os.path.join(upload_dir, file.filename or "uploaded_file")
@@ -394,6 +399,28 @@ class DocumentService:
             logger.info(f"BACKGROUND ACL UPDATE SUCCESS | Doc: {document_id}")
         except Exception as e:
             logger.error(f"BACKGROUND ACL UPDATE FAIL | Doc: {document_id} | Error: {e}")
+
+    async def _safe_delete_graph(self, document_id: UUID):
+        """Supervised background Neo4j graph data deletion."""
+        try:
+            from app.services.graph_service import GraphService
+            from app.core.settings import settings
+
+            uri = await self.settings_service.get_value("neo4j_uri", settings.NEO4J_URI)
+            user = await self.settings_service.get_value("neo4j_user", settings.NEO4J_USER)
+            password = await self.settings_service.get_value("neo4j_password", settings.NEO4J_PASSWORD)
+
+            if not uri or not user:
+                logger.info(f"SKIPPING GRAPH CLEANUP | No config | Doc: {document_id}")
+                return
+
+            gs = GraphService(uri=uri, user=user, password=password)
+            await gs.connect()
+            await gs.delete_by_document_id(str(document_id))
+            await gs.close()
+            logger.info(f"BACKGROUND GRAPH CLEANUP SUCCESS | Doc: {document_id}")
+        except Exception as e:
+            logger.error(f"BACKGROUND GRAPH CLEANUP FAIL | Doc: {document_id} | Error: {e}")
 
 
 # 🟠 P1: Modern FastAPI Dependency Injection

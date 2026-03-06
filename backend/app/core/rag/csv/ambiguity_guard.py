@@ -42,7 +42,7 @@ class AmbiguityGuardAgent:
     Decision logic:
     - If all filter_exact_cols are present → SEARCH_PROCEED
     - If any are missing → CLARIFY (ask for the next missing one)
-    
+
     Filters are accumulated across conversation turns by the caller.
     """
 

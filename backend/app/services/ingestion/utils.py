@@ -156,12 +156,14 @@ class IngestionUtils:
                     chunk_ids = chunk[id_real_name]
 
                     if not chunk_ids.is_unique:
-                        raise FunctionalError("Duplicate IDs found in CSV", error_code="CSV_ID_DUPLICATE")
+                        logger.warning("Duplicate IDs found in CSV chunk. Proceeding anyway per user request.")
+                        # raise FunctionalError("Duplicate IDs found in CSV", error_code="CSV_ID_DUPLICATE")
 
                     current_ids_set = set(chunk_ids.tolist())
 
                     if not current_ids_set.isdisjoint(seen_ids):
-                        raise FunctionalError("Duplicate IDs found in CSV", error_code="CSV_ID_DUPLICATE")
+                        logger.warning("Duplicate IDs found across CSV chunks. Proceeding anyway per user request.")
+                        # raise FunctionalError("Duplicate IDs found in CSV", error_code="CSV_ID_DUPLICATE")
 
                     if len(seen_ids) + len(current_ids_set) > MAX_UNIQUE_IDS:
                         logger.warning(
